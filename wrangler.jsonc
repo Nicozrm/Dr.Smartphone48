@@ -1,0 +1,23 @@
+{
+  // Cloudflare Workers – gebaut über den OpenNext-Adapter (npm run cf:build).
+  // Der Worker beantwortet nur dynamische Routen (/api/kontakt); alles andere
+  // liefert Cloudflare als statisches Asset direkt aus.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dr-smartphone48",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-03-25",
+  // nodejs_compat wird gebraucht: der Kontakt-Endpunkt nutzt Buffer für den
+  // Bild-Upload. Ohne dieses Flag bricht der Worker zur Laufzeit ab.
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  }
+  // Secrets NICHT hier eintragen. Sie werden gesetzt mit:
+  //   npx wrangler secret put RESEND_API_KEY
+  //   npx wrangler secret put CONTACT_FROM
+  //   npx wrangler secret put CONTACT_TO     (optional)
+}
