@@ -1,14 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { site } from "@/lib/site";
 
 /**
  * Bootloader – die Seite startet wie ein Betriebssystem statt mit einem
- * Spinner. OLED-Schwarz, die Marke zeichnet sich, danach melden sich die
- * Module der Reihe nach.
+ * Spinner.
  *
  * Regeln, damit daraus keine Ladehürde wird:
+ * - **Nur auf der Startseite.** Wer aus der Google-Suche direkt auf
+ *   /reparatur oder /kontakt kommt, will einen Preis oder eine Telefonnummer –
+ *   nicht die Inszenierung einer Marke, die er noch gar nicht kennt. Eine
+ *   Eröffnungssequenz gehört an den Eingang, nicht in jeden Raum.
+ * - **Jederzeit abbrechbar.** Klick, Taste, Scroll oder Wischen beendet die
+ *   Sequenz sofort. Eine Animation, die man nicht überspringen kann, ist keine
+ *   Inszenierung mehr, sondern eine Wartezeit.
  * - Läuft nur beim ersten Aufruf pro Sitzung (sessionStorage).
  * - Liegt als Overlay über der bereits gerenderten Seite: kein Layout-Shift,
  *   kein blockierendes Rendering, kein Einfluss auf LCP-Inhalte darunter.
@@ -16,22 +23,32 @@ import { site } from "@/lib/site";
  * - Ohne JS erscheint er gar nicht – die Seite ist sofort da.
  */
 
-const MODULES = [
-  "Display-Engine",
-  "Sensor-Framework",
-  "Repair-Engine",
-  "Diagnose-Modul",
-  "Preisdatenbank",
-];
+const MODULES = ["Display-Engine", "Diagnose-Modul", "Preisdatenbank"];
 
-const HOLD = 1900;
+/**
+ * Haltedauer der Szene. Bewusst knapp: Die Sequenz soll den ersten Eindruck
+ * setzen, nicht den ersten Klick verzögern. Zuvor waren es 1900 ms zuzüglich
+ * Ausblendung – zusammen über zwei Sekunden, in denen die Seite nicht bedienbar
+ * war.
+ */
+const HOLD = 1100;
+const FADE = 480;
 const KEY = "ds48-booted";
 
 export function Bootloader() {
+  const pathname = usePathname();
   const [show, setShow] = useState(false);
   const [done, setDone] = useState(false);
 
+  const finish = useCallback(() => {
+    setDone(true);
+    document.documentElement.style.overflow = "";
+  }, []);
+
   useEffect(() => {
+    // Ausschließlich am Eingang der Seite.
+    if (pathname !== "/") return;
+
     let booted = true;
     try {
       booted = sessionStorage.getItem(KEY) === "1";
@@ -51,17 +68,25 @@ export function Bootloader() {
     document.documentElement.style.overflow = "hidden";
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const total = reduced ? 500 : HOLD + 480;
-    const t = window.setTimeout(() => {
-      setDone(true);
-      document.documentElement.style.overflow = "";
-    }, total);
+    const total = reduced ? 500 : HOLD + FADE;
+    const timer = window.setTimeout(finish, total);
+
+    // Jede Absicht des Besuchers beendet die Sequenz sofort.
+    const skip = () => {
+      window.clearTimeout(timer);
+      finish();
+    };
+    const events = ["pointerdown", "keydown", "wheel", "touchstart"] as const;
+    for (const type of events) {
+      window.addEventListener(type, skip, { passive: true, once: true });
+    }
 
     return () => {
-      window.clearTimeout(t);
+      window.clearTimeout(timer);
+      for (const type of events) window.removeEventListener(type, skip);
       document.documentElement.style.overflow = "";
     };
-  }, []);
+  }, [pathname, finish]);
 
   if (!show || done) return null;
 
@@ -94,13 +119,13 @@ export function Bootloader() {
             strokeWidth="2.4"
             strokeLinecap="square"
             className="boot-stroke"
-            style={{ ["--len" as string]: 26, animationDelay: "420ms" }}
+            style={{ ["--len" as string]: 26, animationDelay: "280ms" }}
           />
         </svg>
 
         <p
           className="boot-line mt-5 text-[0.9375rem] font-semibold tracking-[-0.02em] text-white"
-          style={{ animationDelay: "700ms" }}
+          style={{ animationDelay: "420ms" }}
         >
           {site.name}
         </p>
@@ -116,13 +141,17 @@ export function Bootloader() {
             <li
               key={m}
               className="boot-line flex items-center justify-between gap-3"
-              style={{ animationDelay: `${820 + i * 190}ms` }}
+              style={{ animationDelay: `${520 + i * 150}ms` }}
             >
               <span>{m}</span>
               <span className="text-white/70">bereit</span>
             </li>
           ))}
         </ul>
+
+        <p className="mt-6 font-mono text-[0.6875rem] text-white/35">
+          Tippen zum Überspringen
+        </p>
       </div>
     </div>
   );

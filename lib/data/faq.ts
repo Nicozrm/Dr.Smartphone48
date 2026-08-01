@@ -1,8 +1,19 @@
+import { site } from "@/lib/site";
+
 export interface FaqEntry {
   question: string;
   answer: string;
 }
 
+/**
+ * Häufige Fragen.
+ *
+ * Garantieangaben werden **ausschließlich** aus `site.warrantyMonths`
+ * gezogen. Zuvor standen hier 24 Monate, während der Konfigurator, die
+ * Startseite und die Ersatzteil-Seite 12 Monate auswiesen – ein Widerspruch
+ * auf derselben Seite. Steht die Zusage an einer Stelle als feste Zahl, läuft
+ * sie beim nächsten Textwechsel wieder auseinander.
+ */
 export const faq: FaqEntry[] = [
   {
     question: "Wie lange dauert eine Reparatur?",
@@ -20,9 +31,8 @@ export const faq: FaqEntry[] = [
       "Ausschließlich Originalteile oder geprüfte Teile in Originalqualität. Jedes Teil durchläuft vor dem Einbau unsere Eingangskontrolle.",
   },
   {
-    question: "Was bedeutet die 24-Monats-Garantie?",
-    answer:
-      "Auf jede Reparatur und jedes verbaute Teil geben wir 24 Monate Garantie. Tritt derselbe Fehler erneut auf, beheben wir ihn kostenfrei.",
+    question: `Was bedeutet die ${site.warrantyMonths}-Monats-Garantie?`,
+    answer: `Auf jede Reparatur und jedes verbaute Teil geben wir ${site.warrantyMonths} Monate Garantie. Tritt derselbe Fehler erneut auf, beheben wir ihn kostenfrei. Ihre gesetzlichen Gewährleistungsrechte bleiben davon unberührt.`,
   },
   {
     question: "Was, wenn die Reparatur nicht möglich ist?",
@@ -31,7 +41,22 @@ export const faq: FaqEntry[] = [
   },
   {
     question: "Kann ich ohne Termin vorbeikommen?",
-    answer:
-      "Ja, jederzeit während der Öffnungszeiten. Mit Termin garantieren wir allerdings, dass Ihr Gerät sofort auf den Werktisch kommt.",
+    answer: `Ja, jederzeit während der Öffnungszeiten (${site.openingHoursShort}). Mit Termin garantieren wir allerdings, dass Ihr Gerät sofort auf den Werktisch kommt.`,
   },
 ];
+
+/**
+ * Dieselben Fragen maschinenlesbar. Google spielt daraus ein Rich Result aus –
+ * die Antworten stehen dann direkt im Suchergebnis. Voraussetzung ist, dass
+ * jede Frage auch sichtbar auf der Seite steht; deshalb wird dieses Schema nur
+ * dort eingebunden, wo die FAQ-Sektion tatsächlich gerendert wird.
+ */
+export const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faq.map((entry) => ({
+    "@type": "Question",
+    name: entry.question,
+    acceptedAnswer: { "@type": "Answer", text: entry.answer },
+  })),
+};
