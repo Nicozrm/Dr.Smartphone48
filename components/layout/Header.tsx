@@ -95,15 +95,26 @@ export function Header() {
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={active ? "page" : undefined}
+                data-weight-host=""
                 className={`whitespace-nowrap rounded-full px-3 py-2 text-[0.9375rem] transition-colors duration-[var(--duration-fast)] xl:px-3.5 ${
                   item.wide ? "hidden xl:block" : ""
-                } ${
-                  active
-                    ? "text-ink-strong font-medium"
-                    : "text-ink-soft hover:text-ink-strong"
-                }`}
+                } ${active ? "text-ink-strong" : "text-ink-soft hover:text-ink-strong"}`}
               >
-                {item.label}
+                {/*
+                  Die Schriftstärke läuft beim Überfahren von 400 auf 600.
+                  data-label wiederholt die Beschriftung, weil .weight-hover
+                  daraus ein unsichtbares fettes Doppel baut und damit die
+                  Breite reserviert – sonst schöbe jeder Punkt beim Überfahren
+                  seine Nachbarn zur Seite. Siehe globals.css.
+                */}
+                <span
+                  className="weight-hover"
+                  data-label={item.label}
+                  data-active={active ? "true" : undefined}
+                >
+                  {item.label}
+                </span>
               </Link>
             );
           })}
@@ -120,7 +131,17 @@ export function Header() {
             <Icon name="search" size={16} />
             <kbd className="font-mono text-[0.75rem] text-ink-faint">⌘K</kbd>
           </button>
-          <ThemeToggle className="hidden sm:inline-flex" />
+          {/*
+            `max-sm:hidden` statt `hidden sm:inline-flex`: Die Komponente
+            bringt selbst `inline-flex` mit, und zwei unbedingte
+            display-Utilities entscheidet nicht die Reihenfolge im
+            class-Attribut, sondern die Reihenfolge im erzeugten
+            Stylesheet – dort gewinnt `inline-flex`. Ergebnis war ein
+            zweiter Umschalter neben dem mobilen. Eine Variante mit
+            Media-Query wird nach den unbedingten Utilities ausgegeben und
+            setzt sich damit verlässlich durch.
+          */}
+          <ThemeToggle className="max-sm:hidden" />
           <Link
             href="/reparatur"
             className="hidden sm:inline-flex h-10 items-center rounded-full bg-ink-strong px-4.5 text-[0.9375rem] font-medium text-[var(--surface-page)] transition-colors duration-[var(--duration-fast)] hover:opacity-90"
