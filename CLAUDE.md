@@ -98,6 +98,7 @@ app/                     App-Router-Seiten (alle statisch prerendert)
   zwilling/              Digitaler Zwilling + Reparieren-oder-neu-Rechner
   refurbished/ ersatzteile/ werkstatt/ kontakt/
   impressum/ datenschutz/ agb/ offline/ not-found.tsx
+  intern/rechnung/       Rechnungswerkzeug (nicht verlinkt, noindex, kein Server)
   api/kontakt/           Route Handler für das Formular (nur im Server-Build)
   layout.tsx             Root-Layout: Metadata, JSON-LD, Header/Footer, SW-Registrierung
   globals.css            Design-Tokens (CSS-Variablen) + Tailwind-4-Theme + Motion
@@ -113,12 +114,15 @@ components/
                          DeviceExploded, XRay, MagneticField, ScrollProgress
   check/                 DeviceCheck (Display-, Sensor-, Audio-, Akku-Tests)
   twin/                  DigitalTwin, RepairOrReplace
+  invoice/               InvoiceBuilder (Editor) + InvoiceSheet (das Blatt, DIN 5008)
   pwa/                   ServiceWorkerRegister
 lib/
   site.ts                Stammdaten (Name, Adresse, URL …) – zentrale Quelle
   seo.tsx                pageMeta() – Canonical/OG pro Seite, Breadcrumbs, JsonLd
   format.ts detect.ts theme.ts
   data/                  devices.ts (Modelle/Preise), refurbished.ts, faq.ts, reviews.ts
+  invoice/               types.ts calc.ts (Cent-Arithmetik) catalog.ts validate.ts
+                         (§ 14 UStG) store.ts (localStorage) girocode.ts qr.ts
 public/
   sw.js                  Handgeschriebener Service Worker (Offline-Fallback /offline)
   og.png                 Link-Vorschaubild 1200×630 (scripts/generate-og.mjs)
@@ -167,8 +171,39 @@ Dieselbe Regel gilt für `lib/data/reviews.ts` (nur wörtlich übernommene echte
 Google-Rezensionen) und für Garantieangaben (immer `site.warrantyMonths`,
 nie eine feste Zahl im Text).
 
+### Rechnungswerkzeug (`/intern/rechnung`)
+
+Internes Werkzeug, nicht verlinkt und nicht in der Sitemap: `noindex, nofollow`
+per Seiten-Metadaten, `Disallow: /intern/` in `robots.ts`.
+
+- **Kein Server.** Profil, Kundenarchiv, Entwurf und Verlauf liegen in
+  `localStorage` (`lib/invoice/store.ts`). Rechnungsdaten enthalten Namen,
+  Anschriften und IMEIs – was nie übertragen wird, kann nicht abfließen. Preis
+  dafür: Der Bestand hängt am Gerät, deshalb Export/Import als JSON.
+- **Beträge sind ganzzahlige Cent** (`lib/invoice/calc.ts`), gerundet pro
+  Position. Nie in Euro-Fließkomma rechnen.
+- **Preise stammen aus `lib/data/devices.ts`** (`lib/invoice/catalog.ts`), damit
+  Rechnung und Sofortpreis-Rechner nicht auseinanderlaufen.
+- **Das Blatt ist ein Blatt:** 210 × 297 mm, `overflow: hidden`, alle Maße in
+  Millimetern, Anschriftfeld nach DIN 5008 Form B. Was nicht draufpasst, wird
+  abgeschnitten – deshalb misst `InvoiceBuilder` die Unterkante des Inhalts
+  gegen die Fußzeile (`data-sheet-body` / `data-sheet-foot`) und meldet einen
+  Überlauf als Pflichtfehler. Ohne diese Messung druckt das Werkzeug
+  wortlos Rechnungen ohne Rechnungsbetrag. Etwa sechs Positionen mit Zusatzzeile
+  passen; mehr braucht echte Mehrseitigkeit, die es noch nicht gibt.
+- **Der Druck-Block in `globals.css` blendet `body > header` / `body > footer`
+  aus, nicht `header` / `footer`.** Der Fuß des Rechnungsblatts trägt
+  Steuernummer, USt-IdNr. und Bankverbindung; ein Selektor auf das nackte
+  Element nähme genau die Pflichtangaben mit.
+- Der GiroCode (EPC069-12) wird ohne Bibliothek erzeugt (`lib/invoice/qr.ts`,
+  Byte-Modus, Fehlerkorrektur M, Versionen 1–13). Die längstmögliche
+  EPC-Nutzlast liegt bei ~278 Zeichen und passt damit sicher hinein.
+
 ### Offene Punkte vor dem Livegang
 
+- **Bankverbindung eintragen:** Das Rechnungswerkzeug startet ohne IBAN, BIC und
+  Steuernummer – beim ersten Start unter „Stammdaten" hinterlegen, sonst bleibt
+  der GiroCode aus und die Rechnung ist unvollständig.
 - **Garantiedauer prüfen:** `site.warrantyMonths` steht auf `12`. FAQ,
   Ersatzteil-Seite und Metadaten nannten zuvor teils 24 Monate. Der Wert ist
   jetzt an einer Stelle gepflegt – dort den tatsächlich zugesagten Zeitraum

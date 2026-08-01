@@ -490,8 +490,14 @@ html[data-js] .reveal[data-revealed="true"] {
     --shadow-button: none;
   }
 
-  header,
-  footer,
+  /* Bewusst `body > header` statt `header`: Seitenkopf und Seitenfuß der
+     Website sollen weg, gedruckte Dokumente bringen aber eigene mit. Das
+     Rechnungsblatt (/intern/rechnung) trägt in seinem `<footer>` Steuernummer,
+     USt-IdNr. und Bankverbindung – also genau die Pflichtangaben, ohne die die
+     Rechnung nicht gilt. Ein Selektor auf das nackte Element hätte sie
+     stillschweigend mitgenommen. */
+  body > header,
+  body > footer,
   .boot,
   .shader-field,
   .cmdk-panel,
@@ -618,4 +624,377 @@ html[data-js] .reveal[data-revealed="true"] {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ==========================================================================
+   Rechnungswerkzeug – /intern/rechnung
+   ==========================================================================
+   Zwei Welten in einer Ansicht: links der Editor in der Farbwelt der Marke,
+   rechts ein Blatt Papier. Das Blatt lebt konsequent in Millimetern und
+   ignoriert das Theme – Papier ist weiß, auch nachts um halb zwölf.
+   ========================================================================== */
+
+/* ---- Bühne und Skalierung ------------------------------------------------ */
+
+/* 210 mm bzw. 297 mm in CSS-Pixeln (96 dpi). Fest verdrahtet, damit die
+   Skalierung nicht von der Interpretation physischer Einheiten abhängt. */
+.sheet-stage {
+  --sheet-w: 793.7px;
+  --sheet-h: 1122.5px;
+  --sheet-scale: 1;
+  width: calc(var(--sheet-w) * var(--sheet-scale));
+  height: calc(var(--sheet-h) * var(--sheet-scale));
+}
+
+.sheet-frame {
+  width: var(--sheet-w);
+  height: var(--sheet-h);
+  transform: scale(var(--sheet-scale));
+  transform-origin: top left;
+}
+
+/* ---- Das Blatt ----------------------------------------------------------- */
+
+.sheet {
+  position: relative;
+  width: 210mm;
+  height: 297mm;
+  overflow: hidden;
+  background: #ffffff;
+  color: #16171a;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 3.1mm;
+  line-height: 1.45;
+  font-feature-settings: "ss01", "cv11", "tnum";
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.18),
+    0 18px 50px rgba(0, 0, 0, 0.22),
+    0 60px 120px rgba(0, 0, 0, 0.16);
+}
+
+/* Falz- und Lochmarken: im Druck vorhanden, auf dem Schirm kaum zu sehen. */
+.sheet-mark {
+  position: absolute;
+  left: 0;
+  width: 4mm;
+  height: 0;
+  border-top: 0.2mm solid #9aa0a6;
+}
+.sheet-mark-hole {
+  width: 6mm;
+  border-top-color: #6b7075;
+}
+
+.sheet-wordmark {
+  font-size: 5.2mm;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #0b0c0e;
+}
+
+.sheet-fine {
+  font-size: 2.5mm;
+  line-height: 1.45;
+  color: #5f6469;
+}
+
+.sheet-strong {
+  font-weight: 600;
+  color: #16171a;
+}
+
+/* Rücksendeangabe über dem Anschriftfeld – klein und unterstrichen, damit sie
+   im Kuvertfenster nicht mit der Empfängeranschrift verwechselt wird. */
+.sheet-return {
+  font-size: 2.1mm;
+  color: #6b7075;
+  padding-bottom: 0.6mm;
+  border-bottom: 0.2mm solid #c9cdd1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sheet-address {
+  font-size: 3.3mm;
+  line-height: 1.5;
+  color: #16171a;
+}
+.sheet-placeholder {
+  color: #b3b8bd;
+}
+
+.sheet-label {
+  font-size: 2.5mm;
+  color: #6b7075;
+}
+.sheet-value {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 2.7mm;
+  color: #16171a;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-subject {
+  font-size: 4.6mm;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: #0b0c0e;
+}
+
+.sheet-device {
+  margin-top: 1.5mm;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 2.5mm;
+  color: #5f6469;
+}
+
+.sheet-text {
+  font-size: 3.1mm;
+  line-height: 1.5;
+  color: #33373b;
+}
+
+.sheet-num {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Positionstabelle ---------------------------------------------------- */
+
+.sheet-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.sheet-table th {
+  font-size: 2.4mm;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7075;
+  padding-bottom: 1.4mm;
+  border-bottom: 0.35mm solid #16171a;
+}
+.sheet-table td {
+  padding: 1.8mm 0;
+  border-bottom: 0.2mm solid #e2e5e8;
+  font-size: 3mm;
+  vertical-align: top;
+}
+.sheet-table th + th,
+.sheet-table td + td {
+  padding-left: 3mm;
+}
+.sheet-line-title {
+  display: block;
+  color: #16171a;
+}
+.sheet-line-note {
+  display: block;
+  margin-top: 0.5mm;
+  font-size: 2.5mm;
+  color: #6b7075;
+}
+.sheet-empty {
+  padding: 6mm 0 !important;
+  text-align: center;
+  color: #b3b8bd;
+  font-size: 2.9mm;
+}
+
+/* ---- Summen -------------------------------------------------------------- */
+
+.sheet-sum-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 6mm;
+  padding: 1.2mm 0;
+  font-size: 3mm;
+  color: #33373b;
+}
+.sheet-sum-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 6mm;
+  margin-top: 1.4mm;
+  padding: 2.2mm 3mm;
+  background: #16171a;
+  color: #ffffff;
+  font-size: 3.6mm;
+  font-weight: 600;
+  border-radius: 1mm;
+}
+
+.sheet-payment {
+  display: flex;
+  align-items: flex-start;
+  gap: 6mm;
+  margin-top: 6mm;
+  padding-top: 4mm;
+  border-top: 0.2mm solid #e2e5e8;
+}
+
+.sheet-footer-rule {
+  height: 0;
+  border-top: 0.2mm solid #e2e5e8;
+}
+
+/* ---- Editor -------------------------------------------------------------- */
+
+/* Zahlenfelder: rechtsbündig, gleiche Ziffernbreite, keine Spinner. Wer
+   Beträge tippt, will keine Pfeilchen und keine springenden Spalten. */
+.inv-input {
+  width: 100%;
+  height: 2.25rem;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--line);
+  background: var(--surface-page);
+  padding: 0 0.625rem;
+  font-size: 0.875rem;
+  color: var(--ink-strong);
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+.inv-input:hover {
+  border-color: var(--line-strong);
+}
+.inv-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+.inv-input::placeholder {
+  color: var(--ink-faint);
+}
+.inv-num {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.inv-input[type="number"]::-webkit-outer-spin-button,
+.inv-input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.inv-label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+}
+
+/* Positionszeile – dichtes Raster, das beim Überfahren leicht anhebt. */
+.inv-row {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--surface-raised);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+.inv-row:hover,
+.inv-row:focus-within {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-raised);
+}
+
+/* Ergebnisliste der Schnellerfassung. */
+.inv-hit {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-s);
+  text-align: left;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+.inv-hit[data-active="true"] {
+  background: var(--accent-subtle);
+}
+
+/* Summenkaskade im Editor: die Steuerlogik als Treppe statt als Blackbox. */
+.inv-cascade {
+  display: grid;
+  gap: 0;
+}
+.inv-cascade > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.875rem;
+}
+.inv-cascade > div:last-child {
+  border-bottom: 0;
+}
+
+@keyframes inv-tick {
+  from {
+    opacity: 0.35;
+    transform: translateY(0.15em);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.inv-tick {
+  animation: inv-tick var(--duration-base) var(--ease-out);
+}
+
+/* ---- Druck --------------------------------------------------------------- */
+
+@media print {
+  /* Im Druck existiert nur das Blatt. Alles andere – Editor, Kopfzeile,
+     Schatten, Skalierung – verschwindet restlos. */
+  .inv-editor,
+  .inv-toolbar {
+    display: none !important;
+  }
+
+  /* Die Bühne selbst darf im Druck nichts beitragen: Der Seitenrand kommt aus
+     @page, nicht aus Tailwind-Padding. Bliebe das Padding stehen, passte das
+     210 mm breite Blatt nicht mehr auf die 210 mm breite Seite und rutschte
+     mit einem Streifen auf ein zweites Blatt. */
+  .inv-page,
+  .inv-app {
+    display: block !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+  }
+
+  .sheet-stage,
+  .sheet-frame {
+    width: auto !important;
+    height: auto !important;
+    transform: none !important;
+  }
+
+  .sheet {
+    width: 210mm !important;
+    height: 297mm !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-after: avoid;
+  }
+
+  /* Das Blatt bringt seine eigenen Farben mit – die Druck-Overrides der
+     Seite dürfen es nicht entfärben. */
+  .sheet .sheet-sum-total {
+    background: #16171a !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+@page {
+  size: A4;
+  margin: 0;
 }
