@@ -1,11 +1,12 @@
-import type { Metadata } from "next";
 import { site } from "@/lib/site";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMeta({
+  path: "/agb",
   title: "AGB",
   description: `Allgemeine Geschäftsbedingungen von ${site.name} für Reparaturaufträge.`,
-  robots: { index: false, follow: true },
-};
+  noindex: true,
+});
 
 const sections = [
   {

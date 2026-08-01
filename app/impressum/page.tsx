@@ -1,10 +1,12 @@
-import type { Metadata } from "next";
 import { site } from "@/lib/site";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMeta({
+  path: "/impressum",
   title: "Impressum",
-  robots: { index: false, follow: true },
-};
+  description: `Anbieterkennzeichnung nach § 5 DDG: ${site.legalName}, ${site.street}, ${site.zip} ${site.city}.`,
+  noindex: true,
+});
 
 export default function ImpressumPage() {
   return (

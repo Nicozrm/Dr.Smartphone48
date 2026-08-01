@@ -11,6 +11,14 @@ import { RefurbishedCard } from "@/components/sections/RefurbishedCard";
 import { Reviews } from "@/components/sections/Reviews";
 import { refurbishedDevices } from "@/lib/data/refurbished";
 import { site } from "@/lib/site";
+import { pageMeta } from "@/lib/seo";
+
+export const metadata = pageMeta({
+  path: "/",
+  title: `${site.name} – Handy-Reparatur in ${site.city}`,
+  description: site.description,
+  absoluteTitle: true,
+});
 
 const pillars: { icon: IconName; title: string; text: string }[] = [
   {
@@ -45,11 +53,29 @@ const steps = [
   },
 ];
 
+/**
+ * Kennzahlen der Startseite.
+ *
+ * Regel: Hier steht ausschließlich, was belegbar ist – dieselbe Redaktions-
+ * regel wie in lib/data/reviews.ts. Zuvor standen an dieser Stelle „4,9 / 5 aus
+ * über 2.100 Bewertungen“ und „12.480 Reparaturen seit 2019“. Das widersprach
+ * dem echten Google-Aggregat, das zwei Sektionen weiter unten auf derselben
+ * Seite steht (und das auch im JSON-LD ausgeliefert wird). Ein Besucher, der
+ * beides sieht, glaubt keiner der beiden Zahlen mehr – und Google wertet die
+ * Abweichung zwischen sichtbarem Text und strukturierten Daten ab.
+ *
+ * Die Bewertungszahl kommt daher aus denselben Stammdaten wie die
+ * Bewertungssektion; die übrigen Werte sind Zusagen, die der Betrieb selbst
+ * kontrolliert.
+ */
 const stats = [
-  { value: "45 Min", label: "durchschnittliche Reparaturdauer" },
-  { value: "12.480", label: "Reparaturen seit 2019" },
-  { value: "4,9 / 5", label: "aus über 2.100 Bewertungen" },
-  { value: "98 %", label: "am selben Tag erledigt" },
+  { value: "45 Min", label: "durchschnittlicher Displaytausch" },
+  {
+    value: site.google.rating.toLocaleString("de-DE", { minimumFractionDigits: 1 }),
+    label: `von 5 Sternen bei Google – aus ${site.google.reviewCount} Bewertungen`,
+  },
+  { value: `${site.checkpoints}`, label: "Prüfpunkte vor jeder Übergabe" },
+  { value: `${site.warrantyMonths} Mon.`, label: "Garantie auf Teil und Arbeit" },
 ];
 
 export default function HomePage() {

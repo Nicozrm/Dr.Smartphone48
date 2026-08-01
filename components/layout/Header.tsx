@@ -43,6 +43,18 @@ export function Header() {
     };
   }, [open]);
 
+  // Escape schließt das mobile Menü. Ein Overlay, das die ganze Seite verdeckt
+  // und sich nur über die eigene Schaltfläche schließen lässt, ist für
+  // Tastatur- und Screenreader-Nutzung eine Sackgasse.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
   return (
     <header
       className={`fixed inset-x-0 top-0 z-50 transition-[background-color,border-color,box-shadow] duration-[var(--duration-base)] ease-[var(--ease-out)] ${

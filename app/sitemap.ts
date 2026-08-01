@@ -3,31 +3,47 @@ import { site } from "@/lib/site";
 
 export const dynamic = "force-static";
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const routes = [
-    "",
-    "/reparatur",
-    "/check",
-    "/zwilling",
-    "/refurbished",
-    "/ersatzteile",
-    "/werkstatt",
-    "/kontakt",
-    "/impressum",
-    "/datenschutz",
-    "/agb",
-  ];
+/**
+ * Sitemap.
+ *
+ * `lastModified` stand zuvor auf `new Date()` – damit meldete jeder Deploy
+ * sämtliche Seiten als frisch geändert, auch wenn nur eine CSS-Zeile anders
+ * war. Suchmaschinen entwerten ein Datum, das sich bei jedem Crawl bewegt,
+ * ohne dass sich der Inhalt ändert. Deshalb steht hier ein gepflegtes Datum
+ * pro Seitengruppe: Es wird bewusst angefasst, wenn sich der Inhalt ändert.
+ */
 
-  return routes.map((route) => ({
-    url: `${site.url}${route}`,
-    lastModified: new Date(),
-    changeFrequency: route === "" ? "weekly" : "monthly",
-    priority: route === ""
-      ? 1
-      : ["/reparatur", "/check", "/zwilling"].includes(route)
-        ? 0.9
-        : ["/impressum", "/datenschutz", "/agb"].includes(route)
-          ? 0.3
-          : 0.7,
+/** Beim inhaltlichen Bearbeiten einer Seite das jeweilige Datum hochsetzen. */
+const CONTENT_UPDATED = "2026-08-01";
+
+interface Entry {
+  path: string;
+  priority: number;
+  changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"];
+}
+
+const entries: Entry[] = [
+  { path: "", priority: 1, changeFrequency: "weekly" },
+  { path: "/reparatur", priority: 0.9, changeFrequency: "monthly" },
+  { path: "/check", priority: 0.9, changeFrequency: "monthly" },
+  { path: "/zwilling", priority: 0.9, changeFrequency: "monthly" },
+  { path: "/refurbished", priority: 0.8, changeFrequency: "weekly" },
+  { path: "/kontakt", priority: 0.8, changeFrequency: "monthly" },
+  { path: "/werkstatt", priority: 0.7, changeFrequency: "yearly" },
+  { path: "/ersatzteile", priority: 0.7, changeFrequency: "monthly" },
+];
+
+// Impressum, Datenschutz und AGB stehen bewusst nicht in der Sitemap: Sie sind
+// per robots-Meta von der Indexierung ausgenommen. Beides zugleich zu melden
+// ("indexiere das nicht" / "hier ist es") ist ein widersprüchliches Signal.
+
+export default function sitemap(): MetadataRoute.Sitemap {
+  const lastModified = new Date(CONTENT_UPDATED);
+
+  return entries.map(({ path, priority, changeFrequency }) => ({
+    url: `${site.url}${path}`,
+    lastModified,
+    changeFrequency,
+    priority,
   }));
 }

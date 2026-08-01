@@ -4,10 +4,13 @@ Anleitung für Claude Code beim Arbeiten in diesem Repository.
 
 ## Projekt
 
-**OmegaPhone** – statische Premium-Website für Smartphone-Reparatur,
+**Dr Smartphone48** (Greven) – Premium-Website für Smartphone-Reparatur,
 Refurbished-Geräte und Ersatzteile. Das Design-Briefing steht in [`Task`](./Task):
 ruhig, präzise, zurückhaltend – „Apple Store, nicht Times Square".
 Sprache der Website und der Code-Kommentare: **Deutsch**.
+
+Der Paketname in `package.json` lautet aus historischen Gründen noch
+`omegaphone`; maßgeblich ist `lib/site.ts`.
 
 ## Befehle
 
@@ -23,6 +26,7 @@ npm run cf:preview    # Worker lokal in workerd testen
 npm run cf:deploy     # Auf Cloudflare Workers deployen
 
 node scripts/generate-icons.mjs   # PWA-Icons neu rendern (headless Chromium)
+node scripts/generate-og.mjs      # public/og.png neu rendern (Link-Vorschaubild)
 ```
 
 Es gibt keine Test-Suite. Verifikation = `npm run build` + `npm run lint`.
@@ -88,25 +92,36 @@ Serverfunktion öffnet das Formular einen fertigen E-Mail-Entwurf – gesteuert
 
 ```
 app/                     App-Router-Seiten (alle statisch prerendert)
-  page.tsx               Landing Page (Hero, Pillars, Prozess, Stats, CTA)
-  reparatur/             Sofortpreis-Rechner (Signature-Feature)
+  page.tsx               Landing Page (Hero, Pillars, Anatomie, Röntgen, Stats, CTA)
+  reparatur/             Sofortpreis-Rechner (Signature-Feature) + FAQ
+  check/                 Geräte-Check: Sensor-Diagnose im Browser
+  zwilling/              Digitaler Zwilling + Reparieren-oder-neu-Rechner
   refurbished/ ersatzteile/ werkstatt/ kontakt/
-  impressum/ datenschutz/ offline/ not-found.tsx
+  impressum/ datenschutz/ agb/ offline/ not-found.tsx
+  api/kontakt/           Route Handler für das Formular (nur im Server-Build)
   layout.tsx             Root-Layout: Metadata, JSON-LD, Header/Footer, SW-Registrierung
   globals.css            Design-Tokens (CSS-Variablen) + Tailwind-4-Theme + Motion
   sitemap.ts robots.ts manifest.ts   Metadata-Routen (force-static)
 components/
-  ui/                    Primitives: Button, Icon (eigenes SVG-Set), Reveal, SectionHeading
+  ui/                    Primitives: Button, Icon (eigenes SVG-Set), Reveal,
+                         SectionHeading, ThemeToggle
   layout/                Header, Footer, Logo
-  sections/              Seiten-Sektionen: Faq, RefurbishedGrid/-Card, DiagramShowcase, ContactForm
+  sections/              Faq, RefurbishedGrid/-Card, DiagramShowcase, ContactForm,
+                         Reviews (Google-Aggregat), LiveStatus (Öffnungsstatus)
   configurator/          Configurator (Preislogik) + DeviceDiagram (SVG-Explosionszeichnung)
+  experience/            Bootloader, CommandPalette (⌘K), ShaderField (WebGL-Hero),
+                         DeviceExploded, XRay, MagneticField, ScrollProgress
+  check/                 DeviceCheck (Display-, Sensor-, Audio-, Akku-Tests)
+  twin/                  DigitalTwin, RepairOrReplace
   pwa/                   ServiceWorkerRegister
 lib/
   site.ts                Stammdaten (Name, Adresse, URL …) – zentrale Quelle
-  format.ts              formatEuro etc.
-  data/                  devices.ts (Modelle/Preise), refurbished.ts, faq.ts
+  seo.tsx                pageMeta() – Canonical/OG pro Seite, Breadcrumbs, JsonLd
+  format.ts detect.ts theme.ts
+  data/                  devices.ts (Modelle/Preise), refurbished.ts, faq.ts, reviews.ts
 public/
   sw.js                  Handgeschriebener Service Worker (Offline-Fallback /offline)
+  og.png                 Link-Vorschaubild 1200×630 (scripts/generate-og.mjs)
   icons/                 PWA-Icons
 ```
 
@@ -120,6 +135,45 @@ public/
   lebt in CSS). `prefers-reduced-motion` wird überall respektiert; ohne JS
   bleibt alles sichtbar (`html[data-js]`-Gate).
 - Server Components als Default; `"use client"` nur wo nötig
-  (Reveal, Configurator, DiagramShowcase, ContactForm, ServiceWorkerRegister).
-- Alle Firmendaten (Adresse, Telefon, Preise, Impressum) sind **Platzhalter**
-  und vor dem Livegang zu ersetzen.
+  (Reveal, Configurator, DiagramShowcase, ContactForm, ServiceWorkerRegister,
+  Bootloader, CommandPalette, DeviceCheck, DigitalTwin, ShaderField).
+
+### Metadaten: jede Seite setzt ihre eigenen
+
+Jede Route exportiert `metadata` über **`pageMeta()`** aus `lib/seo.tsx` –
+niemals ein handgeschriebenes `Metadata`-Objekt.
+
+Grund: Next.js vererbt `alternates.canonical` und `openGraph.url` aus dem
+Root-Layout an jede Seite, die sie nicht selbst setzt. Standen sie dort, meldete
+**jede** Unterseite die Startseite als kanonische URL – für Google sind
+`/reparatur`, `/check` und `/kontakt` dann Duplikate und fliegen aus dem Index.
+Deshalb stehen im Root-Layout bewusst weder `canonical` noch `openGraph.url`.
+
+Prüfen lässt sich das nach jedem Build:
+
+```bash
+grep -o '<link rel="canonical" href="[^"]*"' .next/server/app/*.html
+```
+
+Jede Zeile muss einen **eigenen** Pfad zeigen.
+
+### Redaktionsregel: keine erfundenen Zahlen
+
+Sichtbare Kennzahlen (Bewertungen, Stückzahlen, Quoten) müssen belegbar sein
+und aus `lib/site.ts` stammen, wenn es sie dort gibt. Widersprechen sich
+sichtbarer Text und JSON-LD, wertet Google beides ab – und ein Besucher, der
+zwei verschiedene Bewertungsschnitte auf einer Seite liest, glaubt keinem.
+Dieselbe Regel gilt für `lib/data/reviews.ts` (nur wörtlich übernommene echte
+Google-Rezensionen) und für Garantieangaben (immer `site.warrantyMonths`,
+nie eine feste Zahl im Text).
+
+### Offene Punkte vor dem Livegang
+
+- **Garantiedauer prüfen:** `site.warrantyMonths` steht auf `12`. FAQ,
+  Ersatzteil-Seite und Metadaten nannten zuvor teils 24 Monate. Der Wert ist
+  jetzt an einer Stelle gepflegt – dort den tatsächlich zugesagten Zeitraum
+  eintragen.
+- **Kennzahlen bestätigen:** „45 Min durchschnittlicher Displaytausch" und die
+  Angaben im Konfigurator sind betriebliche Zusagen und sollten stimmen.
+- Adresse, Telefon, USt-IdNr. und Preise in `lib/site.ts` bzw.
+  `lib/data/devices.ts` gegenprüfen.

@@ -1,15 +1,15 @@
-import type { Metadata } from "next";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Reveal } from "@/components/ui/Reveal";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { site } from "@/lib/site";
+import { JsonLd, breadcrumbJsonLd, pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMeta({
+  path: "/werkstatt",
   title: "Die Werkstatt",
-  description:
-    "Ein Blick hinter die Theke: ESD-geschützte Arbeitsplätze, Mikroskop-Löttechnik und ein 40-Punkte-Protokoll für jede Reparatur.",
-};
+  description: `Ein Blick hinter die Theke: ESD-geschützte Arbeitsplätze, Mikroskop-Löttechnik und ein ${site.checkpoints}-Punkte-Protokoll für jede Reparatur.`,
+});
 
 const principles = [
   {
@@ -46,6 +46,7 @@ const protocol = [
 export default function WerkstattPage() {
   return (
     <>
+      <JsonLd data={breadcrumbJsonLd([{ name: "Werkstatt", path: "/werkstatt" }])} />
       <section className="mx-auto max-w-6xl px-5 pb-16 pt-28 md:px-8 md:pt-36">
         <Reveal className="max-w-2xl">
           <p className="text-eyebrow">Die Werkstatt</p>

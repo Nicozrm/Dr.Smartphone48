@@ -1,17 +1,23 @@
-import type { Metadata } from "next";
 import { Configurator } from "@/components/configurator/Configurator";
 import { Faq } from "@/components/sections/Faq";
 import { Reveal } from "@/components/ui/Reveal";
+import { JsonLd, breadcrumbJsonLd, pageMeta } from "@/lib/seo";
+import { faqJsonLd } from "@/lib/data/faq";
+import { site } from "@/lib/site";
 
-export const metadata: Metadata = {
+export const metadata = pageMeta({
+  path: "/reparatur",
   title: "Reparatur mit Sofortpreis",
-  description:
-    "Gerät wählen, Schaden wählen, Festpreis sehen – in Sekunden. Originalteile, 24 Monate Garantie, die meisten Reparaturen in unter einer Stunde.",
-};
+  description: `Gerät wählen, Schaden wählen, Festpreis sehen – in Sekunden. Originalteile, ${site.warrantyMonths} Monate Garantie, die meisten Reparaturen in unter einer Stunde.`,
+});
 
 export default function ReparaturPage() {
   return (
     <>
+      <JsonLd data={breadcrumbJsonLd([{ name: "Reparatur", path: "/reparatur" }])} />
+      {/* Die FAQ steht sichtbar auf dieser Seite – Voraussetzung dafür, dass
+          Google sie als Rich Result ausspielen darf. */}
+      <JsonLd data={faqJsonLd} />
       <section className="mx-auto max-w-6xl px-5 pb-16 pt-28 md:px-8 md:pt-36">
         <Reveal className="max-w-2xl">
           <p className="text-eyebrow">Sofortpreis-Rechner</p>

@@ -188,6 +188,10 @@
 
 html {
   scroll-behavior: smooth;
+  /* Der Header liegt fest über der Seite (h-16 = 4rem). Ohne diesen Abstand
+     springen Sprungmarken wie /#bewertungen genau so weit zu weit, dass die
+     Überschrift des Ziels unter dem Header verschwindet. */
+  scroll-padding-top: 5.5rem;
 }
 
 body {
@@ -204,11 +208,15 @@ body {
   color: #ffffff;
 }
 
-/* Fokus – sichtbar, präzise, nie aufdringlich */
+/* Fokus – sichtbar, präzise, nie aufdringlich.
+   Bewusst **ohne** border-radius: Diese Regel steht außerhalb jedes @layer und
+   schlägt damit in der Kaskade jede Tailwind-Utility. Ein fester Radius hier
+   ließ runde Schaltflächen (rounded-full) im Tastaturfokus auf 4 px
+   zusammenspringen. Der Fokusring folgt in aktuellen Browsern ohnehin der
+   Form des Elements. */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 4px;
 }
 
 /* Typografische Klassen – im components-Layer, damit Utilities
@@ -354,11 +362,14 @@ html[data-js] .reveal[data-revealed="true"] {
     visibility: hidden;
   }
 }
-/* Ω-Bogen zeichnet sich als Strich. */
+/* Der Geräte-Glyph zeichnet sich als Strich. Dauer bewusst „Fläche“ (480 ms)
+   statt „Szene“ (900 ms): Die Zeichnung muss innerhalb der verkürzten
+   Haltedauer des Bootloaders fertig sein, sonst blendet die Szene aus, während
+   die Linie noch läuft. */
 .boot-stroke {
   stroke-dasharray: var(--len, 120);
   stroke-dashoffset: var(--len, 120);
-  animation: boot-draw var(--duration-scene) var(--ease-out) forwards;
+  animation: boot-draw var(--duration-area) var(--ease-out) forwards;
 }
 @keyframes boot-draw {
   to {
