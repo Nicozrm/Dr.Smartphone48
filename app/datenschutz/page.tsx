@@ -102,12 +102,29 @@ export default function DatenschutzPage() {
           </p>
         </section>
         <section>
-          <h2 className="text-title">Externe Verweise</h2>
+          <h2 className="text-title">Externe Dienste und Verweise</h2>
           <p className="mt-3 text-ink-soft">
-            Verweise auf Google Maps, Google-Rezensionen und WhatsApp werden
-            erst beim Anklicken aufgerufen. Bis dahin findet keine Verbindung
-            zu diesen Anbietern statt. Ab dem Klick gelten deren
-            Datenschutzbestimmungen.
+            Diese Website bindet keine fremden Inhalte ein, die sich beim
+            bloßen Aufrufen laden – keine Schriften von fremden Servern, keine
+            Analyse-Skripte, keine Werbenetzwerke.
+          </p>
+          <p className="mt-3 text-ink-soft">
+            <strong className="font-medium text-ink-strong">
+              Google-Maps-Karte auf der Kontaktseite:
+            </strong>{" "}
+            Sie ist zunächst nur eine Vorschau aus eigenen Mitteln. Erst wenn
+            Sie auf „Karte von Google laden“ klicken, wird die Karte
+            nachgeladen; dabei werden Ihre IP-Adresse und technische Angaben
+            zu Ihrem Browser an Google übertragen, und Google kann Cookies
+            setzen. Rechtsgrundlage ist Ihre Einwilligung durch diesen Klick
+            (Art. 6 Abs. 1 lit. a DSGVO). Ohne Klick findet keine Verbindung
+            statt.
+          </p>
+          <p className="mt-3 text-ink-soft">
+            Verweise auf Google-Rezensionen, die Routenplanung und WhatsApp
+            sind gewöhnliche Links: Sie werden erst beim Anklicken aufgerufen.
+            Ab dann gelten die Datenschutzbestimmungen des jeweiligen
+            Anbieters.
           </p>
         </section>
         <section>

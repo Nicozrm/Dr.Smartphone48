@@ -29,29 +29,70 @@ const PRECACHE_URLS = [
 const OFFLINE_URL = `${BASE}/offline`;
 
 /**
+ * Die zwei Seiten, ohne die der Offline-Betrieb sinnlos wäre: der Fallback
+ * selbst und die Notfallhilfe. Alles andere ist Komfort.
+ */
+const CRITICAL_URLS = [OFFLINE_URL, `${BASE}/notfall`];
+
+/**
  * Vorrat anlegen, ohne alles aufs Spiel zu setzen.
  *
  * `cache.addAll()` ist atomar: Eine einzige URL, die 404 liefert, lässt die
  * gesamte Installation scheitern – der Service Worker wird dann nie aktiv und
  * die Seite hat still keinen Offline-Modus mehr. Da die Liste beim Umbenennen
- * einer Route veraltet, wird jede URL einzeln geholt. Die Offline-Seite ist die
- * einzige Pflichtressource: Ohne sie hat der Fallback keinen Inhalt.
+ * einer Route veraltet, wird jede URL einzeln geholt.
  */
 async function precache() {
   const cache = await caches.open(RUNTIME_CACHE);
-  const results = await Promise.allSettled(
+  await Promise.allSettled(
     PRECACHE_URLS.map(async (url) => {
       const response = await fetch(url, { cache: "reload" });
       if (!response.ok) throw new Error(`${url}: ${response.status}`);
       await cache.put(url, response);
     }),
   );
-  // Fehlschläge sind hinnehmbar, solange die Offline-Seite steht.
-  const offlineCached = await cache.match(OFFLINE_URL);
-  if (!offlineCached) {
-    const failed = results.filter((r) => r.status === "rejected").length;
-    console.warn(`[sw] Offline-Seite nicht im Cache (${failed} Fehlschläge).`);
+}
+
+/**
+ * Sorgt dafür, dass die Pflichtseiten im neuen Cache liegen – notfalls
+ * übernommen aus einem älteren, sonst noch einmal aus dem Netz.
+ *
+ * Der Grund für diesen Umweg: Beim Update installiert der neue Worker,
+ * während die alte Fassung noch bedient. Schlägt dabei ein einzelner Abruf
+ * fehl – ein Funkloch reicht –, wäre die Notfallseite im neuen Cache nicht
+ * vorhanden. Würden wir jetzt die alten Caches löschen, hätten wir ihre
+ * funktionierende Kopie gleich mit vernichtet, und genau die Seite, die
+ * offline erreichbar sein soll, endete bei Response.error().
+ *
+ * Gibt die Adressen zurück, die weiterhin fehlen.
+ */
+async function ensureCritical() {
+  const cache = await caches.open(RUNTIME_CACHE);
+  const missing = [];
+
+  for (const url of CRITICAL_URLS) {
+    if (await cache.match(url)) continue;
+
+    // caches.match() ohne Optionen durchsucht alle Caches, auch die alten.
+    const inherited = await caches.match(url);
+    if (inherited) {
+      await cache.put(url, inherited.clone());
+      continue;
+    }
+
+    try {
+      const response = await fetch(url, { cache: "reload" });
+      if (response.ok) {
+        await cache.put(url, response);
+        continue;
+      }
+    } catch {
+      // Kein Netz – dann bleibt es beim Vermerk unten.
+    }
+    missing.push(url);
   }
+
+  return missing;
 }
 
 self.addEventListener("install", (event) => {
@@ -60,14 +101,24 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
+    (async () => {
+      const missing = await ensureCritical();
+
+      if (missing.length === 0) {
+        const keys = await caches.keys();
+        await Promise.all(
           keys.filter((key) => key !== RUNTIME_CACHE).map((key) => caches.delete(key)),
-        ),
-      )
-      .then(() => self.clients.claim()),
+        );
+      } else {
+        // Lieber ein Cache zu viel als eine Notfallseite zu wenig. Der
+        // nächste Start räumt auf, sobald der Abruf gelingt.
+        console.warn(
+          `[sw] Alte Caches bleiben bestehen – nicht im Vorrat: ${missing.join(", ")}`,
+        );
+      }
+
+      await self.clients.claim();
+    })(),
   );
 });
 
