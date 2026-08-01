@@ -46,10 +46,12 @@ export function LogoMark({ size = 30, className = "" }: { size?: number; classNa
 export function Logo({ inverse = false, markOnly = false }: LogoProps) {
   const tone = inverse ? "text-ink-inverse" : "text-ink-strong";
   return (
-    <span className="inline-flex items-center gap-2.5 select-none">
-      <LogoMark className={tone} />
+    <span className="inline-flex shrink-0 items-center gap-2.5 select-none">
+      <LogoMark className={`shrink-0 ${tone}`} />
       {markOnly ? null : (
-        <span className={`text-[1.0625rem] font-semibold tracking-[-0.025em] ${tone}`}>
+        <span
+          className={`whitespace-nowrap text-[1.0625rem] font-semibold tracking-[-0.025em] ${tone}`}
+        >
           {site.name}
         </span>
       )}

@@ -53,6 +53,48 @@ const steps = [
   },
 ];
 
+const tools: {
+  href: string;
+  icon: IconName;
+  eyebrow: string;
+  title: string;
+  text: string;
+  cta: string;
+}[] = [
+  {
+    href: "/notfall",
+    icon: "shield",
+    eyebrow: "Soforthilfe",
+    title: "Die ersten Minuten entscheiden",
+    text: "Wasserschaden, gebrochenes Display, aufgeblähter Akku: was Sie sofort tun sollten – und welcher Fehler am meisten kostet. Funktioniert auch offline, ohne Anmeldung, ohne dass Sie Kunde sein müssen.",
+    cta: "Protokolle öffnen",
+  },
+  {
+    href: "/check",
+    icon: "cpu",
+    eyebrow: "Diagnose",
+    title: "Ihr Gerät prüft sich selbst",
+    text: "Display, Touch, Sensoren, Mikrofon, Lautsprecher, Akku und Netz – geprüft direkt im Browser, in unter einer Minute. Jeder Test läuft auf Ihrem Gerät; nichts verlässt es.",
+    cta: "Check starten",
+  },
+  {
+    href: "/ankauf",
+    icon: "leaf",
+    eyebrow: "Ankauf",
+    title: "Was Ihr Gerät noch wert ist",
+    text: "Eine Wertschätzung mit offengelegter Rechnung statt einer Zahl aus der Blackbox. Jeder Abzug mit Betrag und Begründung – auch die, die uns nicht schmeicheln.",
+    cta: "Restwert schätzen",
+  },
+  {
+    href: "/zwilling",
+    icon: "battery",
+    eyebrow: "Akku-Coach",
+    title: "Wie lange Ihr Akku noch mitmacht",
+    text: "Stellen Sie ein, wie Sie wirklich laden – die Kurve rechnet drei Jahre voraus und nennt die eine Änderung, die am meisten bringt. Dazu die Frage, ob sich eine Reparatur überhaupt lohnt.",
+    cta: "Prognose ansehen",
+  },
+];
+
 /**
  * Kennzahlen der Startseite.
  *
@@ -257,6 +299,48 @@ export default function HomePage() {
               <RefurbishedCard device={device} />
             </Reveal>
           ))}
+        </div>
+      </section>
+
+      {/* Werkzeuge – was diese Seite kann, was andere nicht können */}
+      <section className="border-t border-line bg-raised">
+        <div className="mx-auto max-w-6xl px-5 py-20 md:px-8 md:py-28">
+          <SectionHeading
+            eyebrow="Werkzeuge"
+            title="Vier Dinge, die Sie hier erledigen können, ohne uns zu besuchen."
+            lede="Wir hätten Ihnen auch einfach eine Telefonnummer hinschreiben können. Diese Werkzeuge lösen Ihr Problem manchmal ganz ohne uns – und wenn nicht, wissen Sie vorher genau, woran Sie sind."
+          />
+          <div className="mt-14 grid gap-5 md:grid-cols-2">
+            {tools.map((tool, i) => (
+              <Reveal key={tool.href} delay={i * 80}>
+                <Link
+                  href={tool.href}
+                  className="group flex h-full flex-col rounded-[var(--radius-l)] border border-line bg-page p-6 transition-[border-color,box-shadow,transform] duration-[var(--duration-base)] ease-[var(--ease-out)] hover:-translate-y-0.5 hover:border-ink-faint hover:shadow-floating md:p-7"
+                >
+                  <span className="flex items-center gap-3">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-s)] bg-sunken text-ink-strong">
+                      <Icon name={tool.icon} size={20} />
+                    </span>
+                    <span className="font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-ink-faint">
+                      {tool.eyebrow}
+                    </span>
+                  </span>
+                  <span className="text-title mt-5 block">{tool.title}</span>
+                  <span className="mt-3 block flex-1 leading-relaxed text-ink-soft">
+                    {tool.text}
+                  </span>
+                  <span className="mt-5 inline-flex items-center gap-2 text-[0.9375rem] font-medium text-ink-strong">
+                    {tool.cta}
+                    <Icon
+                      name="arrow-right"
+                      size={16}
+                      className="transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)] group-hover:translate-x-0.5"
+                    />
+                  </span>
+                </Link>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 

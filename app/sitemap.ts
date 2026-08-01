@@ -11,6 +11,9 @@ export const dynamic = "force-static";
  * war. Suchmaschinen entwerten ein Datum, das sich bei jedem Crawl bewegt,
  * ohne dass sich der Inhalt ändert. Deshalb steht hier ein gepflegtes Datum
  * pro Seitengruppe: Es wird bewusst angefasst, wenn sich der Inhalt ändert.
+ *
+ * Die Reihenfolge bildet ab, wofür Menschen tatsächlich suchen: erst der
+ * Notfall und der Preis, dann die übrigen Werkzeuge, zuletzt das Beiwerk.
  */
 
 /** Beim inhaltlichen Bearbeiten einer Seite das jeweilige Datum hochsetzen. */
@@ -24,8 +27,10 @@ interface Entry {
 
 const entries: Entry[] = [
   { path: "", priority: 1, changeFrequency: "weekly" },
+  { path: "/notfall", priority: 0.9, changeFrequency: "monthly" },
   { path: "/reparatur", priority: 0.9, changeFrequency: "monthly" },
   { path: "/check", priority: 0.9, changeFrequency: "monthly" },
+  { path: "/ankauf", priority: 0.9, changeFrequency: "weekly" },
   { path: "/zwilling", priority: 0.9, changeFrequency: "monthly" },
   { path: "/refurbished", priority: 0.8, changeFrequency: "weekly" },
   { path: "/kontakt", priority: 0.8, changeFrequency: "monthly" },
@@ -36,6 +41,8 @@ const entries: Entry[] = [
 // Impressum, Datenschutz und AGB stehen bewusst nicht in der Sitemap: Sie sind
 // per robots-Meta von der Indexierung ausgenommen. Beides zugleich zu melden
 // ("indexiere das nicht" / "hier ist es") ist ein widersprüchliches Signal.
+// Aus demselben Grund fehlt /ticket – ohne Parameter ist es eine leere Hülle
+// und trägt deshalb noindex.
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date(CONTENT_UPDATED);

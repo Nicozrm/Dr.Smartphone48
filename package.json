@@ -10,7 +10,8 @@
     "build:static": "node scripts/build-static.mjs",
     "cf:build": "opennextjs-cloudflare build",
     "cf:preview": "opennextjs-cloudflare preview",
-    "cf:deploy": "opennextjs-cloudflare deploy"
+    "cf:deploy": "opennextjs-cloudflare deploy",
+    "verify:qr": "node --experimental-strip-types --no-warnings scripts/verify-qr.mjs"
   },
   "dependencies": {
     "geist": "^1.7.2",
