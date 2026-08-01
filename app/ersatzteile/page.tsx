@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/Button";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Reveal } from "@/components/ui/Reveal";
 import { SectionHeading } from "@/components/ui/SectionHeading";
+import { DisplayCompare } from "@/components/parts/DisplayCompare";
 import { site } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -38,7 +39,7 @@ const services: { icon: IconName; title: string; text: string }[] = [
   {
     icon: "truck",
     title: "Versand am selben Tag",
-    text: "Bestellungen bis 16 Uhr verlassen noch am selben Tag das Lager. In Köln liefern wir per Kurier innerhalb von zwei Stunden.",
+    text: `Bestellungen bis 16 Uhr verlassen noch am selben Tag das Lager. In ${site.city} und Umgebung fahren wir dringende Teile selbst.`,
   },
   {
     icon: "tool",
@@ -113,7 +114,26 @@ export default function ErsatzteilePage() {
         </div>
       </section>
 
+      {/* Der Unterschied, den man sonst erst nach zwei Wochen merkt */}
       <section className="mx-auto max-w-6xl px-5 py-20 md:px-8 md:py-28">
+        <SectionHeading
+          eyebrow="Original oder Nachbau"
+          title={
+            <>
+              Den Unterschied sieht man nicht.
+              <br />
+              Man spürt ihn.
+            </>
+          }
+          lede="Jede Werkstatt behauptet, gute Displays zu verbauen. Beweisen lässt sich das schwer – ein fremdes Panel kann Ihnen niemand auf Ihrem eigenen Bildschirm zeigen. Eine Eigenschaft aber schon, und ausgerechnet die, die im Alltag am meisten stört."
+        />
+        <div className="mt-12">
+          <DisplayCompare />
+        </div>
+      </section>
+
+      <section className="border-t border-line">
+        <div className="mx-auto max-w-6xl px-5 py-20 md:px-8 md:py-28">
         <div className="grid gap-10 md:grid-cols-3 md:gap-12">
           {services.map((service, i) => (
             <Reveal key={service.title} delay={i * 90}>
@@ -126,6 +146,7 @@ export default function ErsatzteilePage() {
               </div>
             </Reveal>
           ))}
+        </div>
         </div>
       </section>
     </>
