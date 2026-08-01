@@ -17,6 +17,7 @@ npm run dev           # Entwicklungsserver
 npm run build         # Server-Build (Vercel, Cloudflare Workers)
 npm run build:static  # Statischer Export nach ./out (ohne /api)
 npm run lint          # ESLint
+npm run verify:qr     # QR-Encoder gegen ISO/IEC 18004 prüfen
 
 npm run cf:build      # Cloudflare-Worker bauen (OpenNext)
 npm run cf:preview    # Worker lokal in workerd testen
@@ -26,6 +27,9 @@ node scripts/generate-icons.mjs   # PWA-Icons neu rendern (headless Chromium)
 ```
 
 Es gibt keine Test-Suite. Verifikation = `npm run build` + `npm run lint`.
+Einzige Ausnahme: `scripts/verify-qr.mjs` prüft den QR-Encoder gegen die
+Norm – er ist der einzige Code hier, bei dem ein stiller Fehler zu einem
+unlesbaren Ausdruck führt, ohne dass es jemandem auffällt.
 
 ## Deployment (Cloudflare Workers – empfohlen)
 
@@ -88,26 +92,53 @@ Serverfunktion öffnet das Formular einen fertigen E-Mail-Entwurf – gesteuert
 
 ```
 app/                     App-Router-Seiten (alle statisch prerendert)
-  page.tsx               Landing Page (Hero, Pillars, Prozess, Stats, CTA)
+  page.tsx               Landing Page (Hero, Pillars, Werkzeuge, Prozess, Stats, CTA)
   reparatur/             Sofortpreis-Rechner (Signature-Feature)
+  notfall/               Notfall-Protokolle (ohne JS lesbar, offline im Cache)
+  check/                 Geräte-Check – Selbstdiagnose im Browser
+  ankauf/                Restwert-Rechner mit offengelegter Rechnung
+  zwilling/              Digitaler Zwilling, Akku-Coach, Reparieren-oder-neu
+  ticket/                Reparatur-Ticket + Übergabeprotokoll (noindex)
   refurbished/ ersatzteile/ werkstatt/ kontakt/
-  impressum/ datenschutz/ offline/ not-found.tsx
+  impressum/ datenschutz/ agb/ offline/ not-found.tsx
   layout.tsx             Root-Layout: Metadata, JSON-LD, Header/Footer, SW-Registrierung
-  globals.css            Design-Tokens (CSS-Variablen) + Tailwind-4-Theme + Motion
+  globals.css            Design-Tokens (CSS-Variablen) + Tailwind-4-Theme + Motion + Druck
   sitemap.ts robots.ts manifest.ts   Metadata-Routen (force-static)
 components/
-  ui/                    Primitives: Button, Icon (eigenes SVG-Set), Reveal, SectionHeading
+  ui/                    Primitives: Button, Icon (eigenes SVG-Set), Reveal,
+                         SectionHeading, ThemeToggle, QrCode
   layout/                Header, Footer, Logo
-  sections/              Seiten-Sektionen: Faq, RefurbishedGrid/-Card, DiagramShowcase, ContactForm
-  configurator/          Configurator (Preislogik) + DeviceDiagram (SVG-Explosionszeichnung)
+  sections/              Faq, RefurbishedGrid/-Card, DiagramShowcase, ContactForm,
+                         Reviews, LiveStatus
+  configurator/          Configurator (Preislogik) + DeviceDiagram
+  experience/            Bootloader, CommandPalette, ShaderField, DeviceExploded,
+                         XRay, MagneticField, ScrollProgress
+  check/                 DeviceCheck (Sensor-, Audio-, Display-Tests)
+  twin/                  DigitalTwin, RepairOrReplace
+  battery/               BatteryCoach (3-Jahres-Prognose)
+  resale/                ResaleCalculator (Ankauf)
+  ticket/                RepairTicket, DamageMap (Schadenskarte)
+  emergency/             RescueClock
+  parts/                 DisplayCompare (echte Eingabeverzögerung)
   pwa/                   ServiceWorkerRegister
 lib/
   site.ts                Stammdaten (Name, Adresse, URL …) – zentrale Quelle
   format.ts              formatEuro etc.
-  data/                  devices.ts (Modelle/Preise), refurbished.ts, faq.ts
+  qr.ts                  QR-Encoder nach ISO/IEC 18004 (Byte-Modus, Stufe M, v1–20)
+  imei.ts                Luhn-Prüfung mit offengelegter Rechnung
+  ticket.ts              Ticket-Zustand aus der Adresse, Vorgangsnummer, .ics
+  resale.ts              Ankauf-Bewertung als Liste begründeter Posten
+  battery.ts             Alterungsmodell (kalendarisch + zyklisch)
+  detect.ts theme.ts
+  data/                  devices.ts (Modelle, Preise, Ankaufswerte),
+                         refurbished.ts, faq.ts, reviews.ts, emergency.ts
 public/
-  sw.js                  Handgeschriebener Service Worker (Offline-Fallback /offline)
+  sw.js                  Handgeschriebener Service Worker (Precache, /offline-Fallback)
   icons/                 PWA-Icons
+scripts/
+  build-static.mjs       Statischer Export (legt app/api beiseite)
+  generate-icons.mjs     PWA-Icons rendern
+  verify-qr.mjs          QR-Encoder gegen die Norm prüfen
 ```
 
 ## Konventionen
@@ -120,6 +151,32 @@ public/
   lebt in CSS). `prefers-reduced-motion` wird überall respektiert; ohne JS
   bleibt alles sichtbar (`html[data-js]`-Gate).
 - Server Components als Default; `"use client"` nur wo nötig
-  (Reveal, Configurator, DiagramShowcase, ContactForm, ServiceWorkerRegister).
-- Alle Firmendaten (Adresse, Telefon, Preise, Impressum) sind **Platzhalter**
-  und vor dem Livegang zu ersetzen.
+  (Reveal, Configurator, DiagramShowcase, ContactForm, ServiceWorkerRegister,
+  die Werkzeuge unter check/, twin/, battery/, resale/, ticket/, parts/).
+- Alle Firmendaten (Adresse, Telefon, Preise, Ankaufswerte, Impressum) sind
+  **Platzhalter** und vor dem Livegang zu ersetzen.
+
+### Zwei Regeln, die über der Optik stehen
+
+**Nichts behaupten, was nicht stimmt.** Die Werkzeuge hier rechnen, statt zu
+raten, und legen offen, wie sie rechnen – der Ankaufsrechner zeigt jeden
+Abzug einzeln, der Akku-Coach nennt seine Konstanten, die IMEI-Prüfung zeigt
+die Luhn-Rechnung. Wo etwas geschätzt ist, steht „Schätzung" dabei; wo etwas
+veranschaulicht ist (Farbdrift im Display-Vergleich), steht das ebenfalls
+dabei. Kein erfundener Countdown, keine erfundenen Marktpreise, keine
+Hersteller-Zuordnung aus einer IMEI. Lieber eine Lücke als eine Behauptung.
+
+**Der Notfall hat Vorrang vor allem.** `/notfall` muss ohne JavaScript, ohne
+Netz und auf jedem Gerät funktionieren. Deshalb stehen dort alle vier
+Protokolle vollständig im HTML statt hinter einem Umschalter, und deshalb
+steht die Seite an erster Stelle im Precache des Service Workers. Wer daran
+etwas ändert, prüft beides.
+
+### Personenbezogene Daten
+
+Es gibt keine Datenbank und keine Konten. Was ein Besucher eingibt, bleibt im
+Arbeitsspeicher seines Tabs – auch die IMEI im Übergabeprotokoll, das
+ausdrücklich nicht in localStorage geschrieben wird. Verlassen darf es das
+Gerät nur, wenn er selbst eine Anfrage absendet. Der Zustand des
+Reparatur-Tickets steht bewusst lesbar in der Adresse (Gerät und Reparaturen,
+nichts Persönliches). Wer hier etwas ergänzt, zieht `app/datenschutz` mit.
