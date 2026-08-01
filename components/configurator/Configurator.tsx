@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   brands,
   findModel,
@@ -11,8 +18,22 @@ import {
 import { formatEuro, formatMinutes } from "@/lib/format";
 import { site } from "@/lib/site";
 import { detectDevice, type DetectResult } from "@/lib/detect";
+import { ticketQuery } from "@/lib/ticket";
 import { Icon } from "@/components/ui/Icon";
+import Link from "next/link";
 import { DeviceDiagram } from "./DeviceDiagram";
+
+/*
+  Der Geräte-Vorschlag entsteht erst im Browser – der Server kennt die
+  Bildschirmgröße nicht. Käme er per useEffect, würde er nach dem ersten Bild
+  eingefügt und schöbe alles darunter nach unten: ein sichtbarer Ruck und ein
+  messbarer Layout-Shift.
+
+  useLayoutEffect läuft vor dem Zeichnen. Der Vorschlag ist damit von der
+  ersten Darstellung an da oder gar nicht – nichts springt. Auf dem Server
+  gibt es kein Layout, dort bleibt es bei useEffect.
+*/
+const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 function StepLabel({ number, children }: { number: string; children: ReactNode }) {
   return (
@@ -32,8 +53,8 @@ export function Configurator() {
   const [detected, setDetected] = useState<DetectResult | null>(null);
   const [detectDismissed, setDetectDismissed] = useState(false);
 
-  // Erkennung einmal nach dem Mount – rein lesend, ohne Netzwerk.
-  useEffect(() => {
+  // Erkennung einmal vor dem ersten Bild – rein lesend, ohne Netzwerk.
+  useBeforePaint(() => {
     try {
       setDetected(detectDevice());
     } catch {
@@ -131,79 +152,43 @@ export function Configurator() {
     <div className="grid gap-10 lg:grid-cols-[1fr_420px] lg:gap-16">
       {/* Linke Spalte: Schritte */}
       <div className="space-y-14 min-w-0">
-        {/* Geräte-Erkennung – schlägt vor, behauptet nichts. */}
-        {detected && detected.candidates.length > 0 && !detectDismissed && !modelId ? (
-          <div className="glass rounded-[var(--radius-l)] p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="flex items-center gap-2 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-ink-faint">
-                  <Icon name="cpu" size={14} />
-                  Gerät erkannt
-                </p>
-                <p className="mt-2 text-[0.9375rem] leading-relaxed text-ink">
-                  {detected.candidates.length === 1
-                    ? "Ihr Bildschirm passt genau zu diesem Gerät:"
-                    : "Ihr Bildschirm passt zu diesen Geräten – mehrere Generationen sind baugleich groß:"}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setDetectDismissed(true)}
-                aria-label="Vorschlag ausblenden"
-                className="-mr-1 -mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-sunken hover:text-ink-strong"
-              >
-                <Icon name="close" size={16} />
-              </button>
-            </div>
-
-            <div className="mt-3.5 flex flex-wrap gap-2">
-              {detected.candidates.map((c) => (
-                <button
-                  key={c.model.id}
-                  type="button"
-                  onClick={() => {
-                    setBrandId(c.brand.id);
-                    setModelId(c.model.id);
-                    setSelected([]);
-                    setHighlight(null);
-                    setSubmitted(false);
-                    scrollTo(damageRef);
-                  }}
-                  className="inline-flex h-10 items-center gap-2 rounded-full border border-accent bg-accent-subtle px-4 text-[0.875rem] font-medium text-accent transition-opacity hover:opacity-80"
-                >
-                  {c.brand.name} {c.model.name}
-                  <Icon name="arrow-right" size={14} />
-                </button>
-              ))}
-            </div>
-
-            <p className="mt-3 font-mono text-[0.6875rem] text-ink-faint">
-              {detected.screen.w} × {detected.screen.h} px · {detected.screen.dpr.toFixed(2)}×
-              {detected.ambiguous ? " · nicht eindeutig, bitte bestätigen" : ""}
-            </p>
-          </div>
-        ) : null}
-
         {/* Schritt 1: Marke */}
         <section className="scroll-mt-24">
           <StepLabel number="01">Welche Marke?</StepLabel>
           <div className="mt-5 grid grid-cols-3 gap-3">
-            {brands.map((b) => (
-              <button
-                key={b.id}
-                type="button"
-                onClick={() => chooseBrand(b.id)}
-                aria-pressed={brandId === b.id}
-                className={`${optionBase} ${
-                  brandId === b.id ? optionActive : optionIdle
-                } px-4 py-5 text-center`}
-              >
-                <span className="block font-medium text-ink-strong">{b.name}</span>
-                <span className="mt-1 block text-[0.8125rem] text-ink-soft">
-                  {b.models.length} Modelle
-                </span>
-              </button>
-            ))}
+            {brands.map((b) => {
+              // Die Erkennung markiert die passende Marke, statt einen Kasten
+              // einzuschieben: absolut positioniert, damit die Schaltfläche
+              // ihre Maße behält und nichts springt, wenn der Hinweis
+              // nachträglich erscheint.
+              const suggested =
+                !modelId &&
+                !detectDismissed &&
+                detected?.candidates.some((c) => c.brand.id === b.id) === true;
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => chooseBrand(b.id)}
+                  aria-pressed={brandId === b.id}
+                  className={`${optionBase} ${
+                    brandId === b.id ? optionActive : optionIdle
+                  } relative px-4 py-5 text-center`}
+                >
+                  {suggested ? (
+                    <span className="absolute inset-x-0 -top-2.5 flex justify-center">
+                      <span className="inline-flex h-5 items-center rounded-full bg-accent px-2 font-mono text-[0.625rem] uppercase tracking-[0.08em] text-white">
+                        erkannt
+                      </span>
+                    </span>
+                  ) : null}
+                  <span className="block font-medium text-ink-strong">{b.name}</span>
+                  <span className="mt-1 block text-[0.8125rem] text-ink-soft">
+                    {b.models.length} Modelle
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </section>
 
@@ -367,6 +352,67 @@ export function Configurator() {
               {entry ? `${entry.brand.name} ${entry.model.name}` : "Ihr Gerät"}
             </p>
 
+            {/*
+              Geräte-Erkennung – schlägt vor, behauptet nichts.
+
+              Sie steht hier und nicht über den Schritten, obwohl sie dort
+              auffälliger wäre. Grund: Der Vorschlag entsteht erst im Browser,
+              denn nur der kennt die Bildschirmgröße. Über den Schritten
+              eingefügt, schöbe er beim Nachladen die ganze Seite nach unten –
+              messbar als Layout-Shift, spürbar als Ruck unter dem Finger.
+              In dieser Spalte steht darunter nichts, was springen könnte.
+            */}
+            {detected && detected.candidates.length > 0 && !detectDismissed && !modelId ? (
+              <div className="mt-4 rounded-[var(--radius-m)] border border-accent/35 bg-accent-subtle p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="flex items-center gap-2 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-accent">
+                    <Icon name="cpu" size={13} />
+                    Gerät erkannt
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setDetectDismissed(true)}
+                    aria-label="Vorschlag ausblenden"
+                    className="-mr-1.5 -mt-1.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-sunken hover:text-ink-strong"
+                  >
+                    <Icon name="close" size={14} />
+                  </button>
+                </div>
+
+                <p className="mt-1.5 text-[0.875rem] leading-relaxed text-ink">
+                  {detected.candidates.length === 1
+                    ? "Ihr Bildschirm passt genau hierzu:"
+                    : "Ihr Bildschirm passt zu mehreren baugleich großen Geräten:"}
+                </p>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {detected.candidates.map((c) => (
+                    <button
+                      key={c.model.id}
+                      type="button"
+                      onClick={() => {
+                        setBrandId(c.brand.id);
+                        setModelId(c.model.id);
+                        setSelected([]);
+                        setHighlight(null);
+                        setSubmitted(false);
+                        scrollTo(damageRef);
+                      }}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-full bg-accent px-3.5 text-[0.8125rem] font-medium text-white transition-colors hover:bg-accent-hover"
+                    >
+                      {c.brand.name} {c.model.name}
+                      <Icon name="arrow-right" size={13} />
+                    </button>
+                  ))}
+                </div>
+
+                <p className="mt-2.5 font-mono text-[0.6875rem] text-ink-faint">
+                  {detected.screen.w} × {detected.screen.h} px · {detected.screen.dpr.toFixed(2)}×
+                  {detected.ambiguous ? " · nicht eindeutig, bitte bestätigen" : ""}
+                </p>
+              </div>
+            ) : null}
+
             {chosen.length > 0 ? (
               <ul className="mt-3 space-y-1.5">
                 {chosen.map((r) => (
@@ -413,6 +459,22 @@ export function Configurator() {
                 <dd>{site.warrantyMonths} Monate Garantie auf Teil und Arbeit</dd>
               </div>
             </dl>
+
+            {/* Aus dem Preis wird ein Vorgang: eigene Nummer, QR-Code zum
+                Vorzeigen, druckbares Übergabeprotokoll. */}
+            {entry && chosen.length > 0 ? (
+              <Link
+                href={`/ticket?${ticketQuery(
+                  entry.brand.id,
+                  entry.model.id,
+                  chosen.map((r) => r.kind),
+                )}`}
+                className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-line-strong text-[0.9375rem] font-medium text-ink-strong transition-colors duration-[var(--duration-fast)] hover:border-ink-strong"
+              >
+                Ticket erstellen
+                <Icon name="arrow-right" size={16} />
+              </Link>
+            ) : null}
           </div>
         </div>
         <p className="mt-3 text-center text-[0.8125rem] text-ink-faint">

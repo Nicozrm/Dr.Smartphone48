@@ -155,8 +155,28 @@ export function ShaderField({ className = "" }: { className?: string }) {
     const uDark = gl.getUniformLocation(prog, "u_dark");
     const uReduced = gl.getUniformLocation(prog, "u_reduced");
 
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    /*
+      Zwei Sparmaßnahmen, die man nicht sieht, aber merkt.
+
+      Erstens: Auf schwachen Geräten läuft der Hintergrund gar nicht. Ein
+      langsam driftender Verlauf ist die erste Zierde, die weichen darf, wenn
+      dieselbe CPU gerade die Seite aufbauen soll. Gemessen an Kernzahl und
+      Arbeitsspeicher – beides grob, aber besser als die Alternative, jedem
+      Gerät dasselbe zuzumuten.
+
+      Zweitens: Auch sonst zeichnen wir mit gedeckelten 36 Bildern je
+      Sekunde statt mit 60 oder 120. Bei einer Bewegung, die für einen
+      vollen Durchlauf zwanzig Sekunden braucht, sieht das identisch aus und
+      kostet gut die Hälfte.
+    */
+    const nav = navigator as Navigator & { deviceMemory?: number };
+    const weakDevice =
+      (navigator.hardwareConcurrency ?? 8) <= 4 || (nav.deviceMemory ?? 8) <= 4;
+
+    const reduced =
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches || weakDevice;
     gl.uniform1f(uReduced, reduced ? 1 : 0);
+    const MIN_FRAME_MS = 1000 / 36;
     gl.uniform1f(uDark, currentTheme() === "dark" ? 1 : 0);
 
     const pointer = { x: 0.5, y: 0.62, tx: 0.5, ty: 0.62 };
@@ -215,11 +235,15 @@ export function ShaderField({ className = "" }: { className?: string }) {
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     };
 
+    let lastDraw = 0;
     const loop = () => {
       cancelAnimationFrame(raf);
       const tick = (now: number) => {
         if (!visible || !running || reduced) return;
-        render(now);
+        if (now - lastDraw >= MIN_FRAME_MS) {
+          lastDraw = now;
+          render(now);
+        }
         raf = requestAnimationFrame(tick);
       };
       raf = requestAnimationFrame(tick);

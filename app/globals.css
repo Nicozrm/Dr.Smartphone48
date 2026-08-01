@@ -484,7 +484,16 @@ html[data-js] .reveal[data-revealed="true"] {
     --line: #cccccc;
     --line-strong: #999999;
     --line-inverse: #cccccc;
+    /* Auch die Statusfarben werden zu Graustufen – ein Schwarz-Weiß-Drucker
+       macht aus einem hellen Grün sonst ein unlesbares Grau auf Grau. */
     --accent: #000000;
+    --accent-subtle: #f0f0f0;
+    --positive: #000000;
+    --positive-subtle: #f0f0f0;
+    --warn: #000000;
+    --warn-subtle: #f0f0f0;
+    --danger: #000000;
+    --danger-subtle: #f0f0f0;
     --shadow-raised: none;
     --shadow-floating: none;
     --shadow-button: none;
@@ -531,6 +540,56 @@ html[data-js] .reveal[data-revealed="true"] {
   [data-print="block"] {
     display: block !important;
     break-inside: avoid;
+  }
+
+  /* Aufklappbares gehört auf den Schirm, nicht aufs Blatt: Auf Papier bleibt
+     nur eine Überschrift ohne Inhalt übrig. */
+  details {
+    display: none !important;
+  }
+
+  /* Zusammengehörige Blöcke nicht über den Seitenumbruch reißen. */
+  fieldset,
+  label,
+  li,
+  dl > div,
+  [data-print-keep] {
+    break-inside: avoid;
+  }
+
+  /* Eingabefelder werden auf Papier zu Ausfülllinien. */
+  input[type="text"],
+  input[type="tel"],
+  input:not([type]),
+  textarea {
+    border: 1px solid #999 !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Der Ausdruck ist ein Formular – Kästchen müssen sichtbar bleiben,
+     auch wenn der Browser Hintergrundgrafiken unterdrückt. */
+  input[type="checkbox"],
+  input[type="radio"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border: 1px solid #000;
+    border-radius: 2px;
+  }
+  input[type="radio"] {
+    border-radius: 50%;
+  }
+  input[type="checkbox"]:checked::after,
+  input[type="radio"]:checked::after {
+    content: "";
+    display: block;
+    margin: 2px;
+    width: 6px;
+    height: 6px;
+    background: #000;
+    border-radius: inherit;
   }
 
   a[href]::after {

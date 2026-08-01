@@ -105,7 +105,7 @@ const jsonLd = {
       ],
       hasOfferCatalog: {
         "@type": "OfferCatalog",
-        name: "Reparaturleistungen",
+        name: "Leistungen",
         itemListElement: [
           "Displayreparatur",
           "Akkutausch",
@@ -113,6 +113,9 @@ const jsonLd = {
           "Kamerareparatur",
           "Ladebuchse",
           "Wasserschaden-Diagnose",
+          "Ankauf gebrauchter Smartphones",
+          "Verkauf geprüfter Refurbished-Geräte",
+          "Kostenloser Geräte-Check",
         ].map((n) => ({
           "@type": "Offer",
           itemOffered: { "@type": "Service", name: n },

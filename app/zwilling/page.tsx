@@ -1,6 +1,7 @@
 import { Reveal } from "@/components/ui/Reveal";
 import { DigitalTwin } from "@/components/twin/DigitalTwin";
 import { RepairOrReplace } from "@/components/twin/RepairOrReplace";
+import { BatteryCoach } from "@/components/battery/BatteryCoach";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { JsonLd, breadcrumbJsonLd, pageMeta } from "@/lib/seo";
 
@@ -31,6 +32,18 @@ export default function ZwillingPage() {
 
       <div className="mt-14 md:mt-16">
         <DigitalTwin />
+      </div>
+
+      {/* Was der Nutzer selbst in der Hand hat – vor der Kaufentscheidung. */}
+      <div className="mt-24 border-t border-line pt-16 md:mt-32 md:pt-20">
+        <SectionHeading
+          eyebrow="Akku-Coach"
+          title="Ihr Ladeverhalten, drei Jahre vorausgerechnet."
+          lede="Akkus altern auf zwei Wegen zugleich: kalendarisch durch Wärme und Ladestand, zyklisch durch die Ladungsmenge, die insgesamt durch die Zelle geht. Stellen Sie ein, wie Sie wirklich laden – die Kurve zeigt, was das über drei Jahre ausmacht."
+        />
+        <div className="mt-12">
+          <BatteryCoach />
+        </div>
       </div>
 
       {/* Die unbequeme Frage – bewusst hier, nicht versteckt. */}
