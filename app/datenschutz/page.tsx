@@ -18,9 +18,10 @@ export default function DatenschutzPage() {
           <p className="mt-3 text-ink-soft">
             Diese Website verarbeitet so wenige Daten wie möglich: Sie setzt
             keine Tracking-Cookies, keine Analysedienste und keine
-            Werbenetzwerke ein. Der Sofortpreis-Rechner arbeitet vollständig in
-            Ihrem Browser – Ihre Auswahl verlässt Ihr Gerät erst, wenn Sie uns
-            aktiv eine Anfrage senden.
+            Werbenetzwerke ein. Sämtliche Werkzeuge – vom Sofortpreis-Rechner
+            über den Geräte-Check bis zum Übergabeprotokoll – arbeiten
+            vollständig in Ihrem Browser. Ihre Eingaben verlassen Ihr Gerät
+            erst, wenn Sie uns aktiv eine Anfrage senden.
           </p>
         </section>
         <section>
@@ -41,6 +42,70 @@ export default function DatenschutzPage() {
             (Art. 6 Abs. 1 lit. b DSGVO). Die Daten werden gelöscht, sobald sie
             für diesen Zweck nicht mehr erforderlich sind und keine
             gesetzlichen Aufbewahrungspflichten bestehen.
+          </p>
+        </section>
+        <section>
+          <h2 className="text-title">Werkzeuge auf dieser Website</h2>
+          <p className="mt-3 text-ink-soft">
+            Sofortpreis-Rechner, Geräte-Check, digitaler Zwilling, Akku-Coach,
+            Ankauf-Rechner und Reparatur-Ticket laufen vollständig in Ihrem
+            Browser. Es gibt für sie keine Serververarbeitung, keine Datenbank
+            und keine Übermittlung an Dritte.
+          </p>
+          <ul className="mt-4 space-y-2.5 text-ink-soft">
+            <li>
+              <strong className="font-medium text-ink-strong">Geräte-Check:</strong>{" "}
+              Die Tests greifen – nur nach Ihrer ausdrücklichen Freigabe – auf
+              Kamera, Mikrofon, Lage- und Bewegungssensoren sowie den
+              Akkustatus zu. Die Messwerte werden im Arbeitsspeicher
+              ausgewertet und nicht gespeichert oder gesendet. Aufnahmen
+              entstehen dabei nicht.
+            </li>
+            <li>
+              <strong className="font-medium text-ink-strong">Reparatur-Ticket:</strong>{" "}
+              Name, Telefonnummer, IMEI, Zustandsangaben und Anmerkungen
+              bleiben im Arbeitsspeicher dieses Tabs. Sie werden nicht
+              gesendet und auch nicht lokal gespeichert; mit dem Schließen des
+              Tabs sind sie weg. Gerät und gewählte Reparaturen stehen in der
+              Adresse der Seite – teilen Sie diesen Link daher nur bewusst.
+            </li>
+            <li>
+              <strong className="font-medium text-ink-strong">
+                Anfragen, die Sie absenden:
+              </strong>{" "}
+              Erst wenn Sie eine Terminanfrage, eine Ankauf-Anfrage oder das
+              Kontaktformular abschicken, verlassen die eingegebenen Daten Ihr
+              Gerät – zur Bearbeitung Ihres Anliegens
+              (Art. 6 Abs. 1 lit. b DSGVO).
+            </li>
+            <li>
+              <strong className="font-medium text-ink-strong">
+                Gewählte Darstellung:
+              </strong>{" "}
+              Ob Sie hell oder dunkel lesen, merkt sich Ihr Browser lokal
+              (localStorage). Diese Angabe ist rein technisch, wird nicht
+              übertragen und lässt keinen Rückschluss auf Ihre Person zu.
+            </li>
+          </ul>
+        </section>
+        <section>
+          <h2 className="text-title">Offline-Nutzung (Service Worker)</h2>
+          <p className="mt-3 text-ink-soft">
+            Damit insbesondere die Notfall-Soforthilfe auch ohne Verbindung
+            lesbar bleibt, legt die Website Seiteninhalte im Cache Ihres
+            Browsers ab (Art. 6 Abs. 1 lit. f DSGVO). Gespeichert werden
+            ausschließlich öffentliche Seiten dieser Website, keine
+            personenbezogenen Daten. Sie können den Speicher jederzeit über
+            die Website-Einstellungen Ihres Browsers leeren.
+          </p>
+        </section>
+        <section>
+          <h2 className="text-title">Externe Verweise</h2>
+          <p className="mt-3 text-ink-soft">
+            Verweise auf Google Maps, Google-Rezensionen und WhatsApp werden
+            erst beim Anklicken aufgerufen. Bis dahin findet keine Verbindung
+            zu diesen Anbietern statt. Ab dem Klick gelten deren
+            Datenschutzbestimmungen.
           </p>
         </section>
         <section>

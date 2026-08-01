@@ -1382,15 +1382,23 @@ function Befund({ results }: { results: Record<string, Result> }) {
           {done.map((id) => {
             const r = results[id];
             return (
-              <li key={id} className="flex items-center justify-between gap-3 border-b border-line-inverse pb-2.5 text-[0.875rem]">
-                <span className="flex items-center gap-2 text-ink-inverse-soft">
+              // min-w-0: Ohne das behält der Rasterplatz die Mindestbreite
+              // seines Inhalts, und lange Befundtexte schieben die Zeile über
+              // den Bildschirmrand hinaus, statt gekürzt zu werden.
+              <li
+                key={id}
+                className="flex min-w-0 items-center justify-between gap-3 border-b border-line-inverse pb-2.5 text-[0.875rem]"
+              >
+                <span className="flex shrink-0 items-center gap-2 text-ink-inverse-soft">
                   <span
                     className="h-1.5 w-1.5 shrink-0 rounded-full"
                     style={{ background: statusMeta[r.status].color }}
                   />
                   {LABELS[id]}
                 </span>
-                <span className="truncate text-right text-ink-inverse">{r.summary}</span>
+                <span className="min-w-0 truncate text-right text-ink-inverse">
+                  {r.summary}
+                </span>
               </li>
             );
           })}

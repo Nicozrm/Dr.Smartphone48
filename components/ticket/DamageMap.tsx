@@ -154,9 +154,47 @@ function Shell({
           </g>
         ))}
       </svg>
+
+      {/* Ohne Zeigegerät: neun benannte Felder statt einer Klickfläche.
+          Eine Schadenskarte, die sich nur mit der Maus ausfüllen lässt, ist
+          für einen Teil der Kundschaft gar keine. */}
+      <details className="mt-3" data-print="hide">
+        <summary className="cursor-pointer text-center text-[0.75rem] text-ink-faint transition-colors hover:text-ink-strong">
+          Ohne Maus setzen
+        </summary>
+        <div
+          role="group"
+          aria-label={`Bereich auf der ${side === "front" ? "Vorderseite" : "Rückseite"} wählen`}
+          className="mx-auto mt-2 grid max-w-[150px] grid-cols-3 gap-1"
+        >
+          {zones.map((zone) => (
+            <button
+              key={zone.label}
+              type="button"
+              onClick={() => onAdd(side, zone.x, zone.y)}
+              className="rounded-[6px] border border-line py-1.5 text-[0.625rem] leading-tight text-ink-soft transition-colors hover:border-ink-faint hover:text-ink-strong"
+            >
+              {zone.label}
+            </button>
+          ))}
+        </div>
+      </details>
     </div>
   );
 }
+
+/** Neun benannte Felder – die Tastatur-Entsprechung der Klickfläche. */
+const zones: { label: string; x: number; y: number }[] = [
+  { label: "oben links", x: 0.22, y: 0.14 },
+  { label: "oben", x: 0.5, y: 0.1 },
+  { label: "oben rechts", x: 0.78, y: 0.14 },
+  { label: "links", x: 0.16, y: 0.5 },
+  { label: "Mitte", x: 0.5, y: 0.5 },
+  { label: "rechts", x: 0.84, y: 0.5 },
+  { label: "unten links", x: 0.22, y: 0.86 },
+  { label: "unten", x: 0.5, y: 0.9 },
+  { label: "unten rechts", x: 0.78, y: 0.86 },
+];
 
 export function DamageMap({
   marks,
@@ -227,13 +265,24 @@ export function DamageMap({
                   <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-line-strong font-mono text-[0.6875rem] text-ink-strong">
                     {mark.id}
                   </span>
-                  <span className="text-ink">
+                  <span className="min-w-0 flex-1 text-ink">
                     {kind.label}
                     <span className="text-ink-faint">
                       {" · "}
                       {mark.side === "front" ? "Vorderseite" : "Rückseite"}
                     </span>
                   </span>
+                  {/* Der Weg zum Löschen ohne Zeigegerät – auf dem Ausdruck
+                      wäre ein Löschknopf sinnlos. */}
+                  <button
+                    type="button"
+                    onClick={() => onRemove(mark.id)}
+                    aria-label={`Marke ${mark.id}, ${kind.label}, entfernen`}
+                    data-print="hide"
+                    className="-my-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-sunken hover:text-ink-strong"
+                  >
+                    <Icon name="close" size={13} />
+                  </button>
                 </li>
               );
             })}
