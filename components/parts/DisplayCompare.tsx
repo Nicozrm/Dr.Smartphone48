@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 
 /*
@@ -78,38 +78,61 @@ const grades: Grade[] = [
   },
 ];
 
-/** Verzögert die Zeigerposition um `latency` Millisekunden – echt, nicht gemalt. */
+/**
+ * Verzögert die Zeigerposition um `latency` Millisekunden – echt, nicht gemalt.
+ *
+ * Die Schleife läuft nur, solange tatsächlich Eingaben ankommen, und hält an,
+ * sobald die Anzeige aufgeholt hat. Eine Demonstration, die im Hintergrund
+ * dauerhaft Bilder anfordert, wäre ausgerechnet an der Stelle unhöflich, an
+ * der es um Sorgfalt geht.
+ */
 function useLaggedPointer(latency: number) {
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [touched, setTouched] = useState(false);
   const history = useRef<{ x: number; y: number; t: number }[]>([]);
-  const frame = useRef<number>(0);
+  const frame = useRef<number | null>(null);
+  const lastPush = useRef(0);
+  const latencyRef = useRef(latency);
+  latencyRef.current = latency;
 
-  useEffect(() => {
+  const run = useCallback(() => {
+    if (frame.current !== null) return;
     const tick = () => {
       const now = performance.now();
-      const target = now - latency;
+      const target = now - latencyRef.current;
       const list = history.current;
-      // Ältestes Ereignis suchen, das jung genug ist, um jetzt sichtbar zu sein.
-      let chosen: { x: number; y: number } | null = null;
+      // Jüngstes Ereignis suchen, das alt genug ist, um jetzt sichtbar zu sein.
       for (let i = list.length - 1; i >= 0; i--) {
         if (list[i].t <= target) {
-          chosen = list[i];
+          setPosition({ x: list[i].x, y: list[i].y });
           break;
         }
       }
-      if (chosen) setPosition(chosen);
       // Alles Ältere als eine Sekunde ist Ballast.
       while (list.length > 2 && list[0].t < now - 1000) list.shift();
+
+      // Nichts mehr in der Warteschlange und keine frische Eingabe: anhalten.
+      if (now - lastPush.current > latencyRef.current + 200) {
+        frame.current = null;
+        return;
+      }
       frame.current = requestAnimationFrame(tick);
     };
     frame.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame.current);
-  }, [latency]);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
+    },
+    [],
+  );
 
   const push = (x: number, y: number) => {
     if (!touched) setTouched(true);
-    history.current.push({ x, y, t: performance.now() });
+    lastPush.current = performance.now();
+    history.current.push({ x, y, t: lastPush.current });
+    run();
   };
 
   return { position, push, touched };
