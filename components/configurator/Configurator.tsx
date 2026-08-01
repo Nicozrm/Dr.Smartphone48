@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   brands,
   findModel,
@@ -15,6 +22,18 @@ import { ticketQuery } from "@/lib/ticket";
 import { Icon } from "@/components/ui/Icon";
 import Link from "next/link";
 import { DeviceDiagram } from "./DeviceDiagram";
+
+/*
+  Der Geräte-Vorschlag entsteht erst im Browser – der Server kennt die
+  Bildschirmgröße nicht. Käme er per useEffect, würde er nach dem ersten Bild
+  eingefügt und schöbe alles darunter nach unten: ein sichtbarer Ruck und ein
+  messbarer Layout-Shift.
+
+  useLayoutEffect läuft vor dem Zeichnen. Der Vorschlag ist damit von der
+  ersten Darstellung an da oder gar nicht – nichts springt. Auf dem Server
+  gibt es kein Layout, dort bleibt es bei useEffect.
+*/
+const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 function StepLabel({ number, children }: { number: string; children: ReactNode }) {
   return (
@@ -34,8 +53,8 @@ export function Configurator() {
   const [detected, setDetected] = useState<DetectResult | null>(null);
   const [detectDismissed, setDetectDismissed] = useState(false);
 
-  // Erkennung einmal nach dem Mount – rein lesend, ohne Netzwerk.
-  useEffect(() => {
+  // Erkennung einmal vor dem ersten Bild – rein lesend, ohne Netzwerk.
+  useBeforePaint(() => {
     try {
       setDetected(detectDevice());
     } catch {
