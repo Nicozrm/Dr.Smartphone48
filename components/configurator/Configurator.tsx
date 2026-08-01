@@ -11,7 +11,9 @@ import {
 import { formatEuro, formatMinutes } from "@/lib/format";
 import { site } from "@/lib/site";
 import { detectDevice, type DetectResult } from "@/lib/detect";
+import { ticketQuery } from "@/lib/ticket";
 import { Icon } from "@/components/ui/Icon";
+import Link from "next/link";
 import { DeviceDiagram } from "./DeviceDiagram";
 
 function StepLabel({ number, children }: { number: string; children: ReactNode }) {
@@ -413,6 +415,22 @@ export function Configurator() {
                 <dd>{site.warrantyMonths} Monate Garantie auf Teil und Arbeit</dd>
               </div>
             </dl>
+
+            {/* Aus dem Preis wird ein Vorgang: eigene Nummer, QR-Code zum
+                Vorzeigen, druckbares Übergabeprotokoll. */}
+            {entry && chosen.length > 0 ? (
+              <Link
+                href={`/ticket?${ticketQuery(
+                  entry.brand.id,
+                  entry.model.id,
+                  chosen.map((r) => r.kind),
+                )}`}
+                className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-line-strong text-[0.9375rem] font-medium text-ink-strong transition-colors duration-[var(--duration-fast)] hover:border-ink-strong"
+              >
+                Ticket erstellen
+                <Icon name="arrow-right" size={16} />
+              </Link>
+            ) : null}
           </div>
         </div>
         <p className="mt-3 text-center text-[0.8125rem] text-ink-faint">
