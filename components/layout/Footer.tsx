@@ -8,10 +8,18 @@ const columns = [
     title: "Leistungen",
     links: [
       { href: "/reparatur", label: "Reparatur & Sofortpreis" },
-      { href: "/check", label: "Geräte-Check" },
-      { href: "/zwilling", label: "Digitaler Zwilling" },
+      { href: "/ankauf", label: "Ankauf" },
       { href: "/refurbished", label: "Refurbished" },
       { href: "/ersatzteile", label: "Ersatzteile" },
+    ],
+  },
+  {
+    title: "Werkzeuge",
+    links: [
+      { href: "/notfall", label: "Notfall-Soforthilfe" },
+      { href: "/check", label: "Geräte-Check" },
+      { href: "/zwilling", label: "Digitaler Zwilling" },
+      { href: "/ticket", label: "Reparatur-Ticket" },
     ],
   },
   {
@@ -36,7 +44,7 @@ export function Footer() {
   return (
     <footer className="bg-inverse text-ink-inverse-soft">
       <div className="mx-auto max-w-6xl px-5 py-16 md:px-8 md:py-20">
-        <div className="grid gap-12 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+        <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1fr]">
           <div>
             <Logo inverse />
             <p className="mt-5 max-w-xs text-[0.9375rem] leading-relaxed">

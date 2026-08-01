@@ -31,9 +31,37 @@ export const metadata: Metadata = {
   – Keine Panikfarben, kein Blinken. Wer erschrickt, liest schlechter.
 */
 
+/*
+  Strukturierte Daten: Jedes Protokoll ist eine HowTo mit nummerierten
+  Schritten. Damit kann eine Suchmaschine die Anleitung direkt ausspielen –
+  und wer im Notfall sucht, bekommt die ersten Schritte womöglich, ohne die
+  Seite überhaupt zu öffnen. Das ist der Sinn der Sache.
+*/
+const howToJsonLd = {
+  "@context": "https://schema.org",
+  "@graph": emergencyScenarios.map((scenario) => ({
+    "@type": "HowTo",
+    "@id": `${site.url}/notfall#${scenario.id}-howto`,
+    name: `${scenario.label}: ${scenario.headline}`,
+    description: scenario.lede,
+    inLanguage: "de-DE",
+    step: scenario.doThis.map((step, i) => ({
+      "@type": "HowToStep",
+      position: i + 1,
+      name: step.title,
+      text: step.detail,
+      url: `${site.url}/notfall#${scenario.id}`,
+    })),
+  })),
+};
+
 export default function NotfallPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(howToJsonLd) }}
+      />
       <section className="mx-auto max-w-6xl px-5 pb-14 pt-28 md:px-8 md:pt-36">
         <Reveal className="max-w-2xl">
           <p className="text-eyebrow">Soforthilfe</p>

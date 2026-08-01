@@ -17,6 +17,8 @@ const PRECACHE_URLS = [
   "/",
   "/reparatur",
   "/check",
+  "/ankauf",
+  "/zwilling",
   "/refurbished",
   "/ersatzteile",
   "/werkstatt",
