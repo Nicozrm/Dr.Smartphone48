@@ -1,15 +1,16 @@
-import type { Metadata } from "next";
 import { RefurbishedGrid } from "@/components/sections/RefurbishedGrid";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Reveal } from "@/components/ui/Reveal";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { grades } from "@/lib/data/refurbished";
 import { site } from "@/lib/site";
+import { JsonLd, breadcrumbJsonLd, pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMeta({
+  path: "/refurbished",
   title: "Refurbished Smartphones",
   description: `Geprüfte Smartphones mit ${site.checkpoints}-Punkte-Protokoll, transparenten Zustandsgraden und ${site.warrantyMonths} Monaten Garantie – bis zu 60 % unter Neupreis.`,
-};
+});
 
 const promises: { icon: IconName; title: string; text: string }[] = [
   {
@@ -32,6 +33,7 @@ const promises: { icon: IconName; title: string; text: string }[] = [
 export default function RefurbishedPage() {
   return (
     <>
+      <JsonLd data={breadcrumbJsonLd([{ name: "Refurbished", path: "/refurbished" }])} />
       <section className="mx-auto max-w-6xl px-5 pb-16 pt-28 md:px-8 md:pt-36">
         <Reveal className="max-w-2xl">
           <p className="text-eyebrow">Refurbished</p>

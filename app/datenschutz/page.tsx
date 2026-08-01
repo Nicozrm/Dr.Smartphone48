@@ -1,10 +1,12 @@
-import type { Metadata } from "next";
 import { site } from "@/lib/site";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMeta({
+  path: "/datenschutz",
   title: "Datenschutzerklärung",
-  robots: { index: false },
-};
+  description: `Wie ${site.name} personenbezogene Daten verarbeitet – Kontaktformular, Hosting, Ihre Rechte nach DSGVO.`,
+  noindex: true,
+});
 
 export default function DatenschutzPage() {
   return (

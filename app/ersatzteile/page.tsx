@@ -1,32 +1,36 @@
-import type { Metadata } from "next";
 import { Button } from "@/components/ui/Button";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Reveal } from "@/components/ui/Reveal";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { DisplayCompare } from "@/components/parts/DisplayCompare";
 import { site } from "@/lib/site";
+import { JsonLd, breadcrumbJsonLd, pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMeta({
+  path: "/ersatzteile",
   title: "Ersatzteile für Werkstätten",
   description:
     "Originalteile und geprüfte Komponenten für Werkstätten und Techniker – mit Eingangskontrolle, fairen Staffelpreisen und Versand am selben Tag.",
-};
+});
+
+/** Garantieangaben immer aus den Stammdaten – siehe lib/site.ts. */
+const warranty = `${site.warrantyMonths} Monate Garantie`;
 
 const tiers: { name: string; description: string; features: string[] }[] = [
   {
     name: "Original",
     description: "Direkt vom Hersteller bezogen, mit voller Funktionsgarantie.",
-    features: ["Herstellerqualität", "Volle Sensorik-Kompatibilität", "24 Monate Gewährleistung"],
+    features: ["Herstellerqualität", "Volle Sensorik-Kompatibilität", warranty],
   },
   {
     name: "Originalqualität",
     description: "Baugleiche Komponenten aus zertifizierter Fertigung – unsere Empfehlung für die meisten Reparaturen.",
-    features: ["Von uns einzeln geprüft", "Bestes Preis-Leistungs-Verhältnis", "24 Monate Gewährleistung"],
+    features: ["Von uns einzeln geprüft", "Bestes Preis-Leistungs-Verhältnis", warranty],
   },
   {
     name: "Refurbished-Teile",
     description: "Aufbereitete Originalkomponenten – nachhaltig und budgetfreundlich.",
-    features: ["100 % Original", "Funktionsgeprüft und dokumentiert", "12 Monate Gewährleistung"],
+    features: ["100 % Original", "Funktionsgeprüft und dokumentiert", warranty],
   },
 ];
 
@@ -34,12 +38,12 @@ const services: { icon: IconName; title: string; text: string }[] = [
   {
     icon: "check",
     title: "Eingangskontrolle statt Stichprobe",
-    text: "Jedes Teil wird vor dem Versand einzeln geprüft – nicht chargenweise. Unsere Reklamationsquote liegt unter 0,5 %.",
+    text: "Jedes Teil wird vor dem Versand einzeln geprüft – nicht chargenweise. Was die Kontrolle nicht besteht, geht zurück statt raus.",
   },
   {
     icon: "truck",
     title: "Versand am selben Tag",
-    text: `Bestellungen bis 16 Uhr verlassen noch am selben Tag das Lager. In ${site.city} und Umgebung fahren wir dringende Teile selbst.`,
+    text: `Bestellungen bis 16 Uhr verlassen noch am selben Tag das Lager. In ${site.city} und Umgebung ist Abholung jederzeit während der Öffnungszeiten möglich.`,
   },
   {
     icon: "tool",
@@ -51,6 +55,7 @@ const services: { icon: IconName; title: string; text: string }[] = [
 export default function ErsatzteilePage() {
   return (
     <>
+      <JsonLd data={breadcrumbJsonLd([{ name: "Ersatzteile", path: "/ersatzteile" }])} />
       <section className="mx-auto max-w-6xl px-5 pb-16 pt-28 md:px-8 md:pt-36">
         <Reveal className="max-w-2xl">
           <p className="text-eyebrow">Ersatzteile · B2B</p>

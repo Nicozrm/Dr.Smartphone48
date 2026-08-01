@@ -30,12 +30,15 @@ export const metadata: Metadata = {
   authors: [{ name: site.legalName }],
   creator: site.legalName,
   publisher: site.legalName,
-  alternates: { canonical: "/" },
+  // Bewusst **kein** `alternates.canonical` und kein `openGraph.url` hier:
+  // Next.js vererbt beide Felder an jede Unterseite, die sie nicht selbst
+  // setzt – dadurch würde jede Seite die Startseite als kanonisch melden und
+  // aus dem Index fallen. Jede Route setzt ihre Metadaten über `pageMeta()`
+  // in lib/seo.tsx.
   openGraph: {
     type: "website",
     siteName: site.name,
     locale: "de_DE",
-    url: site.url,
     title: `${site.name} – Handy-Reparatur in ${site.city}`,
     description: site.description,
   },

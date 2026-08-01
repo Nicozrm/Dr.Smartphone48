@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Reveal } from "@/components/ui/Reveal";
 import { reviews, reviewSummary, formatReviewDate, type Review } from "@/lib/data/reviews";
@@ -101,15 +101,26 @@ function ReviewCard({ review, onOpen, index }: { review: Review; onOpen: () => v
 }
 
 function ReviewOverlay({ review, onClose }: { review: Review; onClose: () => void }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.documentElement.style.overflow = "hidden";
     window.addEventListener("keydown", onKey);
+
+    // Fokus in den Dialog holen und beim Schließen dorthin zurückgeben, wo er
+    // herkam. Ohne das bleibt der Fokus hinter dem Overlay auf der Karte
+    // stehen: Ein Screenreader liest weiter die Seite darunter vor, und die
+    // Tabulatortaste wandert durch Inhalte, die niemand sieht.
+    const previous = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus();
+
     return () => {
       document.documentElement.style.overflow = "";
       window.removeEventListener("keydown", onKey);
+      previous?.focus?.();
     };
   }, [onClose]);
 
@@ -126,7 +137,11 @@ function ReviewOverlay({ review, onClose }: { review: Review; onClose: () => voi
         onClick={onClose}
         className="cmdk-scrim absolute inset-0 bg-ink-strong/30 backdrop-blur-sm"
       />
-      <div className="cmdk-panel glass-strong relative w-full max-w-lg rounded-[var(--radius-l)] p-6 shadow-floating md:p-8">
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        className="cmdk-panel glass-strong relative w-full max-w-lg rounded-[var(--radius-l)] p-6 shadow-floating outline-none md:p-8"
+      >
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-2.5">
             <GoogleG size={18} />

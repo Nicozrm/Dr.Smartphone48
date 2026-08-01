@@ -1,19 +1,21 @@
-import type { Metadata } from "next";
 import { Reveal } from "@/components/ui/Reveal";
 import { DigitalTwin } from "@/components/twin/DigitalTwin";
 import { RepairOrReplace } from "@/components/twin/RepairOrReplace";
 import { BatteryCoach } from "@/components/battery/BatteryCoach";
 import { SectionHeading } from "@/components/ui/SectionHeading";
+import { JsonLd, breadcrumbJsonLd, pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMeta({
+  path: "/zwilling",
   title: "Digitaler Zwilling – Zustand und Lebensdauer",
   description:
     "Der digitale Zwilling Ihres Smartphones: Akkuzustand, betroffene Bauteile, empfohlene Wartung und verbleibende Nutzungsdauer – in Sekunden berechnet.",
-};
+});
 
 export default function ZwillingPage() {
   return (
     <section className="mx-auto max-w-6xl px-5 pb-24 pt-28 md:px-8 md:pt-36">
+      <JsonLd data={breadcrumbJsonLd([{ name: "Digitaler Zwilling", path: "/zwilling" }])} />
       <Reveal className="max-w-2xl">
         <p className="text-eyebrow">Digitaler Zwilling</p>
         <h1 className="text-display mt-4">

@@ -5,18 +5,20 @@ export interface FaqEntry {
   answer: string;
 }
 
-/*
-  Häufige Fragen.
-
-  Die Garantiedauer kommt aus den Stammdaten, nicht aus dem Fließtext –
-  sonst steht hier irgendwann eine andere Zahl als im Rest der Seite, und
-  ausgerechnet die landet über die FAQPage-Daten im Suchergebnis.
-
-  Beantwortet wird auch, was unangenehm ist: dass wir bei aktiver
-  Kontosperre nicht ankaufen dürfen, dass Reis nicht hilft, warum es
-  anderswo billiger ist. Eine FAQ, die nur die Werbung wiederholt, liest
-  niemand zweimal.
-*/
+/**
+ * Häufige Fragen.
+ *
+ * Garantieangaben werden **ausschließlich** aus `site.warrantyMonths`
+ * gezogen. Zuvor standen hier 24 Monate, während der Konfigurator, die
+ * Startseite und die Ersatzteil-Seite 12 Monate auswiesen – ein Widerspruch
+ * auf derselben Seite. Steht die Zusage an einer Stelle als feste Zahl, läuft
+ * sie beim nächsten Textwechsel wieder auseinander.
+ *
+ * Beantwortet wird auch, was unangenehm ist: dass wir bei aktiver
+ * Kontosperre nicht ankaufen dürfen, dass Reis nicht hilft, warum es
+ * anderswo billiger ist. Eine FAQ, die nur die Werbung wiederholt, liest
+ * niemand zweimal.
+ */
 export const faq: FaqEntry[] = [
   {
     question: "Wie lange dauert eine Reparatur?",
@@ -34,8 +36,8 @@ export const faq: FaqEntry[] = [
       "Ausschließlich Originalteile oder geprüfte Teile in Originalqualität. Jedes Teil durchläuft vor dem Einbau unsere Eingangskontrolle. Günstige Nachbauten verbauen wir nicht.",
   },
   {
-    question: `Was bedeutet die Garantie von ${site.warrantyMonths} Monaten?`,
-    answer: `Auf jede Reparatur und jedes verbaute Teil geben wir ${site.warrantyMonths} Monate Garantie. Tritt derselbe Fehler erneut auf, beheben wir ihn kostenfrei.`,
+    question: `Was bedeutet die ${site.warrantyMonths}-Monats-Garantie?`,
+    answer: `Auf jede Reparatur und jedes verbaute Teil geben wir ${site.warrantyMonths} Monate Garantie. Tritt derselbe Fehler erneut auf, beheben wir ihn kostenfrei. Ihre gesetzlichen Gewährleistungsrechte bleiben davon unberührt.`,
   },
   {
     question: "Was, wenn die Reparatur nicht möglich ist?",
@@ -44,7 +46,7 @@ export const faq: FaqEntry[] = [
   },
   {
     question: "Kann ich ohne Termin vorbeikommen?",
-    answer: `Ja, jederzeit während der Öffnungszeiten (${site.openingHoursShort}). Mit Termin kommt Ihr Gerät allerdings sofort auf den Werktisch.`,
+    answer: `Ja, jederzeit während der Öffnungszeiten (${site.openingHoursShort}). Mit Termin garantieren wir allerdings, dass Ihr Gerät sofort auf den Werktisch kommt.`,
   },
   {
     question: "Mein Handy ist ins Wasser gefallen – was jetzt?",
@@ -67,3 +69,19 @@ export const faq: FaqEntry[] = [
       "Fast immer wegen des Ersatzteils. Ein günstiger Nachbau spart im Einkauf spürbar und kostet Helligkeit, Farbtreue und Reaktionszeit; oft fällt zusätzlich True Tone aus. Unter „Ersatzteile“ können Sie den Unterschied selbst ausprobieren.",
   },
 ];
+
+/**
+ * Dieselben Fragen maschinenlesbar. Google spielt daraus ein Rich Result aus –
+ * die Antworten stehen dann direkt im Suchergebnis. Voraussetzung ist, dass
+ * jede Frage auch sichtbar auf der Seite steht; deshalb wird dieses Schema nur
+ * dort eingebunden, wo die FAQ-Sektion tatsächlich gerendert wird.
+ */
+export const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faq.map((entry) => ({
+    "@type": "Question",
+    name: entry.question,
+    acceptedAnswer: { "@type": "Answer", text: entry.answer },
+  })),
+};

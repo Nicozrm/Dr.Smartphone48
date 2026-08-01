@@ -1,18 +1,20 @@
-import type { Metadata } from "next";
 import { ContactForm } from "@/components/sections/ContactForm";
 import { LiveStatus } from "@/components/sections/LiveStatus";
 import { Icon } from "@/components/ui/Icon";
 import { Reveal } from "@/components/ui/Reveal";
 import { site } from "@/lib/site";
+import { JsonLd, breadcrumbJsonLd, pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMeta({
+  path: "/kontakt",
   title: "Kontakt & Termin",
   description: `Termin vereinbaren oder spontan vorbeikommen: ${site.street}, ${site.zip} ${site.city}. Telefonisch, per E-Mail oder über das Kontaktformular.`,
-};
+});
 
 export default function KontaktPage() {
   return (
     <section className="mx-auto max-w-6xl px-5 pb-24 pt-28 md:px-8 md:pt-36">
+      <JsonLd data={breadcrumbJsonLd([{ name: "Kontakt", path: "/kontakt" }])} />
       <Reveal className="max-w-2xl">
         <p className="text-eyebrow">Kontakt</p>
         <h1 className="text-display mt-4">

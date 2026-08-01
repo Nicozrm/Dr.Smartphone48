@@ -4,10 +4,13 @@ Anleitung für Claude Code beim Arbeiten in diesem Repository.
 
 ## Projekt
 
-**OmegaPhone** – statische Premium-Website für Smartphone-Reparatur,
+**Dr Smartphone48** (Greven) – Premium-Website für Smartphone-Reparatur,
 Refurbished-Geräte und Ersatzteile. Das Design-Briefing steht in [`Task`](./Task):
 ruhig, präzise, zurückhaltend – „Apple Store, nicht Times Square".
 Sprache der Website und der Code-Kommentare: **Deutsch**.
+
+Der Paketname in `package.json` lautet aus historischen Gründen noch
+`omegaphone`; maßgeblich ist `lib/site.ts`.
 
 ## Befehle
 
@@ -24,6 +27,7 @@ npm run cf:preview    # Worker lokal in workerd testen
 npm run cf:deploy     # Auf Cloudflare Workers deployen
 
 node scripts/generate-icons.mjs   # PWA-Icons neu rendern (headless Chromium)
+node scripts/generate-og.mjs      # public/og.png neu rendern (Link-Vorschaubild)
 ```
 
 Es gibt keine Test-Suite. Verifikation = `npm run build` + `npm run lint`.
@@ -92,15 +96,18 @@ Serverfunktion öffnet das Formular einen fertigen E-Mail-Entwurf – gesteuert
 
 ```
 app/                     App-Router-Seiten (alle statisch prerendert)
-  page.tsx               Landing Page (Hero, Pillars, Werkzeuge, Prozess, Stats, CTA)
-  reparatur/             Sofortpreis-Rechner (Signature-Feature)
+  page.tsx               Landing Page (Hero, Pillars, Werkzeuge, Anatomie,
+                         Röntgen, Stats, CTA)
+  reparatur/             Sofortpreis-Rechner (Signature-Feature) + FAQ
   notfall/               Notfall-Protokolle (ohne JS lesbar, offline im Cache)
-  check/                 Geräte-Check – Selbstdiagnose im Browser
+  check/                 Geräte-Check: Sensor-Diagnose im Browser
   ankauf/                Restwert-Rechner mit offengelegter Rechnung
   zwilling/              Digitaler Zwilling, Akku-Coach, Reparieren-oder-neu
   ticket/                Reparatur-Ticket + Übergabeprotokoll (noindex)
   refurbished/ ersatzteile/ werkstatt/ kontakt/
   impressum/ datenschutz/ agb/ offline/ not-found.tsx
+  intern/rechnung/       Rechnungswerkzeug (nicht verlinkt, noindex, kein Server)
+  api/kontakt/           Route Handler für das Formular (nur im Server-Build)
   layout.tsx             Root-Layout: Metadata, JSON-LD, Header/Footer, SW-Registrierung
   globals.css            Design-Tokens (CSS-Variablen) + Tailwind-4-Theme + Motion + Druck
   sitemap.ts robots.ts manifest.ts   Metadata-Routen (force-static)
@@ -109,31 +116,35 @@ components/
                          SectionHeading, ThemeToggle, QrCode
   layout/                Header, Footer, Logo
   sections/              Faq, RefurbishedGrid/-Card, DiagramShowcase, ContactForm,
-                         Reviews, LiveStatus
-  configurator/          Configurator (Preislogik) + DeviceDiagram
-  experience/            Bootloader, CommandPalette, ShaderField, DeviceExploded,
-                         XRay, MagneticField, ScrollProgress
-  check/                 DeviceCheck (Sensor-, Audio-, Display-Tests)
+                         Reviews (Google-Aggregat), LiveStatus (Öffnungsstatus)
+  configurator/          Configurator (Preislogik) + DeviceDiagram (SVG-Explosion)
+  experience/            Bootloader, CommandPalette (⌘K), ShaderField (WebGL-Hero),
+                         DeviceExploded, XRay, MagneticField, ScrollProgress
+  check/                 DeviceCheck (Display-, Sensor-, Audio-, Akku-Tests)
   twin/                  DigitalTwin, RepairOrReplace
   battery/               BatteryCoach (3-Jahres-Prognose)
   resale/                ResaleCalculator (Ankauf)
   ticket/                RepairTicket, DamageMap (Schadenskarte)
   emergency/             RescueClock
   parts/                 DisplayCompare (echte Eingabeverzögerung)
+  invoice/               InvoiceBuilder (Editor) + InvoiceSheet (das Blatt, DIN 5008)
   pwa/                   ServiceWorkerRegister
 lib/
   site.ts                Stammdaten (Name, Adresse, URL …) – zentrale Quelle
-  format.ts              formatEuro etc.
+  seo.tsx                pageMeta() – Canonical/OG pro Seite, Breadcrumbs, JsonLd
   qr.ts                  QR-Encoder nach ISO/IEC 18004 (Byte-Modus, Stufe M, v1–20)
   imei.ts                Luhn-Prüfung mit offengelegter Rechnung
   ticket.ts              Ticket-Zustand aus der Adresse, Vorgangsnummer, .ics
   resale.ts              Ankauf-Bewertung als Liste begründeter Posten
   battery.ts             Alterungsmodell (kalendarisch + zyklisch)
-  detect.ts theme.ts
-  data/                  devices.ts (Modelle, Preise, Ankaufswerte),
-                         refurbished.ts, faq.ts, reviews.ts, emergency.ts
+  format.ts detect.ts theme.ts
+  data/                  devices.ts (Modelle, Preise, Ankaufswerte), refurbished.ts,
+                         faq.ts, reviews.ts, emergency.ts
+  invoice/               types.ts calc.ts (Cent-Arithmetik) catalog.ts validate.ts
+                         (§ 14 UStG) store.ts (localStorage) girocode.ts qr.ts
 public/
   sw.js                  Handgeschriebener Service Worker (Precache, /offline-Fallback)
+  og.png                 Link-Vorschaubild 1200×630 (scripts/generate-og.mjs)
   icons/                 PWA-Icons
 scripts/
   build-static.mjs       Statischer Export (legt app/api beiseite)
@@ -152,9 +163,68 @@ scripts/
   bleibt alles sichtbar (`html[data-js]`-Gate).
 - Server Components als Default; `"use client"` nur wo nötig
   (Reveal, Configurator, DiagramShowcase, ContactForm, ServiceWorkerRegister,
+  Bootloader, CommandPalette, DeviceCheck, DigitalTwin, ShaderField,
   die Werkzeuge unter check/, twin/, battery/, resale/, ticket/, parts/).
-- Alle Firmendaten (Adresse, Telefon, Preise, Ankaufswerte, Impressum) sind
-  **Platzhalter** und vor dem Livegang zu ersetzen.
+- Alle Firmendaten (Adresse, Telefon, Reparatur- und Ankaufspreise,
+  Impressum) sind **Platzhalter** und vor dem Livegang zu ersetzen.
+
+### Metadaten: jede Seite setzt ihre eigenen
+
+Jede Route exportiert `metadata` über **`pageMeta()`** aus `lib/seo.tsx` –
+niemals ein handgeschriebenes `Metadata`-Objekt.
+
+Grund: Next.js vererbt `alternates.canonical` und `openGraph.url` aus dem
+Root-Layout an jede Seite, die sie nicht selbst setzt. Standen sie dort, meldete
+**jede** Unterseite die Startseite als kanonische URL – für Google sind
+`/reparatur`, `/check` und `/kontakt` dann Duplikate und fliegen aus dem Index.
+Deshalb stehen im Root-Layout bewusst weder `canonical` noch `openGraph.url`.
+
+Prüfen lässt sich das nach jedem Build:
+
+```bash
+grep -o '<link rel="canonical" href="[^"]*"' .next/server/app/*.html
+```
+
+Jede Zeile muss einen **eigenen** Pfad zeigen.
+
+### Redaktionsregel: keine erfundenen Zahlen
+
+Sichtbare Kennzahlen (Bewertungen, Stückzahlen, Quoten) müssen belegbar sein
+und aus `lib/site.ts` stammen, wenn es sie dort gibt. Widersprechen sich
+sichtbarer Text und JSON-LD, wertet Google beides ab – und ein Besucher, der
+zwei verschiedene Bewertungsschnitte auf einer Seite liest, glaubt keinem.
+Dieselbe Regel gilt für `lib/data/reviews.ts` (nur wörtlich übernommene echte
+Google-Rezensionen) und für Garantieangaben (immer `site.warrantyMonths`,
+nie eine feste Zahl im Text).
+
+### Rechnungswerkzeug (`/intern/rechnung`)
+
+Internes Werkzeug, nicht verlinkt und nicht in der Sitemap: `noindex, nofollow`
+per Seiten-Metadaten, `Disallow: /intern/` in `robots.ts`.
+
+- **Kein Server.** Profil, Kundenarchiv, Entwurf und Verlauf liegen in
+  `localStorage` (`lib/invoice/store.ts`). Rechnungsdaten enthalten Namen,
+  Anschriften und IMEIs – was nie übertragen wird, kann nicht abfließen. Preis
+  dafür: Der Bestand hängt am Gerät, deshalb Export/Import als JSON.
+- **Beträge sind ganzzahlige Cent** (`lib/invoice/calc.ts`), gerundet pro
+  Position. Nie in Euro-Fließkomma rechnen.
+- **Preise stammen aus `lib/data/devices.ts`** (`lib/invoice/catalog.ts`), damit
+  Rechnung und Sofortpreis-Rechner nicht auseinanderlaufen.
+- **Das Blatt ist ein Blatt:** 210 × 297 mm, `overflow: hidden`, alle Maße in
+  Millimetern, Anschriftfeld nach DIN 5008 Form B. Was nicht draufpasst, wird
+  abgeschnitten – deshalb misst `InvoiceBuilder` die Unterkante des Inhalts
+  gegen die Fußzeile (`data-sheet-body` / `data-sheet-foot`) und meldet einen
+  Überlauf als Pflichtfehler. Ohne diese Messung druckt das Werkzeug
+  wortlos Rechnungen ohne Rechnungsbetrag. Etwa sechs Positionen mit Zusatzzeile
+  passen; mehr braucht echte Mehrseitigkeit, die es noch nicht gibt.
+- **Der Druck-Block in `globals.css` blendet `body > header` / `body > footer`
+  aus, nicht `header` / `footer`.** Der Fuß des Rechnungsblatts trägt
+  Steuernummer, USt-IdNr. und Bankverbindung; ein Selektor auf das nackte
+  Element nähme genau die Pflichtangaben mit.
+- Der GiroCode (EPC069-12) wird ohne Bibliothek erzeugt (`lib/invoice/qr.ts`,
+  Byte-Modus, Fehlerkorrektur M, Versionen 1–13). Die längstmögliche
+  EPC-Nutzlast liegt bei ~278 Zeichen und passt damit sicher hinein.
+
 
 ### Zwei Regeln, die über der Optik stehen
 
@@ -180,3 +250,17 @@ ausdrücklich nicht in localStorage geschrieben wird. Verlassen darf es das
 Gerät nur, wenn er selbst eine Anfrage absendet. Der Zustand des
 Reparatur-Tickets steht bewusst lesbar in der Adresse (Gerät und Reparaturen,
 nichts Persönliches). Wer hier etwas ergänzt, zieht `app/datenschutz` mit.
+
+### Offene Punkte vor dem Livegang
+
+- **Bankverbindung eintragen:** Das Rechnungswerkzeug startet ohne IBAN, BIC und
+  Steuernummer – beim ersten Start unter „Stammdaten" hinterlegen, sonst bleibt
+  der GiroCode aus und die Rechnung ist unvollständig.
+- **Garantiedauer prüfen:** `site.warrantyMonths` steht auf `12`. FAQ,
+  Ersatzteil-Seite und Metadaten nannten zuvor teils 24 Monate. Der Wert ist
+  jetzt an einer Stelle gepflegt – dort den tatsächlich zugesagten Zeitraum
+  eintragen.
+- **Kennzahlen bestätigen:** „45 Min durchschnittlicher Displaytausch" und die
+  Angaben im Konfigurator sind betriebliche Zusagen und sollten stimmen.
+- Adresse, Telefon, USt-IdNr. und Preise in `lib/site.ts` bzw.
+  `lib/data/devices.ts` gegenprüfen.

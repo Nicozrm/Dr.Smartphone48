@@ -1,12 +1,14 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/ui/Icon";
 import { site } from "@/lib/site";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMeta({
+  path: "/offline",
   title: "Offline",
-  robots: { index: false },
-};
+  description: "Diese Seite erscheint, wenn keine Verbindung besteht.",
+  noindex: true,
+});
 
 export default function OfflinePage() {
   return (
