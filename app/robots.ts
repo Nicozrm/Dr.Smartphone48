@@ -8,6 +8,10 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
+      // Interne Werkzeuge gehören nicht in den Index. Die Rechnungsdaten liegen
+      // zwar ohnehin nur im Browser, aber die Adresse muss nicht in jedem
+      // Suchergebnis stehen.
+      disallow: "/intern/",
     },
     sitemap: `${site.url}/sitemap.xml`,
   };
