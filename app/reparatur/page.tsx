@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import { Configurator } from "@/components/configurator/Configurator";
 import { Faq } from "@/components/sections/Faq";
 import { Reveal } from "@/components/ui/Reveal";
+import { site } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Reparatur mit Sofortpreis",
-  description:
-    "Gerät wählen, Schaden wählen, Festpreis sehen – in Sekunden. Originalteile, 24 Monate Garantie, die meisten Reparaturen in unter einer Stunde.",
+  description: `Gerät wählen, Schaden wählen, Festpreis sehen – in Sekunden. Originalteile, ${site.warrantyMonths} Monate Garantie, die meisten Reparaturen in unter einer Stunde.`,
 };
 
 export default function ReparaturPage() {
