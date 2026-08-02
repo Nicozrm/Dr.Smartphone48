@@ -157,6 +157,13 @@ scripts/
 - **Design-Tokens** ausschließlich über die CSS-Variablen in `app/globals.css`
   (Farben `--ink-*`/`--surface-*`, Radius `--radius-*`, Motion `--ease-*`,
   `--duration-*`). Keine Ad-hoc-Farben oder -Timings.
+- **`--accent` ist abgeleitet, nicht gesetzt.** Der Akzent wandert über zwölf
+  Sekunden zwischen `--accent-a` und `--accent-b` (`color-mix` über die per
+  `@property` registrierte Zahl `--breath`). Wer den Ton ändern will, ändert
+  die beiden Endpunkte – ein direktes `--accent: #xyz` überschreibt die
+  Ableitung und der Atem hört still auf. `--breath` ist bewusst `<number>`
+  und nicht `<percentage>`: Der Minifier kürzt `0%` zu `0`, womit die
+  Registrierung ungültig würde und die Animation kommentarlos ausfiele.
 - **Animationen**: dezent und zweckgebunden (siehe `Task`). Scroll-Reveals über
   die `Reveal`-Komponente (IntersectionObserver setzt `data-revealed`, Bewegung
   lebt in CSS). `prefers-reduced-motion` wird überall respektiert; ohne JS

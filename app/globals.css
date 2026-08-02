@@ -6,6 +6,37 @@
   Alles andere ist Ton-in-Ton.
 */
 
+/*
+  Registrierte Eigenschaft für den Atem des Akzents. Nicht registrierte
+  Custom Properties gelten dem Browser als Zeichenketten – er schaltet sie
+  hart um, statt zu interpolieren. Erst @property macht aus 0% → 100% eine
+  Bewegung.
+*/
+@property --breath {
+  /*
+    Zahl, nicht Prozent. Mit `<percentage>` wäre der Startwert `0%` – und der
+    Minifier kürzt jede Null auf `0`, womit die Registrierung ungültig wird
+    und stillschweigend verfällt: Die Farbe stünde dann einfach still, ohne
+    dass irgendetwas meldet, dass etwas fehlt. Als `<number>` überlebt der
+    Wert jede Kürzung; die Prozentangabe entsteht erst an der Verwendung.
+  */
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@keyframes op-breath {
+  to {
+    --breath: 1;
+  }
+}
+
+/* Zwölf Sekunden hin, zwölf zurück. `alternate` spart die Rückblende im
+   Keyframe und hält die Bewegung symmetrisch. */
+html {
+  animation: op-breath 12s var(--ease-inout, ease-in-out) infinite alternate;
+}
+
 :root {
   /* Flächen */
   --surface-page: #f7f7f5;
@@ -27,8 +58,23 @@
   --line-strong: rgba(20, 21, 23, 0.18);
   --line-inverse: rgba(245, 245, 243, 0.14);
 
-  /* Akzent – ein einziges, präzises Blau */
-  --accent: #2456e6;
+  /*
+    Akzent – ein einziges, präzises Blau, das atmet.
+
+    Über zwölf Sekunden wandert es zwischen zwei eng benachbarten Tönen hin
+    und zurück. Der Abstand ist absichtlich kleiner als das, was man bewusst
+    bemerkt: Wer hinsieht, sieht nichts; wer eine Minute auf der Seite ist,
+    empfindet sie als lebendig statt als Bild. Apple macht das seit Jahren
+    mit Licht, nicht mit Farbe – hier ist es dasselbe Prinzip.
+
+    Technisch: --breath ist über @property als <percentage> registriert und
+    damit überhaupt erst animierbar; --accent wird daraus per color-mix
+    abgeleitet. Ohne die Registrierung würde der Browser den Wert hart
+    umschalten statt zu interpolieren.
+  */
+  --accent-a: #2456e6;
+  --accent-b: #2f63f2;
+  --accent: color-mix(in oklab, var(--accent-a), var(--accent-b) calc(var(--breath, 0) * 100%));
   --accent-hover: #1c47c4;
   --accent-subtle: rgba(36, 86, 230, 0.08);
   --accent-inverse: #6b93ff;
@@ -193,7 +239,10 @@
   --line-strong: rgba(245, 245, 243, 0.2);
   --line-inverse: rgba(245, 245, 243, 0.12);
 
-  --accent: #5c86ff;
+  /* Im Dunkeln atmet dasselbe Blau eine Spur heller – auf Schwarz trägt
+     der Ton mehr Helligkeit, ohne aufdringlich zu werden. */
+  --accent-a: #4e7cff;
+  --accent-b: #5a86ff;
   --accent-hover: #7ba0ff;
   --accent-subtle: rgba(92, 134, 255, 0.14);
   --accent-inverse: #7ba0ff;
@@ -498,6 +547,13 @@ html[data-js] .reveal[data-revealed="true"] {
   .shader-field {
     animation: none;
     opacity: 1;
+  }
+
+  /* Der Atem des Akzents steht still. Er ist zwar kaum wahrnehmbar, aber
+     „kaum wahrnehmbar" ist nicht dasselbe wie „nicht vorhanden" – wer
+     Bewegung abbestellt hat, bekommt keine. */
+  html {
+    animation: none;
   }
 }
 
@@ -1913,4 +1969,77 @@ html[data-js] .reveal[data-revealed="true"] {
 @page {
   size: A4;
   margin: 0;
+}
+
+/* ==========================================================================
+   Glasring am Zeiger
+   ==========================================================================
+   Läuft dem Zeiger mit leichter Trägheit nach und filtert, was unter ihm
+   liegt – eine Linse, kein Aufkleber. Er ersetzt den Systemcursor nicht:
+   Gezielt wird weiterhin mit der echten Spitze, der Ring begleitet nur.
+   Erzeugt von components/experience/CursorGlass.tsx, das ihn bei grobem
+   Zeiger und bei prefers-reduced-motion gar nicht erst anlegt.
+   ========================================================================== */
+
+.cursor-glass {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 90;
+  width: var(--cursor-size, 34px);
+  height: var(--cursor-size, 34px);
+  margin: calc(var(--cursor-size, 34px) / -2) 0 0 calc(var(--cursor-size, 34px) / -2);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in oklab, var(--glass-bg) 22%, transparent);
+  box-shadow: var(--glass-edge);
+  pointer-events: none;
+  opacity: 0;
+  /* Die Position schreibt JS über `translate`; Größe und Deckkraft laufen
+     in CSS, damit beide Ebenen ihr eigenes Timing behalten. */
+  transition:
+    width var(--duration-base) var(--ease-spring),
+    height var(--duration-base) var(--ease-spring),
+    margin var(--duration-base) var(--ease-spring),
+    opacity var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    scale var(--duration-fast) var(--ease-out);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .cursor-glass {
+    -webkit-backdrop-filter: blur(var(--glass-blur-micro)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur-micro)) saturate(var(--glass-saturate));
+    background: transparent;
+  }
+}
+
+.cursor-glass[data-on] {
+  opacity: 1;
+}
+
+.cursor-glass[data-hidden] {
+  opacity: 0;
+}
+
+/* Über Bedienbarem: weiter und eine Spur deutlicher umrandet. */
+.cursor-glass[data-active="true"] {
+  --cursor-size: 52px;
+  border-color: color-mix(in oklab, var(--accent) 45%, transparent);
+}
+
+.cursor-glass[data-press] {
+  scale: 0.86;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor-glass {
+    display: none;
+  }
+}
+
+@media print {
+  .cursor-glass {
+    display: none !important;
+  }
 }
