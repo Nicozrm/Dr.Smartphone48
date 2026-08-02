@@ -20,6 +20,7 @@ npm run dev           # Entwicklungsserver
 npm run build         # Server-Build (Vercel, Cloudflare Workers)
 npm run build:static  # Statischer Export nach ./out (ohne /api)
 npm run lint          # ESLint
+npm run verify:qr     # QR-Encoder gegen ISO/IEC 18004 prüfen
 
 npm run cf:build      # Cloudflare-Worker bauen (OpenNext)
 npm run cf:preview    # Worker lokal in workerd testen
@@ -30,6 +31,9 @@ node scripts/generate-og.mjs      # public/og.png neu rendern (Link-Vorschaubild
 ```
 
 Es gibt keine Test-Suite. Verifikation = `npm run build` + `npm run lint`.
+Einzige Ausnahme: `scripts/verify-qr.mjs` prüft den QR-Encoder gegen die
+Norm – er ist der einzige Code hier, bei dem ein stiller Fehler zu einem
+unlesbaren Ausdruck führt, ohne dass es jemandem auffällt.
 
 ## Deployment (Cloudflare Workers – empfohlen)
 
@@ -92,37 +96,87 @@ Serverfunktion öffnet das Formular einen fertigen E-Mail-Entwurf – gesteuert
 
 ```
 app/                     App-Router-Seiten (alle statisch prerendert)
+<<<<<<< HEAD
   page.tsx               Landing Page (Hero, Pillars, Anatomie, Röntgen, Stats, CTA)
   reparatur/             Sofortpreis-Rechner (Signature-Feature) + FAQ
   check/                 Geräte-Check: Sensor-Diagnose im Browser
   zwilling/              Digitaler Zwilling + Reparieren-oder-neu-Rechner
   refurbished/ ersatzteile/ werkstatt/ kontakt/
   impressum/ datenschutz/ agb/ offline/ not-found.tsx
+=======
+  page.tsx               Landing Page (Hero, Pillars, Werkzeuge, Anatomie,
+                         Röntgen, Stats, CTA)
+  reparatur/             Sofortpreis-Rechner (Signature-Feature) + FAQ
+  notfall/               Notfall-Protokolle (ohne JS lesbar, offline im Cache)
+  check/                 Geräte-Check: Sensor-Diagnose im Browser
+  ankauf/                Restwert-Rechner mit offengelegter Rechnung
+  zwilling/              Digitaler Zwilling, Akku-Coach, Reparieren-oder-neu
+  ticket/                Reparatur-Ticket + Übergabeprotokoll (noindex)
+  refurbished/ ersatzteile/ werkstatt/ kontakt/
+  impressum/ datenschutz/ agb/ offline/ not-found.tsx
+  intern/rechnung/       Rechnungswerkzeug (nicht verlinkt, noindex, kein Server)
+>>>>>>> origin/main
   api/kontakt/           Route Handler für das Formular (nur im Server-Build)
   layout.tsx             Root-Layout: Metadata, JSON-LD, Header/Footer, SW-Registrierung
-  globals.css            Design-Tokens (CSS-Variablen) + Tailwind-4-Theme + Motion
+  globals.css            Design-Tokens (CSS-Variablen) + Tailwind-4-Theme + Motion + Druck
   sitemap.ts robots.ts manifest.ts   Metadata-Routen (force-static)
 components/
   ui/                    Primitives: Button, Icon (eigenes SVG-Set), Reveal,
+<<<<<<< HEAD
                          SectionHeading, ThemeToggle
   layout/                Header, Footer, Logo
   sections/              Faq, RefurbishedGrid/-Card, DiagramShowcase, ContactForm,
                          Reviews (Google-Aggregat), LiveStatus (Öffnungsstatus)
   configurator/          Configurator (Preislogik) + DeviceDiagram (SVG-Explosionszeichnung)
+=======
+                         SectionHeading, ThemeToggle, QrCode
+  layout/                Header, Footer, Logo
+  sections/              Faq, RefurbishedGrid/-Card, DiagramShowcase, ContactForm,
+                         Reviews (Google-Aggregat), LiveStatus (Öffnungsstatus)
+  configurator/          Configurator (Preislogik) + DeviceDiagram (SVG-Explosion)
+>>>>>>> origin/main
   experience/            Bootloader, CommandPalette (⌘K), ShaderField (WebGL-Hero),
                          DeviceExploded, XRay, MagneticField, ScrollProgress
   check/                 DeviceCheck (Display-, Sensor-, Audio-, Akku-Tests)
   twin/                  DigitalTwin, RepairOrReplace
+<<<<<<< HEAD
+=======
+  battery/               BatteryCoach (3-Jahres-Prognose)
+  resale/                ResaleCalculator (Ankauf)
+  ticket/                RepairTicket, DamageMap (Schadenskarte)
+  emergency/             RescueClock
+  parts/                 DisplayCompare (echte Eingabeverzögerung)
+  invoice/               InvoiceBuilder (Editor) + InvoiceSheet (das Blatt, DIN 5008)
+>>>>>>> origin/main
   pwa/                   ServiceWorkerRegister
 lib/
   site.ts                Stammdaten (Name, Adresse, URL …) – zentrale Quelle
   seo.tsx                pageMeta() – Canonical/OG pro Seite, Breadcrumbs, JsonLd
+<<<<<<< HEAD
   format.ts detect.ts theme.ts
   data/                  devices.ts (Modelle/Preise), refurbished.ts, faq.ts, reviews.ts
 public/
   sw.js                  Handgeschriebener Service Worker (Offline-Fallback /offline)
+=======
+  qr.ts                  QR-Encoder nach ISO/IEC 18004 (Byte-Modus, Stufe M, v1–20)
+  imei.ts                Luhn-Prüfung mit offengelegter Rechnung
+  ticket.ts              Ticket-Zustand aus der Adresse, Vorgangsnummer, .ics
+  resale.ts              Ankauf-Bewertung als Liste begründeter Posten
+  battery.ts             Alterungsmodell (kalendarisch + zyklisch)
+  format.ts detect.ts theme.ts
+  data/                  devices.ts (Modelle, Preise, Ankaufswerte), refurbished.ts,
+                         faq.ts, reviews.ts, emergency.ts
+  invoice/               types.ts calc.ts (Cent-Arithmetik) catalog.ts validate.ts
+                         (§ 14 UStG) store.ts (localStorage) girocode.ts qr.ts
+public/
+  sw.js                  Handgeschriebener Service Worker (Precache, /offline-Fallback)
+>>>>>>> origin/main
   og.png                 Link-Vorschaubild 1200×630 (scripts/generate-og.mjs)
   icons/                 PWA-Icons
+scripts/
+  build-static.mjs       Statischer Export (legt app/api beiseite)
+  generate-icons.mjs     PWA-Icons rendern
+  verify-qr.mjs          QR-Encoder gegen die Norm prüfen
 ```
 
 ## Konventionen
@@ -136,7 +190,14 @@ public/
   bleibt alles sichtbar (`html[data-js]`-Gate).
 - Server Components als Default; `"use client"` nur wo nötig
   (Reveal, Configurator, DiagramShowcase, ContactForm, ServiceWorkerRegister,
+<<<<<<< HEAD
   Bootloader, CommandPalette, DeviceCheck, DigitalTwin, ShaderField).
+=======
+  Bootloader, CommandPalette, DeviceCheck, DigitalTwin, ShaderField,
+  die Werkzeuge unter check/, twin/, battery/, resale/, ticket/, parts/).
+- Alle Firmendaten (Adresse, Telefon, Reparatur- und Ankaufspreise,
+  Impressum) sind **Platzhalter** und vor dem Livegang zu ersetzen.
+>>>>>>> origin/main
 
 ### Metadaten: jede Seite setzt ihre eigenen
 
@@ -167,8 +228,80 @@ Dieselbe Regel gilt für `lib/data/reviews.ts` (nur wörtlich übernommene echte
 Google-Rezensionen) und für Garantieangaben (immer `site.warrantyMonths`,
 nie eine feste Zahl im Text).
 
+<<<<<<< HEAD
 ### Offene Punkte vor dem Livegang
 
+=======
+### Rechnungswerkzeug (`/intern/rechnung`)
+
+Internes Werkzeug, nicht verlinkt und nicht in der Sitemap: `noindex, nofollow`
+per Seiten-Metadaten, `Disallow: /intern/` in `robots.ts`.
+
+- **Kein Server.** Profil, Kundenarchiv, Entwurf und Verlauf liegen in
+  `localStorage` (`lib/invoice/store.ts`). Rechnungsdaten enthalten Namen,
+  Anschriften und IMEIs – was nie übertragen wird, kann nicht abfließen. Preis
+  dafür: Der Bestand hängt am Gerät, deshalb Export/Import als JSON.
+- **Beträge sind ganzzahlige Cent** (`lib/invoice/calc.ts`), gerundet pro
+  Position. Nie in Euro-Fließkomma rechnen.
+- **Preise stammen aus `lib/data/devices.ts`** (`lib/invoice/catalog.ts`), damit
+  Rechnung und Sofortpreis-Rechner nicht auseinanderlaufen.
+- **Das Blatt ist ein Blatt:** 210 × 297 mm, `overflow: hidden`, alle Maße in
+  Millimetern, Anschriftfeld nach DIN 5008 Form B. Was nicht draufpasst, wird
+  abgeschnitten.
+- **Mehrseitigkeit** rechnet `lib/invoice/paginate.ts`: Es verteilt die
+  Positionen auf Blätter, setzt auf jedes Folgeblatt einen Fortsetzungskopf
+  („Rechnung … · Seite 2 von 2") und führt den **Übertrag** als erste Zeile
+  mit. Der Übertrag ist der Bruttobetrag der vorangegangenen Blätter – wer
+  hier etwas ändert, prüft, dass Übertrag plus Folgepositionen wieder die
+  Endsumme ergeben.
+- **Belegarten** (`lib/invoice/doctype.ts`): Rechnung, Kostenvoranschlag,
+  Angebot, Gutschrift, Storno. Dieselben Positionen und dieselbe Rechenlogik,
+  anderes Kürzel im Nummernkreis und andere Sprache im Blatt.
+- **Der Briefkopf** (`components/invoice/Letterhead.tsx`) borgt sich drei
+  Techniken aus dem Wertpapierdruck: Mikroschrift statt Haarlinie,
+  Guillochenrosette als Wasserzeichen, Millimeterskala am Rand. Alle drei
+  sind reines CSS/SVG – kein Bildmaterial, keine Schriftdatei, null Byte
+  Ladelast.
+- **Der Druck-Block in `globals.css` blendet `body > header` / `body > footer`
+  aus, nicht `header` / `footer`.** Der Fuß des Rechnungsblatts trägt
+  Steuernummer, USt-IdNr. und Bankverbindung; ein Selektor auf das nackte
+  Element nähme genau die Pflichtangaben mit.
+- Der GiroCode (EPC069-12) wird ohne Bibliothek erzeugt (`lib/invoice/qr.ts`,
+  Byte-Modus, Fehlerkorrektur M, Versionen 1–13). Die längstmögliche
+  EPC-Nutzlast liegt bei ~278 Zeichen und passt damit sicher hinein.
+
+
+### Zwei Regeln, die über der Optik stehen
+
+**Nichts behaupten, was nicht stimmt.** Die Werkzeuge hier rechnen, statt zu
+raten, und legen offen, wie sie rechnen – der Ankaufsrechner zeigt jeden
+Abzug einzeln, der Akku-Coach nennt seine Konstanten, die IMEI-Prüfung zeigt
+die Luhn-Rechnung. Wo etwas geschätzt ist, steht „Schätzung" dabei; wo etwas
+veranschaulicht ist (Farbdrift im Display-Vergleich), steht das ebenfalls
+dabei. Kein erfundener Countdown, keine erfundenen Marktpreise, keine
+Hersteller-Zuordnung aus einer IMEI. Lieber eine Lücke als eine Behauptung.
+
+**Der Notfall hat Vorrang vor allem.** `/notfall` muss ohne JavaScript, ohne
+Netz und auf jedem Gerät funktionieren. Deshalb stehen dort alle vier
+Protokolle vollständig im HTML statt hinter einem Umschalter, und deshalb
+steht die Seite an erster Stelle im Precache des Service Workers. Wer daran
+etwas ändert, prüft beides.
+
+### Personenbezogene Daten
+
+Es gibt keine Datenbank und keine Konten. Was ein Besucher eingibt, bleibt im
+Arbeitsspeicher seines Tabs – auch die IMEI im Übergabeprotokoll, das
+ausdrücklich nicht in localStorage geschrieben wird. Verlassen darf es das
+Gerät nur, wenn er selbst eine Anfrage absendet. Der Zustand des
+Reparatur-Tickets steht bewusst lesbar in der Adresse (Gerät und Reparaturen,
+nichts Persönliches). Wer hier etwas ergänzt, zieht `app/datenschutz` mit.
+
+### Offene Punkte vor dem Livegang
+
+- **Bankverbindung eintragen:** Das Rechnungswerkzeug startet ohne IBAN, BIC und
+  Steuernummer – beim ersten Start unter „Stammdaten" hinterlegen, sonst bleibt
+  der GiroCode aus und die Rechnung ist unvollständig.
+>>>>>>> origin/main
 - **Garantiedauer prüfen:** `site.warrantyMonths` steht auf `12`. FAQ,
   Ersatzteil-Seite und Metadaten nannten zuvor teils 24 Monate. Der Wert ist
   jetzt an einer Stelle gepflegt – dort den tatsächlich zugesagten Zeitraum

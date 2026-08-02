@@ -91,6 +91,16 @@ export interface DeviceModel {
   year: number;
   /** Preise in Euro je Reparaturart; fehlende Arten werden nicht angeboten */
   prices: Partial<Record<RepairKind, number>>;
+  /**
+   * Ankauf-Basiswert in Euro: was wir für ein voll funktionsfähiges Gerät in
+   * gutem Zustand mit der kleinsten üblichen Speichergröße zahlen.
+   *
+   * Wie die Reparaturpreise ein vom Betrieb gepflegter Wert, kein externer
+   * Marktpreis – deshalb steht er hier und nicht in einer Formel. Der
+   * Rechner unter /ankauf leitet daraus alles Weitere ab und legt jede
+   * Zwischenstufe offen.
+   */
+  resale: number;
 }
 
 export interface Brand {
@@ -103,6 +113,7 @@ function model(
   id: string,
   name: string,
   year: number,
+  resale: number,
   display: number,
   battery: number,
   camera: number,
@@ -114,6 +125,7 @@ function model(
     id,
     name,
     year,
+    resale,
     prices: {
       display,
       battery,
@@ -132,43 +144,43 @@ export const brands: Brand[] = [
     id: "apple",
     name: "Apple",
     models: [
-      model("iphone-16-pro-max", "iPhone 16 Pro Max", 2024, 429, 119, 189, 129, 99, 199),
-      model("iphone-16-pro", "iPhone 16 Pro", 2024, 389, 115, 179, 125, 95, 189),
-      model("iphone-16", "iPhone 16", 2024, 329, 109, 149, 119, 89, 169),
-      model("iphone-15-pro", "iPhone 15 Pro", 2023, 349, 105, 169, 119, 89, 179),
-      model("iphone-15", "iPhone 15", 2023, 289, 99, 139, 109, 85, 149),
-      model("iphone-14-pro", "iPhone 14 Pro", 2022, 299, 95, 149, 109, 79, 159),
-      model("iphone-14", "iPhone 14", 2022, 249, 89, 129, 99, 75, 139),
-      model("iphone-13", "iPhone 13", 2021, 199, 79, 109, 89, 69, 119),
-      model("iphone-12", "iPhone 12", 2020, 169, 69, 99, 85, 65, 109),
-      model("iphone-se-2022", "iPhone SE (2022)", 2022, 129, 59, 79, 75, 59),
+      model("iphone-16-pro-max", "iPhone 16 Pro Max", 2024, 890, 429, 119, 189, 129, 99, 199),
+      model("iphone-16-pro", "iPhone 16 Pro", 2024, 760, 389, 115, 179, 125, 95, 189),
+      model("iphone-16", "iPhone 16", 2024, 580, 329, 109, 149, 119, 89, 169),
+      model("iphone-15-pro", "iPhone 15 Pro", 2023, 560, 349, 105, 169, 119, 89, 179),
+      model("iphone-15", "iPhone 15", 2023, 450, 289, 99, 139, 109, 85, 149),
+      model("iphone-14-pro", "iPhone 14 Pro", 2022, 430, 299, 95, 149, 109, 79, 159),
+      model("iphone-14", "iPhone 14", 2022, 340, 249, 89, 129, 99, 75, 139),
+      model("iphone-13", "iPhone 13", 2021, 260, 199, 79, 109, 89, 69, 119),
+      model("iphone-12", "iPhone 12", 2020, 170, 169, 69, 99, 85, 65, 109),
+      model("iphone-se-2022", "iPhone SE (2022)", 2022, 120, 129, 59, 79, 75, 59),
     ],
   },
   {
     id: "samsung",
     name: "Samsung",
     models: [
-      model("galaxy-s24-ultra", "Galaxy S24 Ultra", 2024, 379, 109, 169, 119, 89, 169),
-      model("galaxy-s24", "Galaxy S24", 2024, 299, 99, 139, 109, 79, 139),
-      model("galaxy-s23-ultra", "Galaxy S23 Ultra", 2023, 329, 99, 149, 109, 85, 149),
-      model("galaxy-s23", "Galaxy S23", 2023, 259, 89, 129, 99, 75, 129),
-      model("galaxy-s22", "Galaxy S22", 2022, 219, 79, 109, 95, 69, 109),
-      model("galaxy-z-flip-5", "Galaxy Z Flip5", 2023, 399, 105, 149, 115, 85, 159),
-      model("galaxy-a54", "Galaxy A54", 2023, 169, 69, 89, 79, 59, 89),
-      model("galaxy-a34", "Galaxy A34", 2023, 139, 65, 79, 75, 55, 79),
+      model("galaxy-s24-ultra", "Galaxy S24 Ultra", 2024, 640, 379, 109, 169, 119, 89, 169),
+      model("galaxy-s24", "Galaxy S24", 2024, 380, 299, 99, 139, 109, 79, 139),
+      model("galaxy-s23-ultra", "Galaxy S23 Ultra", 2023, 450, 329, 99, 149, 109, 85, 149),
+      model("galaxy-s23", "Galaxy S23", 2023, 280, 259, 89, 129, 99, 75, 129),
+      model("galaxy-s22", "Galaxy S22", 2022, 180, 219, 79, 109, 95, 69, 109),
+      model("galaxy-z-flip-5", "Galaxy Z Flip5", 2023, 320, 399, 105, 149, 115, 85, 159),
+      model("galaxy-a54", "Galaxy A54", 2023, 140, 169, 69, 89, 79, 59, 89),
+      model("galaxy-a34", "Galaxy A34", 2023, 100, 139, 65, 79, 75, 55, 79),
     ],
   },
   {
     id: "google",
     name: "Google",
     models: [
-      model("pixel-9-pro", "Pixel 9 Pro", 2024, 329, 105, 159, 115, 85, 149),
-      model("pixel-9", "Pixel 9", 2024, 279, 99, 139, 105, 79, 129),
-      model("pixel-8-pro", "Pixel 8 Pro", 2023, 289, 95, 139, 105, 79, 129),
-      model("pixel-8", "Pixel 8", 2023, 239, 89, 119, 95, 75, 109),
-      model("pixel-7a", "Pixel 7a", 2023, 169, 75, 95, 85, 65, 89),
-      model("pixel-7", "Pixel 7", 2022, 189, 79, 99, 89, 69, 99),
-      model("pixel-6a", "Pixel 6a", 2022, 139, 69, 85, 79, 59, 79),
+      model("pixel-9-pro", "Pixel 9 Pro", 2024, 520, 329, 105, 159, 115, 85, 149),
+      model("pixel-9", "Pixel 9", 2024, 400, 279, 99, 139, 105, 79, 129),
+      model("pixel-8-pro", "Pixel 8 Pro", 2023, 350, 289, 95, 139, 105, 79, 129),
+      model("pixel-8", "Pixel 8", 2023, 270, 239, 89, 119, 95, 75, 109),
+      model("pixel-7a", "Pixel 7a", 2023, 150, 169, 75, 95, 85, 65, 89),
+      model("pixel-7", "Pixel 7", 2022, 170, 189, 79, 99, 89, 69, 99),
+      model("pixel-6a", "Pixel 6a", 2022, 100, 139, 69, 85, 79, 59, 79),
     ],
   },
 ];

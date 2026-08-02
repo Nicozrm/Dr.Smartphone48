@@ -10,6 +10,14 @@ import { useEffect } from "react";
  *
  * Nur bei feinem Zeiger (Maus/Trackpad) aktiv und bei ruhender Bewegung
  * abgeschaltet – auf Touch und bei prefers-reduced-motion passiert nichts.
+ *
+ * Geschrieben wird **nicht** `style.transform`, sondern die beiden Variablen
+ * --mag-x/--mag-y, aus denen globals.css die `translate`-Eigenschaft baut.
+ * Grund: Der Druckpunkt (.press) animiert `scale`. Lägen beide in derselben
+ * `transform`-Kette, würde entweder die Anziehung nachschleppen (weil sie
+ * die Transition des Druckpunkts erbt) oder der Druckpunkt springen (weil
+ * jeder Frame der Anziehung ihn überschreibt). Als getrennte Eigenschaften
+ * komponiert der Browser beides und jede Ebene behält ihr Timing.
  */
 export function MagneticField() {
   useEffect(() => {
@@ -17,16 +25,16 @@ export function MagneticField() {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!fine || reduced) return;
 
-    /**
-     * `active` ist das Element unter dem Zeiger, `animating` das Element, das
-     * gerade bewegt wird. Beide getrennt zu halten ist der Kern: Beim
-     * Verlassen wird `active` sofort null, die Rückfederung braucht die
-     * Referenz aber noch. Wurden sie in einer Variablen geführt, blieb die
-     * Schaltfläche nach dem Verlassen um bis zu 8 px verschoben stehen – die
-     * Rückbewegung lief zwar, schrieb ihr Ergebnis aber auf niemanden mehr.
-     */
-    let active: HTMLElement | null = null;
-    let animating: HTMLElement | null = null;
+    /*
+      `target` ist die Schaltfläche unter dem Zeiger, `driven` diejenige, die
+      gerade geschrieben wird. Beim Verlassen sind das kurzzeitig zwei
+      verschiedene Dinge: Der Zeiger ist schon weg, die Fläche muss aber noch
+      zurückfedern. Ohne diese Trennung bleibt sie in ihrer letzten Auslenkung
+      stehen – sichtbar als Schaltfläche, die dauerhaft ein paar Pixel
+      schief hängt.
+    */
+    let target: HTMLElement | null = null;
+    let driven: HTMLElement | null = null;
     let rect: DOMRect | null = null;
     const pos = { x: 0, y: 0, tx: 0, ty: 0 };
     let raf = 0;
@@ -34,54 +42,55 @@ export function MagneticField() {
     const MAX = 8;
 
     const release = (el: HTMLElement) => {
-      el.style.transform = "";
       el.style.willChange = "";
+      el.style.removeProperty("--mag-x");
+      el.style.removeProperty("--mag-y");
     };
 
     const animate = () => {
       pos.x += (pos.tx - pos.x) * 0.15;
       pos.y += (pos.ty - pos.y) * 0.15;
-
       const settled =
         Math.abs(pos.tx - pos.x) < 0.1 && Math.abs(pos.ty - pos.y) < 0.1;
 
-      if (animating) {
-        if (settled && !active) {
-          // Zur Ruhe gekommen und nicht mehr angefahren: Inline-Stil abräumen,
-          // damit das Element wieder allein von CSS bestimmt wird.
+      if (driven) {
+        if (settled && !target) {
+          // Angekommen und niemand mehr da: Variablen abräumen, damit im
+          // style-Attribut nichts von der Bewegung zurückbleibt.
           pos.x = 0;
           pos.y = 0;
-          release(animating);
-          animating = null;
+          release(driven);
+          driven = null;
         } else {
-          animating.style.transform = `translate(${pos.x.toFixed(2)}px, ${pos.y.toFixed(2)}px)`;
+          driven.style.setProperty("--mag-x", `${pos.x.toFixed(2)}px`);
+          driven.style.setProperty("--mag-y", `${pos.y.toFixed(2)}px`);
         }
       }
 
-      // Solange gefahren wird oder die Feder noch läuft, weiterrechnen.
-      // Ruht der Zeiger auf dem Element, hält die Schleife an, statt
-      // dauerhaft Frames zu verbrennen.
-      raf = animating && !(settled && !active) ? requestAnimationFrame(animate) : 0;
+      raf = driven || target ? requestAnimationFrame(animate) : 0;
     };
     const kick = () => {
-      if (!raf && animating) raf = requestAnimationFrame(animate);
+      if (!raf) raf = requestAnimationFrame(animate);
     };
 
     const onOver = (e: PointerEvent) => {
       const el = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-magnetic]");
-      if (el && el !== active) {
-        // Ein noch nachfederndes anderes Element sofort sauber zurücksetzen.
-        if (animating && animating !== el) release(animating);
-        active = el;
-        animating = el;
+      if (el && el !== target) {
+        // Wechselt der Zeiger direkt von einer Fläche auf die nächste, muss
+        // die alte augenblicklich zurück – sonst bliebe sie ausgelenkt liegen,
+        // weil sie ab jetzt nicht mehr geschrieben wird.
+        if (driven && driven !== el) release(driven);
+        target = el;
+        driven = el;
         rect = el.getBoundingClientRect();
-        el.style.willChange = "transform";
+        pos.x = 0;
+        pos.y = 0;
+        el.style.willChange = "translate";
       }
     };
     const onMove = (e: PointerEvent) => {
-      if (!active) return;
-      // Der Rahmen kann durch Scrollen veraltet sein – vor jeder Messung frisch.
-      rect = active.getBoundingClientRect();
+      if (!target) return;
+      if (!rect) rect = target.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
       pos.tx = Math.max(-MAX, Math.min(MAX, (e.clientX - cx) * STRENGTH));
@@ -90,8 +99,8 @@ export function MagneticField() {
     };
     const onOut = (e: PointerEvent) => {
       const to = e.relatedTarget as HTMLElement | null;
-      if (active && (!to || !active.contains(to))) {
-        active = null;
+      if (target && (!to || !target.contains(to))) {
+        target = null;
         rect = null;
         pos.tx = 0;
         pos.ty = 0;
@@ -104,7 +113,7 @@ export function MagneticField() {
     document.addEventListener("pointerout", onOut);
     return () => {
       cancelAnimationFrame(raf);
-      if (animating) release(animating);
+      if (driven) release(driven);
       document.removeEventListener("pointerover", onOver);
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerout", onOut);

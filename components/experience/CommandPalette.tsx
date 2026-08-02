@@ -29,17 +29,23 @@ const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComp
 )}`;
 
 const commands: Command[] = [
+  // Der Notfall steht zuoberst: Wer ihn sucht, hat keine Zeit zu scrollen.
+  { id: "notfall", label: "Notfall-Soforthilfe", hint: "Wasserschaden, Bruch, Akku", icon: "shield", group: "Navigation", keywords: "wasser wasserschaden hilfe sos erste hilfe kaputt reis display gebrochen akku aufgebläht startet nicht", run: (r) => r.push("/notfall") },
   { id: "home", label: "Startseite", icon: "sparkle", group: "Navigation", keywords: "home start", run: (r) => r.push("/") },
   { id: "reparatur", label: "Reparatur – Sofortpreis", icon: "tool", group: "Navigation", keywords: "preis rechner display akku", run: (r) => r.push("/reparatur") },
   { id: "check", label: "Geräte-Check", hint: "Live-Diagnose", icon: "cpu", group: "Navigation", keywords: "diagnose test pixel touch sensor akku", run: (r) => r.push("/check") },
-  { id: "zwilling", label: "Digitaler Zwilling", hint: "Zustand & Lebensdauer", icon: "sparkle", group: "Navigation", keywords: "twin zustand akku prognose lebensdauer", run: (r) => r.push("/zwilling") },
+  { id: "ankauf", label: "Ankauf – Restwert", hint: "Was Ihr Gerät noch wert ist", icon: "leaf", group: "Navigation", keywords: "verkaufen ankauf wert restwert geld gebraucht abgeben", run: (r) => r.push("/ankauf") },
+  { id: "zwilling", label: "Digitaler Zwilling", hint: "Zustand, Akku-Coach & Lebensdauer", icon: "sparkle", group: "Navigation", keywords: "twin zustand akku prognose lebensdauer laden ladeverhalten coach", run: (r) => r.push("/zwilling") },
+  { id: "ticket", label: "Reparatur-Ticket", hint: "Voranschlag & Übergabeprotokoll", icon: "calendar", group: "Navigation", keywords: "ticket auftrag protokoll qr imei drucken vorgang", run: (r) => r.push("/ticket") },
   { id: "refurbished", label: "Refurbished-Geräte", icon: "shield", group: "Navigation", keywords: "gebraucht kaufen", run: (r) => r.push("/refurbished") },
   { id: "ersatzteile", label: "Ersatzteile", icon: "cpu", group: "Navigation", keywords: "teile", run: (r) => r.push("/ersatzteile") },
   { id: "werkstatt", label: "Werkstatt", icon: "pin", group: "Navigation", keywords: "labor team", run: (r) => r.push("/werkstatt") },
   { id: "kontakt", label: "Kontakt", icon: "mail", group: "Navigation", keywords: "termin anfahrt", run: (r) => r.push("/kontakt") },
 
+  { id: "act-notfall", label: "Wasserschaden – was jetzt zu tun ist", icon: "waveform", group: "Aktionen", keywords: "wasser nass spüle toilette regen notfall", run: (r) => r.push("/notfall#wasser") },
   { id: "act-preis", label: "Sofortpreis berechnen", icon: "arrow-right", group: "Aktionen", keywords: "reparatur preis", run: (r) => r.push("/reparatur") },
   { id: "act-check", label: "Geräte-Check starten", icon: "waveform", group: "Aktionen", keywords: "diagnose test", run: (r) => r.push("/check") },
+  { id: "act-wert", label: "Restwert schätzen", icon: "leaf", group: "Aktionen", keywords: "verkaufen wert ankauf", run: (r) => r.push("/ankauf") },
   { id: "act-theme", label: "Design wechseln", hint: "Hell / Dunkel", icon: "moon", group: "Aktionen", keywords: "dark light dunkel hell theme", keepOpen: true, run: () => toggleTheme() },
   { id: "act-call", label: "Anrufen", hint: site.phone, icon: "phone", group: "Aktionen", keywords: "telefon", run: () => { window.location.href = site.phoneHref; } },
   { id: "act-route", label: "Route planen", hint: `${site.street}, ${site.city}`, icon: "pin", group: "Aktionen", keywords: "anfahrt maps karte", run: () => window.open(mapsUrl, "_blank", "noopener,noreferrer") },

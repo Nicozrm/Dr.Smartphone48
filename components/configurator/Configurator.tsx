@@ -1,18 +1,53 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   brands,
   findModel,
   repairsForModel,
+  type Brand,
   type DiagramPart,
   type RepairKind,
 } from "@/lib/data/devices";
 import { formatEuro, formatMinutes } from "@/lib/format";
 import { site } from "@/lib/site";
 import { detectDevice, type DetectResult } from "@/lib/detect";
+import { ticketQuery } from "@/lib/ticket";
+import { useCountUp } from "@/lib/useCountUp";
 import { Icon } from "@/components/ui/Icon";
+import Link from "next/link";
 import { DeviceDiagram } from "./DeviceDiagram";
+import { BrandMark } from "./BrandMark";
+
+/**
+ * Günstigster Displaypreis einer Marke – die Zahl auf der Markenkachel.
+ * Kommt aus denselben Stammdaten wie der Rechner selbst, damit „ab" auch
+ * dann noch stimmt, wenn jemand einen Preis in devices.ts ändert.
+ */
+function cheapestDisplay(brand: Brand): number {
+  return Math.min(
+    ...brand.models.map((m) => m.prices.display ?? Number.POSITIVE_INFINITY),
+  );
+}
+
+/*
+  Der Geräte-Vorschlag entsteht erst im Browser – der Server kennt die
+  Bildschirmgröße nicht. Käme er per useEffect, würde er nach dem ersten Bild
+  eingefügt und schöbe alles darunter nach unten: ein sichtbarer Ruck und ein
+  messbarer Layout-Shift.
+
+  useLayoutEffect läuft vor dem Zeichnen. Der Vorschlag ist damit von der
+  ersten Darstellung an da oder gar nicht – nichts springt. Auf dem Server
+  gibt es kein Layout, dort bleibt es bei useEffect.
+*/
+const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 function StepLabel({ number, children }: { number: string; children: ReactNode }) {
   return (
@@ -32,8 +67,8 @@ export function Configurator() {
   const [detected, setDetected] = useState<DetectResult | null>(null);
   const [detectDismissed, setDetectDismissed] = useState(false);
 
-  // Erkennung einmal nach dem Mount – rein lesend, ohne Netzwerk.
-  useEffect(() => {
+  // Erkennung einmal vor dem ersten Bild – rein lesend, ohne Netzwerk.
+  useBeforePaint(() => {
     try {
       setDetected(detectDevice());
     } catch {
@@ -52,6 +87,10 @@ export function Configurator() {
   const chosen = repairs.filter((r) => selected.includes(r.kind));
   const total = chosen.reduce((sum, r) => sum + r.price, 0);
   const minutes = chosen.reduce((sum, r) => sum + r.minutes, 0);
+  /* Der angezeigte Betrag läuft auf den gerechneten zu. `total` bleibt die
+     Wahrheit – in die E-Mail, ins Ticket und in die Zusammenfassung geht nie
+     der laufende Wert, sondern immer der endgültige. */
+  const shownTotal = useCountUp(total);
 
   const scrollTo = (ref: React.RefObject<HTMLDivElement | null>) => {
     requestAnimationFrame(() => {
@@ -122,97 +161,96 @@ export function Configurator() {
     setSubmitted(true);
   };
 
+  /*
+    Der Ruhezustand trägt bewusst keinen Schatten und der Hover einen weichen:
+    Wenn schon die unberührte Kachel schwebt, bleibt für die Reaktion nichts
+    übrig. Bewegung gibt es keine – bei einem Raster aus zehn Kacheln würde
+    jede angehobene Kachel die Reihe darunter optisch verziehen.
+  */
   const optionBase =
-    "cursor-pointer rounded-[var(--radius-m)] border text-left transition-[border-color,background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out)]";
-  const optionIdle = "border-line bg-raised hover:border-ink-faint";
-  const optionActive = "border-accent bg-accent-subtle shadow-[inset_0_0_0_1px_var(--accent)]";
+    "cursor-pointer rounded-[var(--radius-m)] border text-left transition-[border-color,background-color,box-shadow,scale] duration-[var(--duration-base)] ease-[var(--ease-out)]";
+  const optionIdle =
+    "border-line bg-raised hover:border-ink-faint hover:shadow-raised";
+  const optionActive =
+    "border-accent bg-accent-subtle shadow-[inset_0_0_0_1px_var(--accent)]";
 
   return (
     <div className="grid gap-10 lg:grid-cols-[1fr_420px] lg:gap-16">
       {/* Linke Spalte: Schritte */}
       <div className="space-y-14 min-w-0">
-        {/* Geräte-Erkennung – schlägt vor, behauptet nichts. */}
-        {detected && detected.candidates.length > 0 && !detectDismissed && !modelId ? (
-          <div className="glass rounded-[var(--radius-l)] p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="flex items-center gap-2 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-ink-faint">
-                  <Icon name="cpu" size={14} />
-                  Gerät erkannt
-                </p>
-                <p className="mt-2 text-[0.9375rem] leading-relaxed text-ink">
-                  {detected.candidates.length === 1
-                    ? "Ihr Bildschirm passt genau zu diesem Gerät:"
-                    : "Ihr Bildschirm passt zu diesen Geräten – mehrere Generationen sind baugleich groß:"}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setDetectDismissed(true)}
-                aria-label="Vorschlag ausblenden"
-                className="-mr-1 -mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-sunken hover:text-ink-strong"
-              >
-                <Icon name="close" size={16} />
-              </button>
-            </div>
-
-            <div className="mt-3.5 flex flex-wrap gap-2">
-              {detected.candidates.map((c) => (
-                <button
-                  key={c.model.id}
-                  type="button"
-                  onClick={() => {
-                    setBrandId(c.brand.id);
-                    setModelId(c.model.id);
-                    setSelected([]);
-                    setHighlight(null);
-                    setSubmitted(false);
-                    scrollTo(damageRef);
-                  }}
-                  className="inline-flex h-10 items-center gap-2 rounded-full border border-accent bg-accent-subtle px-4 text-[0.875rem] font-medium text-accent transition-opacity hover:opacity-80"
-                >
-                  {c.brand.name} {c.model.name}
-                  <Icon name="arrow-right" size={14} />
-                </button>
-              ))}
-            </div>
-
-            <p className="mt-3 font-mono text-[0.6875rem] text-ink-faint">
-              {detected.screen.w} × {detected.screen.h} px · {detected.screen.dpr.toFixed(2)}×
-              {detected.ambiguous ? " · nicht eindeutig, bitte bestätigen" : ""}
-            </p>
-          </div>
-        ) : null}
-
         {/* Schritt 1: Marke */}
         <section className="scroll-mt-24">
           <StepLabel number="01">Welche Marke?</StepLabel>
-          <div className="mt-5 grid grid-cols-3 gap-3">
-            {brands.map((b) => (
-              <button
-                key={b.id}
-                type="button"
-                onClick={() => chooseBrand(b.id)}
-                aria-pressed={brandId === b.id}
-                className={`${optionBase} ${
-                  brandId === b.id ? optionActive : optionIdle
-                } px-4 py-5 text-center`}
-              >
-                <span className="block font-medium text-ink-strong">{b.name}</span>
-                <span className="mt-1 block text-[0.8125rem] text-ink-soft">
-                  {b.models.length} Modelle
-                </span>
-              </button>
-            ))}
+          {/*
+            Große Kacheln statt einer Reihe von Textknöpfen. Die Marke ist der
+            erste Schritt von vieren – wenn schon der erste wie ein Formular
+            aussieht, sind es die anderen drei auch.
+
+            Auf jeder Kachel steht der niedrigste Displaypreis der Baureihe.
+            Das ist die Zahl, wegen der die meisten hier sind, und sie steht
+            damit eine Interaktion früher als bisher. „Ab" ist wörtlich
+            gemeint: Sie kommt aus lib/data/devices.ts und ist der tatsächlich
+            günstigste Wert der Marke, keine Lockzahl.
+          */}
+          <div className="mt-5 grid grid-cols-3 gap-3 md:gap-4">
+            {brands.map((b) => {
+              // Die Erkennung markiert die passende Marke, statt einen Kasten
+              // einzuschieben: absolut positioniert, damit die Schaltfläche
+              // ihre Maße behält und nichts springt, wenn der Hinweis
+              // nachträglich erscheint.
+              const suggested =
+                !modelId &&
+                !detectDismissed &&
+                detected?.candidates.some((c) => c.brand.id === b.id) === true;
+              const activeBrand = brandId === b.id;
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => chooseBrand(b.id)}
+                  aria-pressed={activeBrand}
+                  data-ripple="ink"
+                  className={`${optionBase} press ${
+                    activeBrand ? optionActive : optionIdle
+                  } group relative flex flex-col items-center px-3 py-5 text-center md:px-4 md:py-6`}
+                >
+                  {suggested ? (
+                    <span className="absolute inset-x-0 -top-2.5 flex justify-center">
+                      <span className="inline-flex h-5 items-center rounded-full bg-accent px-2 font-mono text-[0.625rem] uppercase tracking-[0.08em] text-accent-contrast">
+                        erkannt
+                      </span>
+                    </span>
+                  ) : null}
+                  <BrandMark
+                    brand={b.id}
+                    className={`h-14 w-auto transition-[color,translate] duration-[var(--duration-base)] ease-[var(--ease-out)] md:h-16 ${
+                      activeBrand
+                        ? "text-accent"
+                        : "text-ink-faint group-hover:-translate-y-0.5 group-hover:text-ink-soft"
+                    }`}
+                  />
+                  <span className="mt-3.5 block font-medium text-ink-strong">
+                    {b.name}
+                  </span>
+                  <span className="mt-1 block text-[0.75rem] leading-snug text-ink-soft">
+                    {b.models.length} Modelle
+                  </span>
+                  <span className="mt-2 block font-mono text-[0.75rem] text-ink-faint">
+                    Display ab {formatEuro(cheapestDisplay(b))}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </section>
 
-        {/* Schritt 2: Modell */}
-        {/* `inert` statt `aria-hidden`: Ein aria-hidden-Bereich, dessen
-            Schaltflächen weiter fokussierbar sind, ist laut WCAG unzulässig –
-            die Tabulatortaste landete hier in einem Feld, das die Vorlesehilfe
-            nicht ankündigt und die Maus nicht bedienen kann. `inert` nimmt den
-            gesamten Teilbaum aus Fokusreihenfolge und Barrierefreiheitsbaum. */}
+        {/* Schritt 2: Modell.
+            `inert` statt `aria-hidden` + `pointer-events-none`: Ein
+            aria-hidden-Bereich, dessen Schaltflächen weiter fokussierbar
+            bleiben, ist laut WCAG unzulässig. Die Tabulatortaste landete in
+            einem Feld, das die Vorlesehilfe nicht ankündigt und die Maus nicht
+            bedienen kann. `inert` nimmt den Teilbaum aus Fokusreihenfolge,
+            Zeigerereignissen und Barrierefreiheitsbaum zugleich. */}
         <section
           ref={modelRef}
           className={`scroll-mt-24 transition-opacity duration-[var(--duration-base)] ${
@@ -221,22 +259,38 @@ export function Configurator() {
           inert={!brand}
         >
           <StepLabel number="02">Welches Modell?</StepLabel>
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {(brand?.models ?? []).map((m) => (
+          <div
+            key={brand?.id ?? "keine"}
+            className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3"
+          >
+            {(brand?.models ?? []).map((m, i) => (
               <button
                 key={m.id}
                 type="button"
                 onClick={() => chooseModel(m.id)}
                 aria-pressed={modelId === m.id}
-                className={`${optionBase} ${
+                data-ripple="ink"
+                className={`${optionBase} press ${
                   modelId === m.id ? optionActive : optionIdle
-                } px-4 py-4`}
+                } model-card flex flex-col px-4 py-3.5`}
+                /* Gestaffelter Einlauf: Die Liste wechselt beim Markenwechsel
+                   komplett, und 8 bis 10 Kacheln, die gleichzeitig erscheinen,
+                   liest niemand – sie blinken nur. Der Versatz von 24 ms je
+                   Kachel führt den Blick von links oben nach rechts unten.
+                   `key` am Markenwechsel sorgt dafür, dass die Animation bei
+                   jedem Wechsel neu startet. */
+                style={{ animationDelay: `${Math.min(i, 11) * 24}ms` }}
               >
                 <span className="block text-[0.9375rem] font-medium text-ink-strong">
                   {m.name}
                 </span>
-                <span className="mt-0.5 block font-mono text-xs text-ink-faint">
-                  {m.year}
+                <span className="mt-1 flex items-baseline justify-between gap-2">
+                  <span className="font-mono text-xs text-ink-faint">{m.year}</span>
+                  {m.prices.display ? (
+                    <span className="font-mono text-xs text-ink-soft">
+                      ab {formatEuro(m.prices.display)}
+                    </span>
+                  ) : null}
                 </span>
               </button>
             ))}
@@ -270,7 +324,8 @@ export function Configurator() {
                       )
                     }
                     aria-pressed={active}
-                    className={`${optionBase} ${
+                    data-ripple="ink"
+                    className={`${optionBase} press ${
                       active ? optionActive : optionIdle
                     } flex w-full items-center justify-between gap-4 px-5 py-4`}
                   >
@@ -347,10 +402,14 @@ export function Configurator() {
             </label>
             <button
               type="submit"
-              className="inline-flex h-13 w-full items-center justify-center gap-2 rounded-full bg-accent px-7 text-base font-medium text-accent-contrast transition-colors duration-[var(--duration-fast)] hover:bg-accent-hover sm:w-auto"
+              data-magnetic=""
+              data-ripple=""
+              className="press inline-flex h-13 w-full items-center justify-center rounded-full bg-accent px-7 text-base font-medium text-accent-contrast shadow-button transition-[background-color,box-shadow,scale] duration-[var(--duration-base)] hover:bg-accent-hover hover:shadow-[var(--shadow-button-hover)] sm:w-auto"
             >
-              Anfrage per E-Mail senden
-              <Icon name="arrow-right" size={18} />
+              <span className="relative z-[1] inline-flex items-center gap-2">
+                Anfrage per E-Mail senden
+                <Icon name="arrow-right" size={18} />
+              </span>
             </button>
             {submitted ? (
               <p className="flex items-center gap-2 text-[0.9375rem] text-positive">
@@ -364,13 +423,77 @@ export function Configurator() {
 
       {/* Rechte Spalte: Diagramm + Preis */}
       <aside className="lg:sticky lg:top-24 lg:self-start">
-        <div className="rounded-[var(--radius-l)] border border-line bg-raised p-6 shadow-raised">
+        {/* Glas statt Vollweiß und ein Lichtabfall von oben: Die Vorschau ist
+            das Schaufenster des Rechners, sie darf sich vom Formular daneben
+            unterscheiden. */}
+        <div className="glass-micro lightfall overflow-hidden rounded-[var(--radius-xl)] p-6 shadow-floating">
           <DeviceDiagram highlight={highlight} className="mx-auto w-full max-w-[300px]" />
 
           <div className="mt-2 border-t border-line pt-5">
             <p className="font-mono text-xs uppercase tracking-[0.14em] text-ink-faint">
               {entry ? `${entry.brand.name} ${entry.model.name}` : "Ihr Gerät"}
             </p>
+
+            {/*
+              Geräte-Erkennung – schlägt vor, behauptet nichts.
+
+              Sie steht hier und nicht über den Schritten, obwohl sie dort
+              auffälliger wäre. Grund: Der Vorschlag entsteht erst im Browser,
+              denn nur der kennt die Bildschirmgröße. Über den Schritten
+              eingefügt, schöbe er beim Nachladen die ganze Seite nach unten –
+              messbar als Layout-Shift, spürbar als Ruck unter dem Finger.
+              In dieser Spalte steht darunter nichts, was springen könnte.
+            */}
+            {detected && detected.candidates.length > 0 && !detectDismissed && !modelId ? (
+              <div className="mt-4 rounded-[var(--radius-m)] border border-accent/35 bg-accent-subtle p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="flex items-center gap-2 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-accent">
+                    <Icon name="cpu" size={13} />
+                    Gerät erkannt
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setDetectDismissed(true)}
+                    aria-label="Vorschlag ausblenden"
+                    className="-mr-1.5 -mt-1.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-ink-faint transition-colors hover:bg-sunken hover:text-ink-strong"
+                  >
+                    <Icon name="close" size={14} />
+                  </button>
+                </div>
+
+                <p className="mt-1.5 text-[0.875rem] leading-relaxed text-ink">
+                  {detected.candidates.length === 1
+                    ? "Ihr Bildschirm passt genau hierzu:"
+                    : "Ihr Bildschirm passt zu mehreren baugleich großen Geräten:"}
+                </p>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {detected.candidates.map((c) => (
+                    <button
+                      key={c.model.id}
+                      type="button"
+                      onClick={() => {
+                        setBrandId(c.brand.id);
+                        setModelId(c.model.id);
+                        setSelected([]);
+                        setHighlight(null);
+                        setSubmitted(false);
+                        scrollTo(damageRef);
+                      }}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-full bg-accent px-3.5 text-[0.8125rem] font-medium text-accent-contrast transition-colors hover:bg-accent-hover"
+                    >
+                      {c.brand.name} {c.model.name}
+                      <Icon name="arrow-right" size={13} />
+                    </button>
+                  ))}
+                </div>
+
+                <p className="mt-2.5 font-mono text-[0.6875rem] text-ink-faint">
+                  {detected.screen.w} × {detected.screen.h} px · {detected.screen.dpr.toFixed(2)}×
+                  {detected.ambiguous ? " · nicht eindeutig, bitte bestätigen" : ""}
+                </p>
+              </div>
+            ) : null}
 
             {chosen.length > 0 ? (
               <ul className="mt-3 space-y-1.5">
@@ -394,11 +517,26 @@ export function Configurator() {
 
             <div className="mt-4 flex items-baseline justify-between border-t border-line pt-4">
               <span className="text-[0.9375rem] font-medium text-ink-strong">Festpreis</span>
-              <span
-                key={total}
-                className="price-swap font-mono text-3xl font-semibold tracking-tight text-ink-strong"
-              >
-                {formatEuro(total)}
+              {/*
+                tabular-nums ist hier kein Detail, sondern die Bedingung dafür,
+                dass das Hochzählen erträglich ist: Mit proportionalen Ziffern
+                ändert sich bei jedem Zwischenwert die Breite, und der Betrag
+                zappelt während des Laufs seitlich hin und her.
+
+                aria-live meldet den Endbetrag, nicht jeden Zwischenschritt –
+                deshalb steht der gerechnete Wert im Text der Vorlesehilfe und
+                der laufende nur im sichtbaren Feld.
+              */}
+              <span className="relative">
+                <span
+                  aria-hidden="true"
+                  className="font-mono text-3xl font-semibold tabular-nums tracking-tight text-ink-strong"
+                >
+                  {formatEuro(shownTotal)}
+                </span>
+                <span className="sr-only" aria-live="polite">
+                  Festpreis {formatEuro(total)}
+                </span>
               </span>
             </div>
 
@@ -418,6 +556,22 @@ export function Configurator() {
                 <dd>{site.warrantyMonths} Monate Garantie auf Teil und Arbeit</dd>
               </div>
             </dl>
+
+            {/* Aus dem Preis wird ein Vorgang: eigene Nummer, QR-Code zum
+                Vorzeigen, druckbares Übergabeprotokoll. */}
+            {entry && chosen.length > 0 ? (
+              <Link
+                href={`/ticket?${ticketQuery(
+                  entry.brand.id,
+                  entry.model.id,
+                  chosen.map((r) => r.kind),
+                )}`}
+                className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-line-strong text-[0.9375rem] font-medium text-ink-strong transition-colors duration-[var(--duration-fast)] hover:border-ink-strong"
+              >
+                Ticket erstellen
+                <Icon name="arrow-right" size={16} />
+              </Link>
+            ) : null}
           </div>
         </div>
         <p className="mt-3 text-center text-[0.8125rem] text-ink-faint">

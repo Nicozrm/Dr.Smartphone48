@@ -7,6 +7,7 @@ import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import { Bootloader } from "@/components/experience/Bootloader";
 import { CommandPalette } from "@/components/experience/CommandPalette";
 import { MagneticField } from "@/components/experience/MagneticField";
+import { Ripple } from "@/components/experience/Ripple";
 import { ScrollProgress } from "@/components/experience/ScrollProgress";
 import { site, fullAddress } from "@/lib/site";
 import "./globals.css";
@@ -105,7 +106,7 @@ const jsonLd = {
       ],
       hasOfferCatalog: {
         "@type": "OfferCatalog",
-        name: "Reparaturleistungen",
+        name: "Leistungen",
         itemListElement: [
           "Displayreparatur",
           "Akkutausch",
@@ -113,6 +114,9 @@ const jsonLd = {
           "Kamerareparatur",
           "Ladebuchse",
           "Wasserschaden-Diagnose",
+          "Ankauf gebrauchter Smartphones",
+          "Verkauf geprüfter Refurbished-Geräte",
+          "Kostenloser Geräte-Check",
         ].map((n) => ({
           "@type": "Offer",
           itemOffered: { "@type": "Service", name: n },
@@ -163,6 +167,7 @@ export default function RootLayout({
         <ScrollProgress />
         <CommandPalette />
         <MagneticField />
+        <Ripple />
         <Bootloader />
         <ServiceWorkerRegister />
       </body>

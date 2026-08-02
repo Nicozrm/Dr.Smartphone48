@@ -1,5 +1,6 @@
 import { ContactForm } from "@/components/sections/ContactForm";
 import { LiveStatus } from "@/components/sections/LiveStatus";
+import { MapEmbed } from "@/components/sections/MapEmbed";
 import { Icon } from "@/components/ui/Icon";
 import { Reveal } from "@/components/ui/Reveal";
 import { site } from "@/lib/site";
@@ -90,22 +91,17 @@ export default function KontaktPage() {
         </Reveal>
       </div>
 
-      {/* Anfahrt – Karte lädt erst beim Scrollen und setzt keine Cookies,
-          solange sie nicht sichtbar ist (loading="lazy"). */}
+      {/* Anfahrt – die Karte wird erst auf Klick geladen. Siehe MapEmbed:
+          loading="lazy" verzögert den Abruf nur bis zum Scrollen, nicht bis
+          zur Entscheidung des Besuchers. */}
       <Reveal>
         <div className="mt-16">
           <h2 className="text-title">So finden Sie uns</h2>
           <p className="mt-2 text-[0.9375rem] text-ink-soft">
             {site.street}, {site.zip} {site.city}
           </p>
-          <div className="mt-5 overflow-hidden rounded-[var(--radius-l)] border border-line shadow-raised">
-            <iframe
-              src={site.google.embedUrl}
-              title={`Standort von ${site.name} auf Google Maps`}
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              className="h-[360px] w-full border-0"
-            />
+          <div className="mt-5">
+            <MapEmbed />
           </div>
           <a
             href={site.google.mapsUrl}
