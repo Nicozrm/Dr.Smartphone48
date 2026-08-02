@@ -20,8 +20,13 @@ const base =
   "press relative inline-flex items-center justify-center font-medium whitespace-nowrap rounded-full transition-[background-color,color,border-color,box-shadow,scale] duration-[var(--duration-base)] ease-[var(--ease-out)] disabled:opacity-40 disabled:pointer-events-none";
 
 const variants: Record<Variant, string> = {
+  // `breathe` färbt die Fläche selbst und lässt sie über 24 Sekunden zwischen
+  // zwei kaum unterscheidbaren Blautönen wandern. `bg-accent` bleibt als
+  // Rückfall stehen, falls color-mix fehlt; beim Überfahren übernimmt
+  // `hover:bg-accent-hover`, weil eine Utility-Klasse in der Kaskade nach
+  // `.breathe` ausgegeben wird.
   primary:
-    "bg-accent text-accent-contrast hover:bg-accent-hover shadow-button hover:shadow-[var(--shadow-button-hover)]",
+    "breathe bg-accent text-accent-contrast hover:bg-accent-hover shadow-button hover:shadow-[var(--shadow-button-hover)]",
   secondary:
     "bg-transparent text-ink-strong border border-line-strong hover:border-ink-strong hover:shadow-raised",
   ghost: "bg-transparent text-ink-strong hover:bg-sunken",
