@@ -17,40 +17,71 @@ export function MagneticField() {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!fine || reduced) return;
 
-    let current: HTMLElement | null = null;
+    /**
+     * `active` ist das Element unter dem Zeiger, `animating` das Element, das
+     * gerade bewegt wird. Beide getrennt zu halten ist der Kern: Beim
+     * Verlassen wird `active` sofort null, die Rückfederung braucht die
+     * Referenz aber noch. Wurden sie in einer Variablen geführt, blieb die
+     * Schaltfläche nach dem Verlassen um bis zu 8 px verschoben stehen – die
+     * Rückbewegung lief zwar, schrieb ihr Ergebnis aber auf niemanden mehr.
+     */
+    let active: HTMLElement | null = null;
+    let animating: HTMLElement | null = null;
     let rect: DOMRect | null = null;
     const pos = { x: 0, y: 0, tx: 0, ty: 0 };
     let raf = 0;
     const STRENGTH = 0.28;
     const MAX = 8;
 
+    const release = (el: HTMLElement) => {
+      el.style.transform = "";
+      el.style.willChange = "";
+    };
+
     const animate = () => {
       pos.x += (pos.tx - pos.x) * 0.15;
       pos.y += (pos.ty - pos.y) * 0.15;
-      if (current) {
-        current.style.transform = `translate(${pos.x.toFixed(2)}px, ${pos.y.toFixed(2)}px)`;
+
+      const settled =
+        Math.abs(pos.tx - pos.x) < 0.1 && Math.abs(pos.ty - pos.y) < 0.1;
+
+      if (animating) {
+        if (settled && !active) {
+          // Zur Ruhe gekommen und nicht mehr angefahren: Inline-Stil abräumen,
+          // damit das Element wieder allein von CSS bestimmt wird.
+          pos.x = 0;
+          pos.y = 0;
+          release(animating);
+          animating = null;
+        } else {
+          animating.style.transform = `translate(${pos.x.toFixed(2)}px, ${pos.y.toFixed(2)}px)`;
+        }
       }
-      if (Math.abs(pos.tx - pos.x) > 0.1 || Math.abs(pos.ty - pos.y) > 0.1 || current) {
-        raf = requestAnimationFrame(animate);
-      } else {
-        raf = 0;
-      }
+
+      // Solange gefahren wird oder die Feder noch läuft, weiterrechnen.
+      // Ruht der Zeiger auf dem Element, hält die Schleife an, statt
+      // dauerhaft Frames zu verbrennen.
+      raf = animating && !(settled && !active) ? requestAnimationFrame(animate) : 0;
     };
     const kick = () => {
-      if (!raf) raf = requestAnimationFrame(animate);
+      if (!raf && animating) raf = requestAnimationFrame(animate);
     };
 
     const onOver = (e: PointerEvent) => {
       const el = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-magnetic]");
-      if (el && el !== current) {
-        current = el;
+      if (el && el !== active) {
+        // Ein noch nachfederndes anderes Element sofort sauber zurücksetzen.
+        if (animating && animating !== el) release(animating);
+        active = el;
+        animating = el;
         rect = el.getBoundingClientRect();
         el.style.willChange = "transform";
       }
     };
     const onMove = (e: PointerEvent) => {
-      if (!current) return;
-      if (!rect) rect = current.getBoundingClientRect();
+      if (!active) return;
+      // Der Rahmen kann durch Scrollen veraltet sein – vor jeder Messung frisch.
+      rect = active.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
       pos.tx = Math.max(-MAX, Math.min(MAX, (e.clientX - cx) * STRENGTH));
@@ -59,9 +90,8 @@ export function MagneticField() {
     };
     const onOut = (e: PointerEvent) => {
       const to = e.relatedTarget as HTMLElement | null;
-      if (current && (!to || !current.contains(to))) {
-        current.style.willChange = "";
-        current = null;
+      if (active && (!to || !active.contains(to))) {
+        active = null;
         rect = null;
         pos.tx = 0;
         pos.ty = 0;
@@ -74,6 +104,7 @@ export function MagneticField() {
     document.addEventListener("pointerout", onOut);
     return () => {
       cancelAnimationFrame(raf);
+      if (animating) release(animating);
       document.removeEventListener("pointerover", onOver);
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerout", onOut);

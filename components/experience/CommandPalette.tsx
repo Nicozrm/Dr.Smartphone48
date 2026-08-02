@@ -81,6 +81,7 @@ export function CommandPalette() {
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const restoreRef = useRef<HTMLElement | null>(null);
 
   const results = useMemo(() => {
@@ -150,7 +151,27 @@ export function CommandPalette() {
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
+    if (e.key === "Tab") {
+      // Fokus im Dialog halten. Ohne diese Klammer wandert die Tabulatortaste
+      // aus der Palette heraus in die Seite dahinter, die durch den Scrim
+      // verdeckt ist – der Kommentar oben versprach die Falle, der Code hatte
+      // sie nicht. Ein Modal, das den Fokus verliert, ist für Tastatur- und
+      // Screenreader-Nutzung nicht bedienbar.
+      const focusables = panelRef.current?.querySelectorAll<HTMLElement>(
+        'input, button:not([tabindex="-1"]), a[href]',
+      );
+      if (!focusables || focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const activeEl = document.activeElement;
+      if (e.shiftKey && (activeEl === first || !panelRef.current?.contains(activeEl))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && activeEl === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    } else if (e.key === "Escape") {
       e.preventDefault();
       close();
     } else if (e.key === "ArrowDown") {
@@ -184,7 +205,10 @@ export function CommandPalette() {
         onClick={close}
         className="cmdk-scrim absolute inset-0 bg-ink-strong/25 backdrop-blur-sm"
       />
-      <div className="cmdk-panel relative w-full max-w-xl overflow-hidden rounded-[var(--radius-l)] border border-line bg-raised shadow-floating">
+      <div
+        ref={panelRef}
+        className="cmdk-panel relative w-full max-w-xl overflow-hidden rounded-[var(--radius-l)] border border-line bg-raised shadow-floating"
+      >
         <div className="flex items-center gap-3 border-b border-line px-4">
           <Icon name="search" size={19} className="shrink-0 text-ink-faint" />
           <input

@@ -8,7 +8,7 @@ const base =
   "inline-flex items-center justify-center gap-2 font-medium whitespace-nowrap rounded-full transition-[background-color,color,border-color,transform,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out)] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-white hover:bg-accent-hover shadow-button",
+  primary: "bg-accent text-accent-contrast hover:bg-accent-hover shadow-button",
   secondary:
     "bg-transparent text-ink-strong border border-line-strong hover:border-ink-strong",
   ghost: "bg-transparent text-ink-strong hover:bg-sunken",

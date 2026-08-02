@@ -25,9 +25,21 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const hits = new Map<string, { n: number; until: number }>();
 const WINDOW_MS = 10 * 60 * 1000;
 const LIMIT = 5;
+/** Ab dieser Größe wird beim Schreiben aufgeräumt. */
+const MAX_TRACKED_IPS = 10_000;
 
 function rateLimited(ip: string): boolean {
   const now = Date.now();
+
+  // Abgelaufene Einträge entfernen. Ohne das wächst die Map mit jeder je
+  // gesehenen IP-Adresse weiter – in einem langlebigen Node-Prozess ist das
+  // ein langsames Speicherleck, das erst nach Wochen auffällt.
+  if (hits.size > MAX_TRACKED_IPS) {
+    for (const [key, value] of hits) {
+      if (now > value.until) hits.delete(key);
+    }
+  }
+
   const cur = hits.get(ip);
   if (!cur || now > cur.until) {
     hits.set(ip, { n: 1, until: now + WINDOW_MS });
@@ -37,8 +49,28 @@ function rateLimited(ip: string): boolean {
   return cur.n > LIMIT;
 }
 
+/**
+ * Eingaben normalisieren. Steuerzeichen fliegen raus, bevor der Wert in eine
+ * E-Mail wandert: Ein Zeilenumbruch in einem Feld, das später in der
+ * Betreffzeile landet, kann dort zusätzliche Kopfzeilen eröffnen.
+ */
 function clean(v: FormDataEntryValue | null, max = 300): string {
-  return typeof v === "string" ? v.trim().slice(0, max) : "";
+  if (typeof v !== "string") return "";
+  return v.replace(/[\u0000-\u001F\u007F]/g, " ").trim().slice(0, max);
+}
+
+/**
+ * Wie `clean`, behält aber Zeilenumbrüche und Tabulatoren – für das Freitext-
+ * feld, dessen Absätze in der E-Mail erhalten bleiben sollen. Der Wert landet
+ * ausschließlich im HTML-Rumpf (dort escaped), nie in einer Kopfzeile.
+ */
+function cleanMultiline(v: FormDataEntryValue | null, max: number): string {
+  if (typeof v !== "string") return "";
+  return v
+    .replace(/\r\n?/g, "\n")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
+    .trim()
+    .slice(0, max);
 }
 
 function escapeHtml(s: string): string {
@@ -77,7 +109,7 @@ export async function POST(request: Request) {
   const phone = clean(form.get("phone"), 60);
   const device = clean(form.get("device"), 120);
   const topic = clean(form.get("topic"), 60);
-  const message = clean(form.get("message"), MAX_MESSAGE);
+  const message = cleanMultiline(form.get("message"), MAX_MESSAGE);
   const consent = clean(form.get("consent"), 10);
 
   const errors: Record<string, string> = {};

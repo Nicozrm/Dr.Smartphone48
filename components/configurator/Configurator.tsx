@@ -208,12 +208,17 @@ export function Configurator() {
         </section>
 
         {/* Schritt 2: Modell */}
+        {/* `inert` statt `aria-hidden`: Ein aria-hidden-Bereich, dessen
+            Schaltflächen weiter fokussierbar sind, ist laut WCAG unzulässig –
+            die Tabulatortaste landete hier in einem Feld, das die Vorlesehilfe
+            nicht ankündigt und die Maus nicht bedienen kann. `inert` nimmt den
+            gesamten Teilbaum aus Fokusreihenfolge und Barrierefreiheitsbaum. */}
         <section
           ref={modelRef}
           className={`scroll-mt-24 transition-opacity duration-[var(--duration-base)] ${
-            brand ? "opacity-100" : "pointer-events-none opacity-30"
+            brand ? "opacity-100" : "opacity-30"
           }`}
-          aria-hidden={!brand}
+          inert={!brand}
         >
           <StepLabel number="02">Welches Modell?</StepLabel>
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -242,9 +247,9 @@ export function Configurator() {
         <section
           ref={damageRef}
           className={`scroll-mt-24 transition-opacity duration-[var(--duration-base)] ${
-            entry ? "opacity-100" : "pointer-events-none opacity-30"
+            entry ? "opacity-100" : "opacity-30"
           }`}
-          aria-hidden={!entry}
+          inert={!entry}
         >
           <StepLabel number="03">Was ist defekt?</StepLabel>
           <p className="mt-2 pl-10 text-[0.9375rem] text-ink-soft">
@@ -294,9 +299,9 @@ export function Configurator() {
         <section
           ref={formRef}
           className={`scroll-mt-24 transition-opacity duration-[var(--duration-base)] ${
-            chosen.length > 0 ? "opacity-100" : "pointer-events-none opacity-30"
+            chosen.length > 0 ? "opacity-100" : "opacity-30"
           }`}
-          aria-hidden={chosen.length === 0}
+          inert={chosen.length === 0}
         >
           <StepLabel number="04">Termin anfragen</StepLabel>
           <p className="mt-2 pl-10 text-[0.9375rem] text-ink-soft">
@@ -342,7 +347,7 @@ export function Configurator() {
             </label>
             <button
               type="submit"
-              className="inline-flex h-13 w-full items-center justify-center gap-2 rounded-full bg-accent px-7 text-base font-medium text-white transition-colors duration-[var(--duration-fast)] hover:bg-accent-hover sm:w-auto"
+              className="inline-flex h-13 w-full items-center justify-center gap-2 rounded-full bg-accent px-7 text-base font-medium text-accent-contrast transition-colors duration-[var(--duration-fast)] hover:bg-accent-hover sm:w-auto"
             >
               Anfrage per E-Mail senden
               <Icon name="arrow-right" size={18} />

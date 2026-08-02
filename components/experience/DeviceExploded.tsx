@@ -440,7 +440,7 @@ export function DeviceExploded() {
             <Link
               href="/reparatur"
               data-magnetic=""
-              className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-accent px-5 text-[0.9375rem] font-medium text-white shadow-button transition-colors hover:bg-accent-hover"
+              className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-accent px-5 text-[0.9375rem] font-medium text-accent-contrast shadow-button transition-colors hover:bg-accent-hover"
               style={{ transitionProperty: "background-color" }}
             >
               Preis für mein Modell

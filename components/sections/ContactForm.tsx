@@ -107,12 +107,25 @@ export function ContactForm() {
     );
   }
 
+  /**
+   * Fehlermeldung mit stabiler ID, damit das zugehörige Feld sie über
+   * `aria-describedby` referenzieren kann. `aria-invalid` allein sagt einer
+   * Vorlesehilfe nur, *dass* etwas falsch ist – nicht *was*.
+   */
+  const errId = (k: string) => `fehler-${k}`;
   const err = (k: string) =>
     errors[k] ? (
-      <span role="alert" className="mt-1.5 block text-[0.8125rem]" style={{ color: "var(--danger)" }}>
+      <span
+        id={errId(k)}
+        role="alert"
+        className="mt-1.5 block text-[0.8125rem]"
+        style={{ color: "var(--danger)" }}
+      >
         {errors[k]}
       </span>
     ) : null;
+  /** Felder verweisen nur auf die Meldung, solange es sie gibt. */
+  const describedBy = (k: string) => (errors[k] ? errId(k) : undefined);
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-4" noValidate>
@@ -124,6 +137,7 @@ export function ContactForm() {
             required
             autoComplete="name"
             aria-invalid={!!errors.name}
+            aria-describedby={describedBy("name")}
             className={`h-12 ${fieldClass}`}
             placeholder="Vor- und Nachname"
           />
@@ -137,6 +151,7 @@ export function ContactForm() {
             required
             autoComplete="email"
             aria-invalid={!!errors.email}
+            aria-describedby={describedBy("email")}
             className={`h-12 ${fieldClass}`}
             placeholder="fuer.die.antwort@example.de"
           />
@@ -187,6 +202,7 @@ export function ContactForm() {
           required
           rows={5}
           aria-invalid={!!errors.message}
+          aria-describedby={describedBy("message")}
           className={`py-3 ${fieldClass}`}
           placeholder="Was ist passiert? Seit wann? Alles hilft uns, schneller zu helfen."
         />
@@ -230,6 +246,7 @@ export function ContactForm() {
           name="consent"
           required
           aria-invalid={!!errors.consent}
+          aria-describedby={describedBy("consent")}
           className="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]"
         />
         <span className="text-[0.875rem] leading-relaxed text-ink-soft">
@@ -247,7 +264,7 @@ export function ContactForm() {
         type="submit"
         disabled={state === "sending"}
         data-magnetic=""
-        className="inline-flex h-13 items-center justify-center gap-2 rounded-full bg-accent px-7 text-base font-medium text-white shadow-button transition-colors duration-[var(--duration-fast)] hover:bg-accent-hover disabled:opacity-60"
+        className="inline-flex h-13 items-center justify-center gap-2 rounded-full bg-accent px-7 text-base font-medium text-accent-contrast shadow-button transition-colors duration-[var(--duration-fast)] hover:bg-accent-hover disabled:opacity-60"
         style={{ transitionProperty: "background-color, opacity" }}
       >
         {state === "sending" ? "Wird gesendet …" : "Anfrage senden"}
