@@ -7,6 +7,7 @@ import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import { Bootloader } from "@/components/experience/Bootloader";
 import { CommandPalette } from "@/components/experience/CommandPalette";
 import { MagneticField } from "@/components/experience/MagneticField";
+import { CursorGlass } from "@/components/experience/CursorGlass";
 import { Ripple } from "@/components/experience/Ripple";
 import { ScrollProgress } from "@/components/experience/ScrollProgress";
 import { site, fullAddress } from "@/lib/site";
@@ -167,6 +168,7 @@ export default function RootLayout({
         <ScrollProgress />
         <CommandPalette />
         <MagneticField />
+        <CursorGlass />
         <Ripple />
         <Bootloader />
         <ServiceWorkerRegister />

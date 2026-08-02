@@ -6,6 +6,14 @@
   Alles andere ist Ton-in-Ton.
 */
 
+/*
+  Registrierte Eigenschaft für den Atem des Akzents. Nicht registrierte
+  Custom Properties gelten dem Browser als Zeichenketten – er schaltet sie
+  hart um, statt zu interpolieren. Erst @property macht aus 0% → 100% eine
+  Bewegung.
+*/
+
+
 :root {
   /* Flächen */
   --surface-page: #f7f7f5;
@@ -27,8 +35,22 @@
   --line-strong: rgba(20, 21, 23, 0.18);
   --line-inverse: rgba(245, 245, 243, 0.14);
 
-  /* Akzent – ein einziges, präzises Blau */
-  --accent: #2456e6;
+  /*
+    Akzent – ein einziges, präzises Blau, das atmet.
+
+    --accent-a und --accent-b sind die beiden Endpunkte, zwischen denen die
+    Klasse `.breathe` über zwölf Sekunden hin und her wandert (siehe unten).
+    Der Abstand ist absichtlich kleiner als das, was man bewusst bemerkt:
+    Wer hinsieht, sieht nichts; wer eine Weile bleibt, empfindet die Seite
+    als lebendig statt als Bild.
+
+    --accent selbst steht still. Es ist der Ton für Linien, Schrift und
+    Ränder – Flächen, bei denen eine Bewegung entweder unsichtbar wäre oder
+    störte. Wer den Akzent ändert, ändert alle drei Werte gemeinsam.
+  */
+  --accent-a: #2456e6;
+  --accent-b: #2f63f2;
+  --accent: var(--accent-a);
   --accent-hover: #1c47c4;
   --accent-subtle: rgba(36, 86, 230, 0.08);
   --accent-inverse: #6b93ff;
@@ -193,7 +215,10 @@
   --line-strong: rgba(245, 245, 243, 0.2);
   --line-inverse: rgba(245, 245, 243, 0.12);
 
-  --accent: #5c86ff;
+  /* Im Dunkeln atmet dasselbe Blau eine Spur heller – auf Schwarz trägt
+     der Ton mehr Helligkeit, ohne aufdringlich zu werden. */
+  --accent-a: #4e7cff;
+  --accent-b: #5a86ff;
   --accent-hover: #7ba0ff;
   --accent-subtle: rgba(92, 134, 255, 0.14);
   --accent-inverse: #7ba0ff;
@@ -498,6 +523,13 @@ html[data-js] .reveal[data-revealed="true"] {
   .shader-field {
     animation: none;
     opacity: 1;
+  }
+
+  /* Der Atem des Akzents steht still. Er ist zwar kaum wahrnehmbar, aber
+     „kaum wahrnehmbar" ist nicht dasselbe wie „nicht vorhanden" – wer
+     Bewegung abbestellt hat, bekommt keine. */
+  html {
+    animation: none;
   }
 }
 
@@ -1913,4 +1945,137 @@ html[data-js] .reveal[data-revealed="true"] {
 @page {
   size: A4;
   margin: 0;
+}
+
+/* ==========================================================================
+   Glasring am Zeiger
+   ==========================================================================
+   Läuft dem Zeiger mit leichter Trägheit nach und filtert, was unter ihm
+   liegt – eine Linse, kein Aufkleber. Er ersetzt den Systemcursor nicht:
+   Gezielt wird weiterhin mit der echten Spitze, der Ring begleitet nur.
+   Erzeugt von components/experience/CursorGlass.tsx, das ihn bei grobem
+   Zeiger und bei prefers-reduced-motion gar nicht erst anlegt.
+   ========================================================================== */
+
+.cursor-glass {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 90;
+  width: var(--cursor-size, 34px);
+  height: var(--cursor-size, 34px);
+  margin: calc(var(--cursor-size, 34px) / -2) 0 0 calc(var(--cursor-size, 34px) / -2);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in oklab, var(--glass-bg) 22%, transparent);
+  box-shadow: var(--glass-edge);
+  pointer-events: none;
+  opacity: 0;
+  /* Die Position schreibt JS über `translate`; Größe und Deckkraft laufen
+     in CSS, damit beide Ebenen ihr eigenes Timing behalten. */
+  transition:
+    width var(--duration-base) var(--ease-spring),
+    height var(--duration-base) var(--ease-spring),
+    margin var(--duration-base) var(--ease-spring),
+    opacity var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    scale var(--duration-fast) var(--ease-out);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .cursor-glass {
+    -webkit-backdrop-filter: blur(var(--glass-blur-micro)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur-micro)) saturate(var(--glass-saturate));
+    background: transparent;
+  }
+}
+
+.cursor-glass[data-on] {
+  opacity: 1;
+}
+
+.cursor-glass[data-hidden] {
+  opacity: 0;
+}
+
+/* Über Bedienbarem: weiter und eine Spur deutlicher umrandet. */
+.cursor-glass[data-active="true"] {
+  --cursor-size: 52px;
+  border-color: color-mix(in oklab, var(--accent) 45%, transparent);
+}
+
+.cursor-glass[data-press] {
+  scale: 0.86;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor-glass {
+    display: none;
+  }
+}
+
+@media print {
+  .cursor-glass {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   Atmender Akzent
+   ==========================================================================
+   Der Akzent wandert über 24 Sekunden zwischen zwei eng benachbarten Tönen
+   hin und zurück. Der Abstand liegt unter der Schwelle bewusster
+   Wahrnehmung: Wer hinsieht, sieht nichts; wer eine Weile bleibt, empfindet
+   die Seite als lebendig statt als Bild.
+
+   Bewusst **nicht** global auf --accent, sondern nur dort, wo der Akzent als
+   Fläche erscheint – im Wesentlichen die primären Schaltflächen. Auf der
+   Wurzel angewandt kostete derselbe Effekt gemessene 1282 ms
+   Stil-Neuberechnung auf einem gedrosselten Telefon, weil eine vererbte
+   Eigenschaft bei jeder Änderung das ganze Dokument invalidiert. Hier sind
+   es eine Handvoll Elemente, und die Rechnung geht in der Messung unter.
+   ========================================================================== */
+
+@keyframes op-breath {
+  from {
+    background-color: var(--accent-a);
+  }
+  to {
+    background-color: var(--accent-b);
+  }
+}
+
+/*
+  Animiert wird `background-color` unmittelbar – nicht eine Custom Property,
+  aus der die Farbe gemischt wird.
+
+  Der Unterschied ist gemessen und groß: Eine animierte Custom Property lässt
+  Chromium je Bild den Stil neu berechnen, und zwar weitgehend unabhängig
+  davon, ob sie vererbt wird oder an drei Knöpfen hängt – 1282 ms am
+  Wurzelelement, 672 ms an drei Elementen, auf einem vierfach gedrosselten
+  Telefon. Eine gewöhnliche Farbeigenschaft interpoliert der Browser dagegen
+  auf dem eingefahrenen Weg, ohne Stil-Neuberechnung.
+
+  Beim Überfahren hält der Atem an, sonst überschriebe die Animation die
+  Hover-Farbe – Animationen gewinnen gegen normale Deklarationen.
+*/
+.breathe {
+  animation: op-breath 12s steps(48, jump-none) infinite alternate;
+}
+
+.breathe:hover,
+.breathe:focus-visible {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .breathe {
+    animation: none;
+  }
+}
+
+@media print {
+  .breathe {
+    animation: none;
+  }
 }

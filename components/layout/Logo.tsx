@@ -22,22 +22,25 @@ export function LogoMark({ size = 30, className = "" }: { size?: number; classNa
       className={className}
       fill="none"
     >
-      {/* Gerätesilhouette */}
+      {/* Gerätesilhouette. Maße wie im Favicon (app/icon.svg): 0,658 breit zu
+          hoch, Ecken 32 % der Breite, Strich 10 % – damit Kopfzeile und
+          Browser-Tab dieselbe Marke zeigen und nicht zwei Verwandte. */}
       <rect
-        x="7.25"
-        y="2.25"
-        width="17.5"
-        height="27.5"
-        rx="4.25"
+        x="7"
+        y="2.3"
+        width="18"
+        height="27.4"
+        rx="5.8"
         stroke="currentColor"
-        strokeWidth="1.9"
+        strokeWidth="1.8"
       />
-      {/* Diagnose-Kreuz, gestufte Enden */}
+      {/* Diagnose-Kreuz. Es füllt das Gerät fast aus – genau das macht die
+          Marke bei 16 px noch erkennbar. */}
       <path
-        d="M16 9.5v13M9.5 16h13"
+        d="M16 5.5v21M8.8 16h14.4"
         stroke="currentColor"
-        strokeWidth="2.4"
-        strokeLinecap="square"
+        strokeWidth="1.8"
+        strokeLinecap="round"
       />
     </svg>
   );
