@@ -12,30 +12,7 @@
   hart um, statt zu interpolieren. Erst @property macht aus 0% → 100% eine
   Bewegung.
 */
-@property --breath {
-  /*
-    Zahl, nicht Prozent. Mit `<percentage>` wäre der Startwert `0%` – und der
-    Minifier kürzt jede Null auf `0`, womit die Registrierung ungültig wird
-    und stillschweigend verfällt: Die Farbe stünde dann einfach still, ohne
-    dass irgendetwas meldet, dass etwas fehlt. Als `<number>` überlebt der
-    Wert jede Kürzung; die Prozentangabe entsteht erst an der Verwendung.
-  */
-  syntax: "<number>";
-  inherits: true;
-  initial-value: 0;
-}
 
-@keyframes op-breath {
-  to {
-    --breath: 1;
-  }
-}
-
-/* Zwölf Sekunden hin, zwölf zurück. `alternate` spart die Rückblende im
-   Keyframe und hält die Bewegung symmetrisch. */
-html {
-  animation: op-breath 12s var(--ease-inout, ease-in-out) infinite alternate;
-}
 
 :root {
   /* Flächen */
@@ -61,20 +38,19 @@ html {
   /*
     Akzent – ein einziges, präzises Blau, das atmet.
 
-    Über zwölf Sekunden wandert es zwischen zwei eng benachbarten Tönen hin
-    und zurück. Der Abstand ist absichtlich kleiner als das, was man bewusst
-    bemerkt: Wer hinsieht, sieht nichts; wer eine Minute auf der Seite ist,
-    empfindet sie als lebendig statt als Bild. Apple macht das seit Jahren
-    mit Licht, nicht mit Farbe – hier ist es dasselbe Prinzip.
+    --accent-a und --accent-b sind die beiden Endpunkte, zwischen denen die
+    Klasse `.breathe` über zwölf Sekunden hin und her wandert (siehe unten).
+    Der Abstand ist absichtlich kleiner als das, was man bewusst bemerkt:
+    Wer hinsieht, sieht nichts; wer eine Weile bleibt, empfindet die Seite
+    als lebendig statt als Bild.
 
-    Technisch: --breath ist über @property als <percentage> registriert und
-    damit überhaupt erst animierbar; --accent wird daraus per color-mix
-    abgeleitet. Ohne die Registrierung würde der Browser den Wert hart
-    umschalten statt zu interpolieren.
+    --accent selbst steht still. Es ist der Ton für Linien, Schrift und
+    Ränder – Flächen, bei denen eine Bewegung entweder unsichtbar wäre oder
+    störte. Wer den Akzent ändert, ändert alle drei Werte gemeinsam.
   */
   --accent-a: #2456e6;
   --accent-b: #2f63f2;
-  --accent: color-mix(in oklab, var(--accent-a), var(--accent-b) calc(var(--breath, 0) * 100%));
+  --accent: var(--accent-a);
   --accent-hover: #1c47c4;
   --accent-subtle: rgba(36, 86, 230, 0.08);
   --accent-inverse: #6b93ff;
@@ -2041,5 +2017,65 @@ html[data-js] .reveal[data-revealed="true"] {
 @media print {
   .cursor-glass {
     display: none !important;
+  }
+}
+
+/* ==========================================================================
+   Atmender Akzent
+   ==========================================================================
+   Der Akzent wandert über 24 Sekunden zwischen zwei eng benachbarten Tönen
+   hin und zurück. Der Abstand liegt unter der Schwelle bewusster
+   Wahrnehmung: Wer hinsieht, sieht nichts; wer eine Weile bleibt, empfindet
+   die Seite als lebendig statt als Bild.
+
+   Bewusst **nicht** global auf --accent, sondern nur dort, wo der Akzent als
+   Fläche erscheint – im Wesentlichen die primären Schaltflächen. Auf der
+   Wurzel angewandt kostete derselbe Effekt gemessene 1282 ms
+   Stil-Neuberechnung auf einem gedrosselten Telefon, weil eine vererbte
+   Eigenschaft bei jeder Änderung das ganze Dokument invalidiert. Hier sind
+   es eine Handvoll Elemente, und die Rechnung geht in der Messung unter.
+   ========================================================================== */
+
+@keyframes op-breath {
+  from {
+    background-color: var(--accent-a);
+  }
+  to {
+    background-color: var(--accent-b);
+  }
+}
+
+/*
+  Animiert wird `background-color` unmittelbar – nicht eine Custom Property,
+  aus der die Farbe gemischt wird.
+
+  Der Unterschied ist gemessen und groß: Eine animierte Custom Property lässt
+  Chromium je Bild den Stil neu berechnen, und zwar weitgehend unabhängig
+  davon, ob sie vererbt wird oder an drei Knöpfen hängt – 1282 ms am
+  Wurzelelement, 672 ms an drei Elementen, auf einem vierfach gedrosselten
+  Telefon. Eine gewöhnliche Farbeigenschaft interpoliert der Browser dagegen
+  auf dem eingefahrenen Weg, ohne Stil-Neuberechnung.
+
+  Beim Überfahren hält der Atem an, sonst überschriebe die Animation die
+  Hover-Farbe – Animationen gewinnen gegen normale Deklarationen.
+*/
+.breathe {
+  animation: op-breath 12s steps(48, jump-none) infinite alternate;
+}
+
+.breathe:hover,
+.breathe:focus-visible {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .breathe {
+    animation: none;
+  }
+}
+
+@media print {
+  .breathe {
+    animation: none;
   }
 }

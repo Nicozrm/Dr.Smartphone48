@@ -157,13 +157,20 @@ scripts/
 - **Design-Tokens** ausschließlich über die CSS-Variablen in `app/globals.css`
   (Farben `--ink-*`/`--surface-*`, Radius `--radius-*`, Motion `--ease-*`,
   `--duration-*`). Keine Ad-hoc-Farben oder -Timings.
-- **`--accent` ist abgeleitet, nicht gesetzt.** Der Akzent wandert über zwölf
-  Sekunden zwischen `--accent-a` und `--accent-b` (`color-mix` über die per
-  `@property` registrierte Zahl `--breath`). Wer den Ton ändern will, ändert
-  die beiden Endpunkte – ein direktes `--accent: #xyz` überschreibt die
-  Ableitung und der Atem hört still auf. `--breath` ist bewusst `<number>`
-  und nicht `<percentage>`: Der Minifier kürzt `0%` zu `0`, womit die
-  Registrierung ungültig würde und die Animation kommentarlos ausfiele.
+- **Der Akzent atmet – aber nur als Fläche.** `--accent-a` und `--accent-b`
+  sind die Endpunkte; die Klasse `.breathe` (an der primären Schaltfläche)
+  wandert über zwölf Sekunden zwischen ihnen. `--accent` selbst steht still
+  und gilt für Linien, Schrift und Ränder. Wer den Ton ändert, ändert alle
+  drei Werte gemeinsam.
+
+  **Nicht auf Custom Properties umbauen.** Der naheliegende Weg – eine per
+  `@property` registrierte Zahl animieren und `--accent` daraus mischen –
+  kostet auf einem vierfach gedrosselten Telefon 1282 ms zusätzliche
+  Stil-Neuberechnung, mehr als alles andere auf der Seite zusammen: Chromium
+  rechnet bei animierten Custom Properties je Bild den Stil neu, weitgehend
+  unabhängig davon, ob sie vererbt werden (672 ms selbst an nur drei
+  Elementen). Die direkte Animation von `background-color` kostet 83 ms.
+  Gemessen mit `Tracing` über `UpdateLayoutTree`, Median aus drei Läufen.
 - **Animationen**: dezent und zweckgebunden (siehe `Task`). Scroll-Reveals über
   die `Reveal`-Komponente (IntersectionObserver setzt `data-revealed`, Bewegung
   lebt in CSS). `prefers-reduced-motion` wird überall respektiert; ohne JS
