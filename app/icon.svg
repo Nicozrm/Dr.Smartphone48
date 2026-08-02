@@ -3,49 +3,61 @@
     Die Marke als Glaskörper.
 
     Zwei Anforderungen, die sich widersprechen: Bei 512 px soll man das Glas
-    sehen – Randlicht, Glanzschliff, Tiefe. Bei 16 px in einem Browser-Tab ist
-    von alledem nichts mehr übrig, dort zählt nur, ob Telefon und Kreuz als
-    Form lesbar bleiben.
+    sehen – Randlicht, Glanzschliff, Fase, Tiefe. Bei 16 px im Browser-Tab ist
+    davon nichts mehr übrig, dort zählt nur, ob Telefon und Kreuz als Form
+    lesbar bleiben.
 
-    Aufgelöst über die Reihenfolge: Der Glaskörper besteht aus großflächigen,
-    weichen Verläufen, die beim Herunterskalieren zu einem einzigen dunklen
-    Ton verschmelzen und nichts verschmutzen. Die Marke darüber ist reines
-    Weiß mit kräftigen Strichstärken – sie überlebt jede Verkleinerung.
+    Aufgelöst über die Schichtung: Der Glaskörper besteht aus großflächigen,
+    weichen Verläufen, die beim Verkleinern zu einem einzigen dunklen Ton
+    verschmelzen und nichts verschmutzen. Die Marke darüber ist reines Weiß
+    und trägt die Proportionen der Vorlage: Telefon 0,658 breit zu hoch,
+    Strichstärke 9,6 % der Breite, das Kreuz 77 % der Höhe und 92 % der
+    Breite – es füllt das Gerät fast aus, und genau das macht es bei 16 px
+    noch erkennbar.
+
     Kein Schriftzug im Icon: „Dr Smartphone48" ist bei 16 px ein grauer
-    Balken, mehr nicht.
+    Balken. Die Wortmarke lebt im Kopf der Seite, nicht hier.
   -->
   <defs>
     <!-- Korpus: kein flaches Schwarz. Von oben eingefallenes Licht, das nach
          unten in echtes Schwarz ausläuft – das gibt dem Körper Gewicht. -->
-    <linearGradient id="dsBody" x1="0.3" y1="0" x2="0.7" y2="1">
-      <stop offset="0" stop-color="#26282c" />
-      <stop offset="0.34" stop-color="#0d0e10" />
+    <linearGradient id="dsBody" x1="0.28" y1="0" x2="0.72" y2="1">
+      <stop offset="0" stop-color="#2b2d32" />
+      <stop offset="0.3" stop-color="#0e0f12" />
       <stop offset="1" stop-color="#000000" />
     </linearGradient>
 
     <!-- Randlicht: hell an der oberen linken Kante, fast erloschen in der
-         Mitte, und unten rechts ein zweites, schwächeres Aufleuchten – so
-         verhält sich eine polierte Kante unter einer einzelnen Lichtquelle. -->
-    <linearGradient id="dsRim" x1="0.12" y1="0" x2="0.88" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.92" />
-      <stop offset="0.18" stop-color="#ffffff" stop-opacity="0.30" />
-      <stop offset="0.52" stop-color="#ffffff" stop-opacity="0.05" />
-      <stop offset="0.82" stop-color="#ffffff" stop-opacity="0.22" />
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0.55" />
+         Mitte, unten rechts ein zweites, schwächeres Aufleuchten – so
+         verhält sich eine polierte Kante unter einer Lichtquelle. -->
+    <linearGradient id="dsRim" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95" />
+      <stop offset="0.16" stop-color="#ffffff" stop-opacity="0.34" />
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.05" />
+      <stop offset="0.86" stop-color="#ffffff" stop-opacity="0.16" />
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.4" />
     </linearGradient>
 
-    <!-- Glanzschliff: die gebogene Spiegelung oben rechts. Ein gedrehter
-         Ellipsenausschnitt, kein bloßer Verlauf – nur so bekommt er eine
-         Kante, an der sich das Licht bricht. -->
-    <linearGradient id="dsSheen" x1="0" y1="0" x2="0.45" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.30" />
-      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0.08" />
+    <!-- Innenfase: der schmale helle Saum direkt hinter der Kante. Er ist
+         das, was eine Glasplatte von einer bedruckten Fläche unterscheidet –
+         Licht, das im Material selbst steht. -->
+    <linearGradient id="dsBevel" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.5" />
+      <stop offset="0.3" stop-color="#ffffff" stop-opacity="0.06" />
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Glanzschliff: die Spiegelung über der oberen Hälfte, die in einer
+         gebogenen Kante nach rechts unten ausläuft. -->
+    <linearGradient id="dsSheen" x1="0.05" y1="0" x2="0.5" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.34" />
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.09" />
       <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
     </linearGradient>
 
     <!-- Bodenreflex: das schwache Licht, das von unten zurückgeworfen wird. -->
-    <radialGradient id="dsFloor" cx="0.5" cy="1.04" r="0.62">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.20" />
+    <radialGradient id="dsFloor" cx="0.5" cy="1.06" r="0.6">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22" />
       <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
     </radialGradient>
 
@@ -61,19 +73,25 @@
 
   <g clip-path="url(#dsClip)">
     <rect width="128" height="128" fill="url(#dsFloor)" />
-    <!-- Die Spiegelung sitzt über der oberen Hälfte und endet in einer
-         gebogenen Kante, die nach rechts unten abfällt – wie bei einer
-         konvexen Glasfläche unter einer Lichtquelle links oben. -->
-    <ellipse cx="46" cy="-14" rx="92" ry="60" transform="rotate(-13 46 -14)" fill="url(#dsSheen)" />
+    <!-- Spiegelung über der oberen Hälfte, gebogen auslaufend -->
+    <ellipse cx="44" cy="-16" rx="94" ry="62" transform="rotate(-12 44 -16)" fill="url(#dsSheen)" />
+    <!-- Innenfase, knapp hinter der Kante -->
+    <use href="#dsShape" fill="none" stroke="url(#dsBevel)" stroke-width="3" transform="translate(64 64) scale(0.955) translate(-64 -64)" />
   </g>
 
   <!-- Polierte Kante. Innen liegend, damit sie beim Skalieren nicht abreißt. -->
-  <use href="#dsShape" fill="none" stroke="url(#dsRim)" stroke-width="2.4" />
+  <use href="#dsShape" fill="none" stroke="url(#dsRim)" stroke-width="2.6" />
 
-  <!-- Die Marke: Gerätesilhouette und Diagnose-Kreuz.
-       Strichstärken bewusst kräftig – das hier muss bei 16 px stehen. -->
+  <!--
+    Die Marke. Maße aus der Vorlage:
+      Telefon 52 × 79 (0,658), Ecken 32 % der Breite, Strich 5 (9,6 %)
+      Kreuz senkrecht 89 % der Innenhöhe, waagerecht bündig mit der Innenkante
+    Runde Enden: Die waagerechte Linie läuft von 43 bis 85, mit dem halben
+    Strich als Kappe reicht sie damit exakt bis an die Innenkante – wie in
+    der Vorlage, wo der Balken das Gerät praktisch durchmisst.
+  -->
   <g fill="none" stroke="#ffffff" stroke-linecap="round">
-    <rect x="40.5" y="25.5" width="47" height="77" rx="14" stroke-width="7" />
-    <path d="M64 41.5v45M50.5 64h27" stroke-width="6.4" />
+    <rect x="38" y="24.5" width="52" height="79" rx="16.6" stroke-width="5" />
+    <path d="M64 36.5v55M43 64h42" stroke-width="5" />
   </g>
 </svg>
