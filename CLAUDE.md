@@ -96,14 +96,6 @@ Serverfunktion öffnet das Formular einen fertigen E-Mail-Entwurf – gesteuert
 
 ```
 app/                     App-Router-Seiten (alle statisch prerendert)
-<<<<<<< HEAD
-  page.tsx               Landing Page (Hero, Pillars, Anatomie, Röntgen, Stats, CTA)
-  reparatur/             Sofortpreis-Rechner (Signature-Feature) + FAQ
-  check/                 Geräte-Check: Sensor-Diagnose im Browser
-  zwilling/              Digitaler Zwilling + Reparieren-oder-neu-Rechner
-  refurbished/ ersatzteile/ werkstatt/ kontakt/
-  impressum/ datenschutz/ agb/ offline/ not-found.tsx
-=======
   page.tsx               Landing Page (Hero, Pillars, Werkzeuge, Anatomie,
                          Röntgen, Stats, CTA)
   reparatur/             Sofortpreis-Rechner (Signature-Feature) + FAQ
@@ -115,49 +107,31 @@ app/                     App-Router-Seiten (alle statisch prerendert)
   refurbished/ ersatzteile/ werkstatt/ kontakt/
   impressum/ datenschutz/ agb/ offline/ not-found.tsx
   intern/rechnung/       Rechnungswerkzeug (nicht verlinkt, noindex, kein Server)
->>>>>>> origin/main
   api/kontakt/           Route Handler für das Formular (nur im Server-Build)
   layout.tsx             Root-Layout: Metadata, JSON-LD, Header/Footer, SW-Registrierung
   globals.css            Design-Tokens (CSS-Variablen) + Tailwind-4-Theme + Motion + Druck
   sitemap.ts robots.ts manifest.ts   Metadata-Routen (force-static)
 components/
   ui/                    Primitives: Button, Icon (eigenes SVG-Set), Reveal,
-<<<<<<< HEAD
-                         SectionHeading, ThemeToggle
-  layout/                Header, Footer, Logo
-  sections/              Faq, RefurbishedGrid/-Card, DiagramShowcase, ContactForm,
-                         Reviews (Google-Aggregat), LiveStatus (Öffnungsstatus)
-  configurator/          Configurator (Preislogik) + DeviceDiagram (SVG-Explosionszeichnung)
-=======
                          SectionHeading, ThemeToggle, QrCode
   layout/                Header, Footer, Logo
   sections/              Faq, RefurbishedGrid/-Card, DiagramShowcase, ContactForm,
                          Reviews (Google-Aggregat), LiveStatus (Öffnungsstatus)
   configurator/          Configurator (Preislogik) + DeviceDiagram (SVG-Explosion)
->>>>>>> origin/main
   experience/            Bootloader, CommandPalette (⌘K), ShaderField (WebGL-Hero),
                          DeviceExploded, XRay, MagneticField, ScrollProgress
   check/                 DeviceCheck (Display-, Sensor-, Audio-, Akku-Tests)
   twin/                  DigitalTwin, RepairOrReplace
-<<<<<<< HEAD
-=======
   battery/               BatteryCoach (3-Jahres-Prognose)
   resale/                ResaleCalculator (Ankauf)
   ticket/                RepairTicket, DamageMap (Schadenskarte)
   emergency/             RescueClock
   parts/                 DisplayCompare (echte Eingabeverzögerung)
   invoice/               InvoiceBuilder (Editor) + InvoiceSheet (das Blatt, DIN 5008)
->>>>>>> origin/main
   pwa/                   ServiceWorkerRegister
 lib/
   site.ts                Stammdaten (Name, Adresse, URL …) – zentrale Quelle
   seo.tsx                pageMeta() – Canonical/OG pro Seite, Breadcrumbs, JsonLd
-<<<<<<< HEAD
-  format.ts detect.ts theme.ts
-  data/                  devices.ts (Modelle/Preise), refurbished.ts, faq.ts, reviews.ts
-public/
-  sw.js                  Handgeschriebener Service Worker (Offline-Fallback /offline)
-=======
   qr.ts                  QR-Encoder nach ISO/IEC 18004 (Byte-Modus, Stufe M, v1–20)
   imei.ts                Luhn-Prüfung mit offengelegter Rechnung
   ticket.ts              Ticket-Zustand aus der Adresse, Vorgangsnummer, .ics
@@ -170,7 +144,6 @@ public/
                          (§ 14 UStG) store.ts (localStorage) girocode.ts qr.ts
 public/
   sw.js                  Handgeschriebener Service Worker (Precache, /offline-Fallback)
->>>>>>> origin/main
   og.png                 Link-Vorschaubild 1200×630 (scripts/generate-og.mjs)
   icons/                 PWA-Icons
 scripts/
@@ -190,14 +163,36 @@ scripts/
   bleibt alles sichtbar (`html[data-js]`-Gate).
 - Server Components als Default; `"use client"` nur wo nötig
   (Reveal, Configurator, DiagramShowcase, ContactForm, ServiceWorkerRegister,
-<<<<<<< HEAD
-  Bootloader, CommandPalette, DeviceCheck, DigitalTwin, ShaderField).
-=======
   Bootloader, CommandPalette, DeviceCheck, DigitalTwin, ShaderField,
   die Werkzeuge unter check/, twin/, battery/, resale/, ticket/, parts/).
 - Alle Firmendaten (Adresse, Telefon, Reparatur- und Ankaufspreise,
   Impressum) sind **Platzhalter** und vor dem Livegang zu ersetzen.
->>>>>>> origin/main
+
+### Kontrast: die Tonleiter ist gemessen, nicht geschätzt
+
+Alle vier Textstufen (`--ink-strong`, `--ink`, `--ink-soft`, `--ink-faint`)
+erreichen in beiden Themes mindestens **4.5:1** gegen die dunkelste Fläche, auf
+der sie stehen (`--surface-sunken`). Das ist kein Zufallsergebnis: Zuvor lag
+`--ink-soft` bei 4.31:1 und `--ink-faint` bei 2.25:1 – an ihnen hängt der
+gesamte Fließtext bzw. die Vertrauenszeile im Hero.
+
+Wer eine dieser Farben anfasst, rechnet nach. Ebenso bei neuen Status- oder
+Flächenfarben.
+
+Auf gefüllten Akzentflächen gilt **`text-accent-contrast`**, nie `text-white`.
+Grund: `--accent` muss im Dunkelmodus aufgehellt sein, um als Textfarbe auf
+Schwarz zu bestehen – Weiß darauf käme dann nur noch auf 3.33:1. Das eigene
+Token löst hell zu Weiß und dunkel zu `#101114` auf.
+
+### Gesperrte Bereiche: `inert`, nicht `aria-hidden`
+
+Ausgegraute Abschnitte (etwa die noch nicht freigeschalteten Schritte im
+Konfigurator) bekommen `inert`. `aria-hidden` mit weiterhin fokussierbaren
+Schaltflächen darin ist laut WCAG unzulässig und erzeugt eine tote Zone: Die
+Tabulatortaste landet in einem Feld, das die Vorlesehilfe nicht ankündigt und
+die Maus nicht bedienen kann. `inert` nimmt Fokusreihenfolge,
+Zeigerereignisse und Barrierefreiheitsbaum in einem Zug – ein zusätzliches
+`pointer-events-none` erübrigt sich damit.
 
 ### Metadaten: jede Seite setzt ihre eigenen
 
@@ -228,10 +223,6 @@ Dieselbe Regel gilt für `lib/data/reviews.ts` (nur wörtlich übernommene echte
 Google-Rezensionen) und für Garantieangaben (immer `site.warrantyMonths`,
 nie eine feste Zahl im Text).
 
-<<<<<<< HEAD
-### Offene Punkte vor dem Livegang
-
-=======
 ### Rechnungswerkzeug (`/intern/rechnung`)
 
 Internes Werkzeug, nicht verlinkt und nicht in der Sitemap: `noindex, nofollow`
@@ -301,7 +292,6 @@ nichts Persönliches). Wer hier etwas ergänzt, zieht `app/datenschutz` mit.
 - **Bankverbindung eintragen:** Das Rechnungswerkzeug startet ohne IBAN, BIC und
   Steuernummer – beim ersten Start unter „Stammdaten" hinterlegen, sonst bleibt
   der GiroCode aus und die Rechnung ist unvollständig.
->>>>>>> origin/main
 - **Garantiedauer prüfen:** `site.warrantyMonths` steht auf `12`. FAQ,
   Ersatzteil-Seite und Metadaten nannten zuvor teils 24 Monate. Der Wert ist
   jetzt an einer Stelle gepflegt – dort den tatsächlich zugesagten Zeitraum
