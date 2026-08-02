@@ -26,7 +26,7 @@ const variants: Record<Variant, string> = {
   // `hover:bg-accent-hover`, weil eine Utility-Klasse in der Kaskade nach
   // `.breathe` ausgegeben wird.
   primary:
-    "breathe bg-accent text-white hover:bg-accent-hover shadow-button hover:shadow-[var(--shadow-button-hover)]",
+    "breathe bg-accent text-accent-contrast hover:bg-accent-hover shadow-button hover:shadow-[var(--shadow-button-hover)]",
   secondary:
     "bg-transparent text-ink-strong border border-line-strong hover:border-ink-strong hover:shadow-raised",
   ghost: "bg-transparent text-ink-strong hover:bg-sunken",

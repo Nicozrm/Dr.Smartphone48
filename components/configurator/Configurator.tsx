@@ -216,7 +216,7 @@ export function Configurator() {
                 >
                   {suggested ? (
                     <span className="absolute inset-x-0 -top-2.5 flex justify-center">
-                      <span className="inline-flex h-5 items-center rounded-full bg-accent px-2 font-mono text-[0.625rem] uppercase tracking-[0.08em] text-white">
+                      <span className="inline-flex h-5 items-center rounded-full bg-accent px-2 font-mono text-[0.625rem] uppercase tracking-[0.08em] text-accent-contrast">
                         erkannt
                       </span>
                     </span>
@@ -244,13 +244,19 @@ export function Configurator() {
           </div>
         </section>
 
-        {/* Schritt 2: Modell */}
+        {/* Schritt 2: Modell.
+            `inert` statt `aria-hidden` + `pointer-events-none`: Ein
+            aria-hidden-Bereich, dessen Schaltflächen weiter fokussierbar
+            bleiben, ist laut WCAG unzulässig. Die Tabulatortaste landete in
+            einem Feld, das die Vorlesehilfe nicht ankündigt und die Maus nicht
+            bedienen kann. `inert` nimmt den Teilbaum aus Fokusreihenfolge,
+            Zeigerereignissen und Barrierefreiheitsbaum zugleich. */}
         <section
           ref={modelRef}
           className={`scroll-mt-24 transition-opacity duration-[var(--duration-base)] ${
-            brand ? "opacity-100" : "pointer-events-none opacity-30"
+            brand ? "opacity-100" : "opacity-30"
           }`}
-          aria-hidden={!brand}
+          inert={!brand}
         >
           <StepLabel number="02">Welches Modell?</StepLabel>
           <div
@@ -295,9 +301,9 @@ export function Configurator() {
         <section
           ref={damageRef}
           className={`scroll-mt-24 transition-opacity duration-[var(--duration-base)] ${
-            entry ? "opacity-100" : "pointer-events-none opacity-30"
+            entry ? "opacity-100" : "opacity-30"
           }`}
-          aria-hidden={!entry}
+          inert={!entry}
         >
           <StepLabel number="03">Was ist defekt?</StepLabel>
           <p className="mt-2 pl-10 text-[0.9375rem] text-ink-soft">
@@ -348,9 +354,9 @@ export function Configurator() {
         <section
           ref={formRef}
           className={`scroll-mt-24 transition-opacity duration-[var(--duration-base)] ${
-            chosen.length > 0 ? "opacity-100" : "pointer-events-none opacity-30"
+            chosen.length > 0 ? "opacity-100" : "opacity-30"
           }`}
-          aria-hidden={chosen.length === 0}
+          inert={chosen.length === 0}
         >
           <StepLabel number="04">Termin anfragen</StepLabel>
           <p className="mt-2 pl-10 text-[0.9375rem] text-ink-soft">
@@ -398,7 +404,7 @@ export function Configurator() {
               type="submit"
               data-magnetic=""
               data-ripple=""
-              className="press inline-flex h-13 w-full items-center justify-center rounded-full bg-accent px-7 text-base font-medium text-white shadow-button transition-[background-color,box-shadow,scale] duration-[var(--duration-base)] hover:bg-accent-hover hover:shadow-[var(--shadow-button-hover)] sm:w-auto"
+              className="press inline-flex h-13 w-full items-center justify-center rounded-full bg-accent px-7 text-base font-medium text-accent-contrast shadow-button transition-[background-color,box-shadow,scale] duration-[var(--duration-base)] hover:bg-accent-hover hover:shadow-[var(--shadow-button-hover)] sm:w-auto"
             >
               <span className="relative z-[1] inline-flex items-center gap-2">
                 Anfrage per E-Mail senden
@@ -474,7 +480,7 @@ export function Configurator() {
                         setSubmitted(false);
                         scrollTo(damageRef);
                       }}
-                      className="inline-flex h-9 items-center gap-1.5 rounded-full bg-accent px-3.5 text-[0.8125rem] font-medium text-white transition-colors hover:bg-accent-hover"
+                      className="inline-flex h-9 items-center gap-1.5 rounded-full bg-accent px-3.5 text-[0.8125rem] font-medium text-accent-contrast transition-colors hover:bg-accent-hover"
                     >
                       {c.brand.name} {c.model.name}
                       <Icon name="arrow-right" size={13} />

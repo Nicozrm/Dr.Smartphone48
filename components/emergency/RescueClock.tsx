@@ -154,7 +154,7 @@ export function RescueClock() {
               <span
                 className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[0.5rem] ${
                   active
-                    ? "border-accent bg-accent text-white"
+                    ? "border-accent bg-accent text-accent-contrast"
                     : done
                       ? "border-line-strong bg-line-strong text-[var(--surface-raised)]"
                       : "border-line text-transparent"

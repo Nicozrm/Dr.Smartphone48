@@ -118,7 +118,7 @@ function EmptyTicket() {
       </p>
       <Link
         href="/reparatur"
-        className="mt-7 inline-flex h-12 items-center gap-2 rounded-full bg-accent px-6 text-[0.9375rem] font-medium text-white transition-colors hover:bg-accent-hover"
+        className="mt-7 inline-flex h-12 items-center gap-2 rounded-full bg-accent px-6 text-[0.9375rem] font-medium text-accent-contrast transition-colors hover:bg-accent-hover"
       >
         Zum Sofortpreis-Rechner
         <Icon name="arrow-right" size={17} />

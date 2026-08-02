@@ -182,6 +182,32 @@ scripts/
 - Alle Firmendaten (Adresse, Telefon, Reparatur- und Ankaufspreise,
   Impressum) sind **Platzhalter** und vor dem Livegang zu ersetzen.
 
+### Kontrast: die Tonleiter ist gemessen, nicht geschätzt
+
+Alle vier Textstufen (`--ink-strong`, `--ink`, `--ink-soft`, `--ink-faint`)
+erreichen in beiden Themes mindestens **4.5:1** gegen die dunkelste Fläche, auf
+der sie stehen (`--surface-sunken`). Das ist kein Zufallsergebnis: Zuvor lag
+`--ink-soft` bei 4.31:1 und `--ink-faint` bei 2.25:1 – an ihnen hängt der
+gesamte Fließtext bzw. die Vertrauenszeile im Hero.
+
+Wer eine dieser Farben anfasst, rechnet nach. Ebenso bei neuen Status- oder
+Flächenfarben.
+
+Auf gefüllten Akzentflächen gilt **`text-accent-contrast`**, nie `text-white`.
+Grund: `--accent` muss im Dunkelmodus aufgehellt sein, um als Textfarbe auf
+Schwarz zu bestehen – Weiß darauf käme dann nur noch auf 3.33:1. Das eigene
+Token löst hell zu Weiß und dunkel zu `#101114` auf.
+
+### Gesperrte Bereiche: `inert`, nicht `aria-hidden`
+
+Ausgegraute Abschnitte (etwa die noch nicht freigeschalteten Schritte im
+Konfigurator) bekommen `inert`. `aria-hidden` mit weiterhin fokussierbaren
+Schaltflächen darin ist laut WCAG unzulässig und erzeugt eine tote Zone: Die
+Tabulatortaste landet in einem Feld, das die Vorlesehilfe nicht ankündigt und
+die Maus nicht bedienen kann. `inert` nimmt Fokusreihenfolge,
+Zeigerereignisse und Barrierefreiheitsbaum in einem Zug – ein zusätzliches
+`pointer-events-none` erübrigt sich damit.
+
 ### Metadaten: jede Seite setzt ihre eigenen
 
 Jede Route exportiert `metadata` über **`pageMeta()`** aus `lib/seo.tsx` –

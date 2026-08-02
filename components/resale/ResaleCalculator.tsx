@@ -357,7 +357,7 @@ export function ResaleCalculator() {
 
               <a
                 href={`mailto:${site.email}?subject=${encodeURIComponent("Ankauf-Anfrage")}&body=${mailBody}`}
-                className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-accent text-[0.9375rem] font-medium text-white transition-colors hover:bg-accent-hover"
+                className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-accent text-[0.9375rem] font-medium text-accent-contrast transition-colors hover:bg-accent-hover"
               >
                 Angebot anfragen
                 <Icon name="arrow-right" size={17} />

@@ -555,7 +555,7 @@ export function DeviceExploded() {
               href="/reparatur"
               data-magnetic=""
               data-ripple=""
-              className="press mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-accent px-5 text-[0.9375rem] font-medium text-white shadow-button transition-[background-color,box-shadow,scale] duration-[var(--duration-base)] hover:bg-accent-hover hover:shadow-[var(--shadow-button-hover)]"
+              className="press mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-accent px-5 text-[0.9375rem] font-medium text-accent-contrast shadow-button transition-[background-color,box-shadow,scale] duration-[var(--duration-base)] hover:bg-accent-hover hover:shadow-[var(--shadow-button-hover)]"
             >
               <span className="relative z-[1] inline-flex items-center gap-2">
                 Preis für mein Modell
