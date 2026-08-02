@@ -148,6 +148,18 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content={site.name} />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        {/*
+          iOS liest kein SVG-Favicon und ignoriert die Icons aus dem Manifest,
+          wenn eine Seite über „Zum Home-Bildschirm" abgelegt wird. Ohne diese
+          Zeile landet dort ein Bildschirmfoto der Seite statt der Marke.
+          Der Pfad braucht den basePath von Hand – public/-Dateien bekommen
+          ihn nicht automatisch (siehe app/manifest.ts).
+        */}
+        <link
+          rel="apple-touch-icon"
+          sizes="180x180"
+          href={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/icons/apple-touch-icon.png`}
+        />
         <meta itemProp="address" content={fullAddress} />
       </head>
       <body>
