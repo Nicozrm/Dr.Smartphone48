@@ -212,11 +212,21 @@ per Seiten-Metadaten, `Disallow: /intern/` in `robots.ts`.
   Rechnung und Sofortpreis-Rechner nicht auseinanderlaufen.
 - **Das Blatt ist ein Blatt:** 210 × 297 mm, `overflow: hidden`, alle Maße in
   Millimetern, Anschriftfeld nach DIN 5008 Form B. Was nicht draufpasst, wird
-  abgeschnitten – deshalb misst `InvoiceBuilder` die Unterkante des Inhalts
-  gegen die Fußzeile (`data-sheet-body` / `data-sheet-foot`) und meldet einen
-  Überlauf als Pflichtfehler. Ohne diese Messung druckt das Werkzeug
-  wortlos Rechnungen ohne Rechnungsbetrag. Etwa sechs Positionen mit Zusatzzeile
-  passen; mehr braucht echte Mehrseitigkeit, die es noch nicht gibt.
+  abgeschnitten.
+- **Mehrseitigkeit** rechnet `lib/invoice/paginate.ts`: Es verteilt die
+  Positionen auf Blätter, setzt auf jedes Folgeblatt einen Fortsetzungskopf
+  („Rechnung … · Seite 2 von 2") und führt den **Übertrag** als erste Zeile
+  mit. Der Übertrag ist der Bruttobetrag der vorangegangenen Blätter – wer
+  hier etwas ändert, prüft, dass Übertrag plus Folgepositionen wieder die
+  Endsumme ergeben.
+- **Belegarten** (`lib/invoice/doctype.ts`): Rechnung, Kostenvoranschlag,
+  Angebot, Gutschrift, Storno. Dieselben Positionen und dieselbe Rechenlogik,
+  anderes Kürzel im Nummernkreis und andere Sprache im Blatt.
+- **Der Briefkopf** (`components/invoice/Letterhead.tsx`) borgt sich drei
+  Techniken aus dem Wertpapierdruck: Mikroschrift statt Haarlinie,
+  Guillochenrosette als Wasserzeichen, Millimeterskala am Rand. Alle drei
+  sind reines CSS/SVG – kein Bildmaterial, keine Schriftdatei, null Byte
+  Ladelast.
 - **Der Druck-Block in `globals.css` blendet `body > header` / `body > footer`
   aus, nicht `header` / `footer`.** Der Fuß des Rechnungsblatts trägt
   Steuernummer, USt-IdNr. und Bankverbindung; ein Selektor auf das nackte

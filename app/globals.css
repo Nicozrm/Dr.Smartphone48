@@ -1259,8 +1259,12 @@ html[data-js] .reveal[data-revealed="true"] {
    Rechnungswerkzeug – /intern/rechnung
    ==========================================================================
    Zwei Welten in einer Ansicht: links der Editor in der Farbwelt der Marke,
-   rechts ein Blatt Papier. Das Blatt lebt konsequent in Millimetern und
-   ignoriert das Theme – Papier ist weiß, auch nachts um halb zwölf.
+   rechts Papier. Das Blatt lebt konsequent in Millimetern und ignoriert das
+   Theme – Papier ist weiß, auch nachts um halb zwölf.
+
+   Der Briefkopf borgt sich drei Techniken aus dem Wertpapierdruck:
+   Mikroschrift statt Haarlinie, Guillochenrosette als Wasserzeichen,
+   Millimeterskala am Rand. Alle drei kosten null Byte Bildmaterial.
    ========================================================================== */
 
 /* ---- Bühne und Skalierung ------------------------------------------------ */
@@ -1271,15 +1275,36 @@ html[data-js] .reveal[data-revealed="true"] {
   --sheet-w: 793.7px;
   --sheet-h: 1122.5px;
   --sheet-scale: 1;
+  --sheet-gap: 28px;
+  --sheet-pages: 1;
   width: calc(var(--sheet-w) * var(--sheet-scale));
-  height: calc(var(--sheet-h) * var(--sheet-scale));
+  height: calc(
+    (var(--sheet-h) * var(--sheet-pages) + var(--sheet-gap) * (var(--sheet-pages) - 1)) *
+      var(--sheet-scale)
+  );
 }
 
 .sheet-frame {
   width: var(--sheet-w);
-  height: var(--sheet-h);
   transform: scale(var(--sheet-scale));
   transform-origin: top left;
+}
+
+/* Der Schreibtisch: ein sehr dunkles Feld mit weichem Lichtabfall, damit das
+   Papier darauf liegt statt zu schweben. */
+.sheet-desk {
+  border-radius: var(--radius-l);
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%),
+    var(--surface-sunken);
+  border: 1px solid var(--line);
+  padding: 22px;
+  overflow: hidden;
+}
+
+.sheet-doc {
+  display: grid;
+  gap: var(--sheet-gap);
 }
 
 /* ---- Das Blatt ----------------------------------------------------------- */
@@ -1296,9 +1321,9 @@ html[data-js] .reveal[data-revealed="true"] {
   line-height: 1.45;
   font-feature-settings: "ss01", "cv11", "tnum";
   box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.18),
-    0 18px 50px rgba(0, 0, 0, 0.22),
-    0 60px 120px rgba(0, 0, 0, 0.16);
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    0 18px 50px rgba(0, 0, 0, 0.26),
+    0 60px 120px rgba(0, 0, 0, 0.18);
 }
 
 /* Falz- und Lochmarken: im Druck vorhanden, auf dem Schirm kaum zu sehen. */
@@ -1314,23 +1339,71 @@ html[data-js] .reveal[data-revealed="true"] {
   border-top-color: #6b7075;
 }
 
+/* ---- Briefkopf ----------------------------------------------------------- */
+
+.sheet-mark-logo {
+  color: #0b0c0e;
+  margin-top: 0.6mm;
+}
+
 .sheet-wordmark {
-  font-size: 5.2mm;
+  font-size: 5.4mm;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
   color: #0b0c0e;
 }
 
-.sheet-fine {
+.sheet-tagline {
+  margin-top: 0.8mm;
+  font-size: 2.3mm;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8a9096;
+}
+
+.sheet-contact {
+  text-align: right;
+}
+.sheet-contact p {
   font-size: 2.5mm;
-  line-height: 1.45;
+  line-height: 1.5;
   color: #5f6469;
 }
 
-.sheet-strong {
-  font-weight: 600;
-  color: #16171a;
+/* Mikroschrift: sieht aus wie eine Linie, ist aber Text in 1,1 pt. Ein
+   Kopierer macht daraus grauen Matsch – genau das ist der Zweck. */
+.sheet-micro {
+  display: block;
+  overflow: hidden;
 }
+.sheet-micro-text {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.95px;
+  letter-spacing: 0.06px;
+  fill: #7d8288;
+}
+
+/* Guillochenrosette – Wasserzeichen hinter der Summe. */
+.sheet-guilloche {
+  color: #0b0c0e;
+  opacity: 0.055;
+}
+
+/* Millimeterskala im rechten Rand. */
+.sheet-scale {
+  position: absolute;
+  right: 8mm;
+  color: #b9bec3;
+}
+.sheet-scale-text {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 1.5px;
+  letter-spacing: 0.02em;
+  fill: #b9bec3;
+}
+
+/* ---- Anschrift und Infoblock --------------------------------------------- */
 
 /* Rücksendeangabe über dem Anschriftfeld – klein und unterstrichen, damit sie
    im Kuvertfenster nicht mit der Empfängeranschrift verwechselt wird. */
@@ -1364,29 +1437,91 @@ html[data-js] .reveal[data-revealed="true"] {
   font-variant-numeric: tabular-nums;
 }
 
-.sheet-subject {
-  font-size: 4.6mm;
+/* ---- Betreff ------------------------------------------------------------- */
+
+/* Die Belegart gesperrt und in Versalien: Auf einen Meter Entfernung erkennt
+   man, ob man eine Rechnung oder einen Kostenvoranschlag in der Hand hält. */
+.sheet-doctype {
+  font-size: 6.2mm;
   font-weight: 600;
-  letter-spacing: -0.015em;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  line-height: 1;
   color: #0b0c0e;
 }
 
-.sheet-device {
-  margin-top: 1.5mm;
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 2.5mm;
+.sheet-docnumber {
+  font-size: 3.4mm;
+  letter-spacing: 0.04em;
   color: #5f6469;
 }
 
+.sheet-rule {
+  height: 0;
+  border-top: 0.5mm solid #16171a;
+}
+.sheet-hairline {
+  height: 0;
+  border-top: 0.2mm solid #e2e5e8;
+}
+
+/* ---- Geräteblock --------------------------------------------------------- */
+
+/* Drei Felder wie auf einem Messgerät. Der Rahmen macht aus einer Fußnote
+   eine Angabe, die im Garantiefall zählt. */
+.sheet-device-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  border: 0.2mm solid #d6dade;
+  border-radius: 0.8mm;
+  background: #f7f8f9;
+  overflow: hidden;
+}
+.sheet-device-cell {
+  padding: 2mm 3mm;
+  border-left: 0.2mm solid #e2e5e8;
+}
+.sheet-device-cell:first-child {
+  border-left: 0;
+}
+.sheet-device-label {
+  display: block;
+  font-size: 2.1mm;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8a9096;
+}
+.sheet-device-value {
+  display: block;
+  margin-top: 0.6mm;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 2.7mm;
+  color: #16171a;
+}
+
+/* ---- Text ---------------------------------------------------------------- */
+
+.sheet-fine {
+  font-size: 2.5mm;
+  line-height: 1.45;
+  color: #5f6469;
+}
+.sheet-strong {
+  font-weight: 600;
+  color: #16171a;
+}
 .sheet-text {
   font-size: 3.1mm;
   line-height: 1.5;
   color: #33373b;
 }
-
 .sheet-num {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
+}
+.sheet-page {
+  margin-top: 1.5mm;
+  color: #8a9096;
 }
 
 /* ---- Positionstabelle ---------------------------------------------------- */
@@ -1431,7 +1566,55 @@ html[data-js] .reveal[data-revealed="true"] {
   font-size: 2.9mm;
 }
 
+/* Übertrag – die klassische Anschlusszeile mehrseitiger Belege. */
+.sheet-carry {
+  display: flex;
+  justify-content: space-between;
+  gap: 6mm;
+  padding: 1.6mm 2mm;
+  font-size: 2.8mm;
+  background: #f2f4f5;
+  border-radius: 0.8mm;
+  color: #33373b;
+}
+.sheet-carry-in {
+  margin-bottom: 3mm;
+}
+.sheet-carry-out {
+  border-top: 0.35mm solid #16171a;
+  border-radius: 0 0 0.8mm 0.8mm;
+}
+
 /* ---- Summen -------------------------------------------------------------- */
+
+/* Abschluss: Text links, Summe rechts, gemeinsame Oberkante. */
+.sheet-final {
+  display: grid;
+  grid-template-columns: 1fr 78mm;
+  gap: 6mm;
+  margin-top: 6mm;
+  padding-top: 3.5mm;
+  border-top: 0.2mm solid #e2e5e8;
+}
+.sheet-final-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2mm;
+  align-items: flex-start;
+}
+.sheet-final-sum {
+  position: relative;
+}
+.sheet-summary-inner {
+  position: relative;
+  z-index: 1;
+}
+.sheet-summary-seal {
+  position: absolute;
+  right: 52mm;
+  top: -4mm;
+  z-index: 0;
+}
 
 .sheet-sum-row {
   display: flex;
@@ -1445,27 +1628,128 @@ html[data-js] .reveal[data-revealed="true"] {
   display: flex;
   justify-content: space-between;
   gap: 6mm;
-  margin-top: 1.4mm;
-  padding: 2.2mm 3mm;
-  background: #16171a;
+  margin-top: 1.6mm;
+  padding: 2.6mm 3.5mm;
+  background: #0b0c0e;
   color: #ffffff;
-  font-size: 3.6mm;
+  font-size: 3.8mm;
   font-weight: 600;
   border-radius: 1mm;
 }
 
-.sheet-payment {
-  display: flex;
-  align-items: flex-start;
-  gap: 6mm;
-  margin-top: 6mm;
-  padding-top: 4mm;
-  border-top: 0.2mm solid #e2e5e8;
+/* ---- Stempel ------------------------------------------------------------- */
+
+/* Vier Grad Schräge. Ein exakt achsparalleler Stempel sieht nach Word aus. */
+.sheet-stamp {
+  display: inline-block;
+  transform: rotate(-4.5deg);
+  padding: 1.6mm 4mm;
+  border: 0.7mm solid currentColor;
+  border-radius: 1mm;
+  box-shadow: inset 0 0 0 0.2mm currentColor;
+  font-size: 4.6mm;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+.sheet-stamp-dark {
+  color: #1f6b3a;
+}
+.sheet-stamp-muted {
+  color: #9aa0a6;
 }
 
-.sheet-footer-rule {
+/* ---- Zahlungsabschnitt --------------------------------------------------- */
+
+.sheet-perforation {
+  position: relative;
   height: 0;
-  border-top: 0.2mm solid #e2e5e8;
+  border-top: 0.25mm dashed #b9bec3;
+  margin-bottom: 3mm;
+}
+.sheet-scissors {
+  position: absolute;
+  left: 2mm;
+  top: -2.2mm;
+  font-size: 3.2mm;
+  line-height: 1;
+  background: #ffffff;
+  padding: 0 1mm;
+  color: #9aa0a6;
+}
+
+.sheet-slip {
+  display: flex;
+  align-items: stretch;
+  gap: 5mm;
+}
+.sheet-slip-fields {
+  flex: 1;
+  min-width: 0;
+}
+.sheet-slip-title {
+  font-size: 2.2mm;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8a9096;
+  margin-bottom: 1.4mm;
+}
+.sheet-slip-grid {
+  display: grid;
+  grid-template-columns: 26mm 1fr;
+  row-gap: 0.8mm;
+  column-gap: 3mm;
+}
+.sheet-slip-label {
+  font-size: 2.4mm;
+  color: #8a9096;
+}
+.sheet-slip-value {
+  font-size: 2.7mm;
+  color: #16171a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sheet-slip-amount {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+  padding-bottom: 1mm;
+  border-right: 0.2mm solid #e2e5e8;
+  padding-right: 5mm;
+}
+.sheet-slip-sum {
+  font-size: 5mm;
+  font-weight: 600;
+  color: #0b0c0e;
+  line-height: 1.1;
+}
+.sheet-slip-qr {
+  display: flex;
+  align-items: center;
+  gap: 2.5mm;
+}
+.sheet-slip-qr-note {
+  font-size: 2.2mm;
+  line-height: 1.35;
+  color: #8a9096;
+}
+
+/* ---- Folgeseiten --------------------------------------------------------- */
+
+.sheet-cont-brand {
+  font-size: 3.4mm;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #0b0c0e;
+}
+.sheet-cont-meta {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 2.5mm;
+  color: #6b7075;
 }
 
 /* ---- Editor -------------------------------------------------------------- */
@@ -1579,30 +1863,27 @@ html[data-js] .reveal[data-revealed="true"] {
 
 @media print {
   /* Im Druck existiert nur das Blatt. Alles andere – Editor, Kopfzeile,
-     Schatten, Skalierung – verschwindet restlos. */
+     Schreibtisch, Schatten, Skalierung – verschwindet restlos. */
   .inv-editor,
   .inv-toolbar {
     display: none !important;
   }
 
-  /* Die Bühne selbst darf im Druck nichts beitragen: Der Seitenrand kommt aus
-     @page, nicht aus Tailwind-Padding. Bliebe das Padding stehen, passte das
-     210 mm breite Blatt nicht mehr auf die 210 mm breite Seite und rutschte
-     mit einem Streifen auf ein zweites Blatt. */
-  .inv-page,
-  .inv-app {
-    display: block !important;
-    max-width: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    gap: 0 !important;
-  }
-
   .sheet-stage,
-  .sheet-frame {
+  .sheet-frame,
+  .sheet-desk {
     width: auto !important;
     height: auto !important;
     transform: none !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: none !important;
+    overflow: visible !important;
+  }
+
+  .sheet-doc {
+    display: block !important;
+    gap: 0 !important;
   }
 
   .sheet {
@@ -1610,16 +1891,22 @@ html[data-js] .reveal[data-revealed="true"] {
     height: 297mm !important;
     box-shadow: none !important;
     break-inside: avoid;
-    page-break-after: avoid;
+    break-after: page;
+  }
+  .sheet:last-child {
+    break-after: auto;
   }
 
   /* Das Blatt bringt seine eigenen Farben mit – die Druck-Overrides der
      Seite dürfen es nicht entfärben. */
-  .sheet .sheet-sum-total {
-    background: #16171a !important;
-    color: #ffffff !important;
+  .sheet,
+  .sheet * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+  .sheet .sheet-sum-total {
+    background: #0b0c0e !important;
+    color: #ffffff !important;
   }
 }
 
