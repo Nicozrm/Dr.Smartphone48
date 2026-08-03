@@ -538,6 +538,38 @@ html[data-js] .nojs-only {
   opacity: 0;
   animation: shader-in 1200ms var(--ease-out) 120ms forwards;
 }
+/* Die Gerätebühne: ohne WebGL bleibt ein ruhiger Lichtkegel statt eines
+   schwarzen Rechtecks. Der Abschnitt trägt seine Aussage im Text, das
+   Gerät ist die Zugabe.
+
+   Bewusst feste dunkle Werte statt der Flächen-Tokens: Die Bühne ist in
+   beiden Themes dunkel, und der Text darauf ist immer invers. Ein Verlauf
+   aus --surface-page wäre im Hellmodus fast weiß – weiße Schrift darauf
+   wäre unlesbar. */
+.device-stage[data-stage="unsupported"] canvas {
+  display: none;
+}
+/* „Bewegen Sie den Zeiger" ist eine Behauptung – sie gilt nur, wo es einen
+   Zeiger gibt, das Bild sich bewegen darf und überhaupt etwas gerendert wird. */
+.stage-hint {
+  display: none;
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .stage-hint {
+    display: block;
+  }
+}
+.device-stage[data-stage="unsupported"] ~ * .stage-hint {
+  display: none;
+}
+
+.device-stage[data-stage="unsupported"] {
+  background:
+    radial-gradient(58% 62% at 26% 50%, rgba(36, 86, 230, 0.22), transparent 70%),
+    radial-gradient(80% 90% at 30% 50%, #16181d, transparent 75%),
+    linear-gradient(to bottom, #0d0f13, #08090c);
+}
+
 .shader-field[data-shader="unsupported"] {
   background:
     radial-gradient(120% 90% at 50% 0%, var(--accent-subtle), transparent 60%),
