@@ -20,6 +20,7 @@ const columns = [
       { href: "/check", label: "Geräte-Check" },
       { href: "/zwilling", label: "Digitaler Zwilling" },
       { href: "/ticket", label: "Reparatur-Ticket" },
+      { href: "/versorgung", label: "Update-Horizont" },
     ],
   },
   {

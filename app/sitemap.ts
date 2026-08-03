@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { refurbishedDevices } from "@/lib/data/refurbished";
 import { site } from "@/lib/site";
 
 export const dynamic = "force-static";
@@ -32,6 +33,7 @@ const entries: Entry[] = [
   { path: "/check", priority: 0.9, changeFrequency: "monthly" },
   { path: "/ankauf", priority: 0.9, changeFrequency: "weekly" },
   { path: "/zwilling", priority: 0.9, changeFrequency: "monthly" },
+  { path: "/versorgung", priority: 0.85, changeFrequency: "monthly" },
   { path: "/refurbished", priority: 0.8, changeFrequency: "weekly" },
   { path: "/kontakt", priority: 0.8, changeFrequency: "monthly" },
   { path: "/werkstatt", priority: 0.7, changeFrequency: "yearly" },
@@ -47,10 +49,23 @@ const entries: Entry[] = [
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date(CONTENT_UPDATED);
 
-  return entries.map(({ path, priority, changeFrequency }) => ({
-    url: `${site.url}${path}`,
-    lastModified,
-    changeFrequency,
-    priority,
+  // Jede Geräteakte ist eine eigene Seite mit eigenem Prüfprotokoll. Ihr
+  // `lastModified` ist das Prüfdatum des Geräts – das einzige Datum, das für
+  // diese Seite überhaupt eine Bedeutung hat.
+  const devices: MetadataRoute.Sitemap = refurbishedDevices.map((device) => ({
+    url: `${site.url}/refurbished/${device.id}`,
+    lastModified: new Date(device.checkedOn),
+    changeFrequency: "weekly" as const,
+    priority: 0.6,
   }));
+
+  return [
+    ...entries.map(({ path, priority, changeFrequency }) => ({
+      url: `${site.url}${path}`,
+      lastModified,
+      changeFrequency,
+      priority,
+    })),
+    ...devices,
+  ];
 }

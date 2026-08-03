@@ -20,7 +20,10 @@ npm run dev           # Entwicklungsserver
 npm run build         # Server-Build (Vercel, Cloudflare Workers)
 npm run build:static  # Statischer Export nach ./out (ohne /api)
 npm run lint          # ESLint
-npm run verify:qr     # QR-Encoder gegen ISO/IEC 18004 prüfen
+npm run verify:qr         # QR-Encoder gegen ISO/IEC 18004 prüfen
+npm run verify:procedure  # Werkstattabläufe gegen die zugesagten Zeiten
+npm run verify:inspection # Prüfprotokoll + Bestand gegen die eigenen Zusagen
+npm run verify:support    # Update-Horizont gegen den Gerätekatalog
 
 npm run cf:build      # Cloudflare-Worker bauen (OpenNext)
 npm run cf:preview    # Worker lokal in workerd testen
@@ -31,9 +34,23 @@ node scripts/generate-og.mjs      # public/og.png neu rendern (Link-Vorschaubild
 ```
 
 Es gibt keine Test-Suite. Verifikation = `npm run build` + `npm run lint`.
-Einzige Ausnahme: `scripts/verify-qr.mjs` prüft den QR-Encoder gegen die
-Norm – er ist der einzige Code hier, bei dem ein stiller Fehler zu einem
-unlesbaren Ausdruck führt, ohne dass es jemandem auffällt.
+
+Dazu vier Prüfskripte, und alle vier prüfen dasselbe: dass eine Zusage der
+Seite noch stimmt. Sie sind kein Ersatz für Tests, sondern die Stellen, an
+denen ein stiller Fehler die Website zur Lügnerin macht, ohne dass jemand
+etwas merkt.
+
+- `verify:qr` – der QR-Encoder gegen ISO/IEC 18004. Ein Fehler hier ergibt
+  einen Ausdruck, den kein Telefon liest.
+- `verify:procedure` – die Summe der Arbeitsschritte gegen
+  `repairMeta[kind].minutes`. Auf /reparatur steht ausdrücklich, dass beides
+  übereinstimmt.
+- `verify:inspection` – die Anzahl der Positionen im Prüfprotokoll gegen
+  `site.checkpoints` (das „40-Punkte-Protokoll“), plus jedes Gerät im
+  Bestand gegen seinen eigenen Zustandsgrad.
+- `verify:support` – jedes Modell im Katalog hat einen Update-Horizont,
+  jede Angabe einen Beleg, und die Daten stehen in plausibler Reihenfolge.
+  Schlägt außerdem an, wenn `SUPPORT_CHECKED` über ein Jahr alt ist.
 
 ## Deployment (Cloudflare Workers – empfohlen)
 
@@ -98,13 +115,18 @@ Serverfunktion öffnet das Formular einen fertigen E-Mail-Entwurf – gesteuert
 app/                     App-Router-Seiten (alle statisch prerendert)
   page.tsx               Landing Page (Hero, Pillars, Werkzeuge, Anatomie,
                          Röntgen, Stats, CTA)
-  reparatur/             Sofortpreis-Rechner (Signature-Feature) + FAQ
+  reparatur/             Sofortpreis-Rechner (Signature-Feature) + Werkstattablauf + FAQ
   notfall/               Notfall-Protokolle (ohne JS lesbar, offline im Cache)
   check/                 Geräte-Check: Sensor-Diagnose im Browser
   ankauf/                Restwert-Rechner mit offengelegter Rechnung
   zwilling/              Digitaler Zwilling, Akku-Coach, Reparieren-oder-neu
+  versorgung/            Update-Horizont: bis wann jedes Modell noch
+                         Sicherheitsupdates bekommt
   ticket/                Reparatur-Ticket + Übergabeprotokoll (noindex)
-  refurbished/ ersatzteile/ werkstatt/ kontakt/
+  refurbished/           Bestand (Gitter) …
+  refurbished/[id]/      … und je Gerät eine Akte: Prüfprotokoll mit allen
+                         40 Positionen, Messwerte, Product-JSON-LD, druckbar
+  ersatzteile/ werkstatt/ kontakt/
   impressum/ datenschutz/ agb/ offline/ not-found.tsx
   intern/rechnung/       Rechnungswerkzeug (nicht verlinkt, noindex, kein Server)
   api/kontakt/           Route Handler für das Formular (nur im Server-Build)
@@ -113,7 +135,7 @@ app/                     App-Router-Seiten (alle statisch prerendert)
   sitemap.ts robots.ts manifest.ts   Metadata-Routen (force-static)
 components/
   ui/                    Primitives: Button, Icon (eigenes SVG-Set), Reveal,
-                         SectionHeading, ThemeToggle, QrCode
+                         SectionHeading, ThemeToggle, QrCode, PrintButton
   layout/                Header, Footer, Logo
   sections/              Faq, RefurbishedGrid/-Card, DiagramShowcase, ContactForm,
                          Reviews (Google-Aggregat), LiveStatus (Öffnungsstatus)
@@ -127,6 +149,8 @@ components/
   ticket/                RepairTicket, DamageMap (Schadenskarte)
   emergency/             RescueClock
   parts/                 DisplayCompare (echte Eingabeverzögerung)
+  procedure/             RepairProcedure (Werkstattablauf im Zeitraffer)
+  support/               SupportHorizon (Zeitachse), SupportTable (alle Modelle)
   invoice/               InvoiceBuilder (Editor) + InvoiceSheet (das Blatt, DIN 5008)
   pwa/                   ServiceWorkerRegister
 lib/
@@ -138,8 +162,11 @@ lib/
   resale.ts              Ankauf-Bewertung als Liste begründeter Posten
   battery.ts             Alterungsmodell (kalendarisch + zyklisch)
   format.ts detect.ts theme.ts
-  data/                  devices.ts (Modelle, Preise, Ankaufswerte), refurbished.ts,
-                         faq.ts, reviews.ts, emergency.ts
+  data/                  devices.ts (Modelle, Preise, Ankaufswerte), refurbished.ts
+                         (Bestand inkl. Zyklen, Prüfdatum, ersetzte Teile, Befund),
+                         inspection.ts (die 40 Prüfpositionen), procedure.ts
+                         (Werkstattschritte), support.ts (Update-Horizont je
+                         Modell), faq.ts, reviews.ts, emergency.ts
   invoice/               types.ts calc.ts (Cent-Arithmetik) catalog.ts validate.ts
                          (§ 14 UStG) store.ts (localStorage) girocode.ts qr.ts
 public/
@@ -150,6 +177,9 @@ scripts/
   build-static.mjs       Statischer Export (legt app/api beiseite)
   generate-icons.mjs     PWA-Icons rendern
   verify-qr.mjs          QR-Encoder gegen die Norm prüfen
+  verify-procedure.mjs   Ablaufzeiten gegen repairMeta.minutes
+  verify-inspection.mjs  Prüfpositionen gegen site.checkpoints, Bestand gegen Grad
+  verify-support.mjs     Update-Horizont gegen den Gerätekatalog
 ```
 
 ## Konventionen
@@ -236,6 +266,56 @@ zwei verschiedene Bewertungsschnitte auf einer Seite liest, glaubt keinem.
 Dieselbe Regel gilt für `lib/data/reviews.ts` (nur wörtlich übernommene echte
 Google-Rezensionen) und für Garantieangaben (immer `site.warrantyMonths`,
 nie eine feste Zahl im Text).
+
+Zwei Zahlen sind inzwischen maschinell abgesichert, weil sie ausdrücklich als
+Zusage formuliert sind:
+
+- **`site.checkpoints` (40 Punkte).** Der Prüfplan steht vollständig in
+  `lib/data/inspection.ts` und wird auf jeder Geräteakte gedruckt.
+  `verify:inspection` bricht ab, wenn Zahl und Positionen auseinanderlaufen.
+- **`repairMeta[kind].minutes`.** Die Arbeitsschritte in
+  `lib/data/procedure.ts` müssen sich exakt darauf summieren
+  (`verify:procedure`).
+
+Wer eine der beiden Zahlen ändert, ändert die andere Seite mit – sonst
+verspricht die Website etwas, das der eigene Datenbestand widerlegt.
+
+### Bestand aufbereiteter Geräte (`lib/data/refurbished.ts`)
+
+Jedes Gerät trägt neben Preis und Zustandsgrad vier Felder, die im
+Prüfprotokoll landen: `cycles`, `checkedOn`, `replaced` und `note`. Sie
+werden bei der Aufbereitung erfasst, nicht beim Rendern erzeugt – ein
+zufällig generierter Befund wäre genau die Sorte Behauptung, die diese Seite
+vermeiden soll.
+
+`verify:inspection` prüft den Bestand deshalb gegen sich selbst: Kapazität
+über dem Mindestwert des eigenen Grades, „Akku ersetzt“ nur bei niedriger
+Zyklenzahl, jeder Grad unterhalb „Wie neu“ mit benanntem Befund. Ein Gerät
+ohne Befund, das trotzdem „Gut“ heißt, fällt durch.
+
+### Update-Horizont (`lib/data/support.ts`)
+
+Die heikelste Tabelle der Website: Sie nennt Datumsangaben, nach denen
+Kunden entscheiden, ob sie 219 € in ein Gerät stecken – und sie veraltet von
+selbst, weil Hersteller ihre Zusagen ändern.
+
+Zwei Regeln halten das aus:
+
+- **Jede Angabe trägt ihre Quellenart.** `hersteller` heißt: Der Hersteller
+  hat den Zeitraum öffentlich zugesagt (Google und Samsung tun das seit 2023
+  ausdrücklich). `schaetzung` heißt: Es gibt keine Zusage, nur ein bisher
+  eingehaltenes Muster – das trifft auf Apple zu. Auf der Seite steht die
+  Sorte immer dabei. Eine Schätzung, die aussieht wie eine Zusage, ist eine
+  Lüge mit Zwischenschritt.
+- **`SUPPORT_CHECKED` ist das Datum der letzten Prüfung.** `verify:support`
+  warnt nach sechs Monaten und bricht nach zwölf ab. Wer die Tabelle prüft,
+  setzt das Datum hoch – auch dann, wenn sich nichts geändert hat.
+
+Die Restlaufzeit („noch 6 Monate") wird **im Browser** gerechnet, nicht beim
+Bauen. Die Seite wird statisch exportiert; ein serverseitig gerechneter Wert
+wäre auf dem Datum des letzten Deploys eingefroren und Monat für Monat
+falscher. Ohne JavaScript bleiben die Datumsangaben stehen – sie sind die
+Information, die Restlaufzeit ist die Bequemlichkeit.
 
 ### Rechnungswerkzeug (`/intern/rechnung`)
 
