@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Icon } from "@/components/ui/Icon";
 import { PrintButton } from "@/components/ui/PrintButton";
 import { QrCode } from "@/components/ui/QrCode";
+import { SupportHorizon } from "@/components/support/SupportHorizon";
 import { Reveal } from "@/components/ui/Reveal";
 import { Button } from "@/components/ui/Button";
 import {
@@ -12,6 +13,7 @@ import {
   refurbishedDevices,
 } from "@/lib/data/refurbished";
 import { checkpointCount, groupOffset, inspectionGroups } from "@/lib/data/inspection";
+import { supportFor } from "@/lib/data/support";
 import { formatEuro } from "@/lib/format";
 import { JsonLd, breadcrumbJsonLd, pageMeta } from "@/lib/seo";
 import { fullAddress, site } from "@/lib/site";
@@ -66,6 +68,7 @@ export default async function GeraetePage({
   if (!device) notFound();
 
   const grade = grades.find((g) => g.id === device.grade)!;
+  const support = supportFor(device.model);
   const saving = Math.round(
     ((device.originalPrice - device.price) / device.originalPrice) * 100,
   );
@@ -321,6 +324,44 @@ export default async function GeraetePage({
           </Reveal>
         </div>
       </section>
+
+      {/*
+        Der Update-Horizont gehört auf diese Seite, weil er beim Kauf eines
+        aufbereiteten Geräts die Frage ist, die niemand stellt und alle
+        angeht: Ein Telefon von 2022 für 349 € ist etwas anderes, je nachdem
+        ob es noch drei Jahre oder noch acht Monate Sicherheitsupdates
+        bekommt. Bei einem Gerät mit langer Restlaufzeit ist das unser
+        stärkstes Argument – bei einem mit kurzer schulden wir es dem Käufer.
+      */}
+      {support ? (
+        <section className="border-t border-line">
+          <div className="mx-auto max-w-6xl px-5 py-16 md:px-8 md:py-20">
+            <Reveal className="max-w-2xl">
+              <h2 className="text-headline">Wie lange es versorgt bleibt.</h2>
+              <p className="mt-4 leading-relaxed text-ink-soft">
+                Irgendwann bekommt jedes Telefon keine Sicherheitsupdates
+                mehr. Bei diesem Gerät ist das Datum bekannt – hier steht es,
+                zusammen mit der Quelle.
+              </p>
+            </Reveal>
+            <Reveal delay={60} className="mt-8">
+              <SupportHorizon entry={support} name={device.name} />
+            </Reveal>
+            <Reveal delay={100}>
+              <p className="mt-4 text-[0.8125rem] text-ink-soft">
+                Alle Modelle im Vergleich:{" "}
+                <Link
+                  href="/versorgung"
+                  className="text-accent underline underline-offset-4"
+                >
+                  Update-Horizont
+                </Link>
+                .
+              </p>
+            </Reveal>
+          </div>
+        </section>
+      ) : null}
 
       {/* Das Protokoll */}
       <section className="border-t border-line bg-raised">

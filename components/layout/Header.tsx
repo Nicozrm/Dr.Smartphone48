@@ -28,6 +28,7 @@ const navigation: { href: string; label: string; wide?: boolean }[] = [
 const secondaryNavigation = [
   { href: "/refurbished", label: "Refurbished" },
   { href: "/zwilling", label: "Digitaler Zwilling" },
+  { href: "/versorgung", label: "Update-Horizont" },
   { href: "/ersatzteile", label: "Ersatzteile" },
   { href: "/werkstatt", label: "Werkstatt" },
 ];

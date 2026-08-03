@@ -31,6 +31,14 @@ export const grades: GradeMeta[] = [
 
 export interface RefurbishedDevice {
   id: string;
+  /**
+   * Modell-Kennung aus `lib/data/devices.ts`. Ausdrücklich hinterlegt und
+   * nicht aus `id` abgeleitet: Über diesen Verweis hängen Reparaturpreise
+   * und Update-Horizont am Gerät, und eine stillschweigende Namenskonvention
+   * bricht irgendwann, ohne dass jemand es merkt. `verify:inspection` prüft,
+   * dass jede Kennung in beiden Tabellen auflösbar ist.
+   */
+  model: string;
   brand: string;
   name: string;
   storage: string;
@@ -63,6 +71,7 @@ export interface RefurbishedDevice {
 export const refurbishedDevices: RefurbishedDevice[] = [
   {
     id: "rf-iphone-15-pro",
+    model: "iphone-15-pro",
     brand: "Apple",
     name: "iPhone 15 Pro",
     storage: "256 GB",
@@ -77,6 +86,7 @@ export const refurbishedDevices: RefurbishedDevice[] = [
   },
   {
     id: "rf-iphone-15",
+    model: "iphone-15",
     brand: "Apple",
     name: "iPhone 15",
     storage: "128 GB",
@@ -92,6 +102,7 @@ export const refurbishedDevices: RefurbishedDevice[] = [
   },
   {
     id: "rf-iphone-14-pro",
+    model: "iphone-14-pro",
     brand: "Apple",
     name: "iPhone 14 Pro",
     storage: "128 GB",
@@ -107,6 +118,7 @@ export const refurbishedDevices: RefurbishedDevice[] = [
   },
   {
     id: "rf-iphone-13",
+    model: "iphone-13",
     brand: "Apple",
     name: "iPhone 13",
     storage: "128 GB",
@@ -122,6 +134,7 @@ export const refurbishedDevices: RefurbishedDevice[] = [
   },
   {
     id: "rf-galaxy-s24",
+    model: "galaxy-s24",
     brand: "Samsung",
     name: "Galaxy S24",
     storage: "256 GB",
@@ -136,6 +149,7 @@ export const refurbishedDevices: RefurbishedDevice[] = [
   },
   {
     id: "rf-galaxy-s23-ultra",
+    model: "galaxy-s23-ultra",
     brand: "Samsung",
     name: "Galaxy S23 Ultra",
     storage: "256 GB",
@@ -151,6 +165,7 @@ export const refurbishedDevices: RefurbishedDevice[] = [
   },
   {
     id: "rf-galaxy-a54",
+    model: "galaxy-a54",
     brand: "Samsung",
     name: "Galaxy A54",
     storage: "128 GB",
@@ -166,6 +181,7 @@ export const refurbishedDevices: RefurbishedDevice[] = [
   },
   {
     id: "rf-pixel-8-pro",
+    model: "pixel-8-pro",
     brand: "Google",
     name: "Pixel 8 Pro",
     storage: "128 GB",
@@ -180,6 +196,7 @@ export const refurbishedDevices: RefurbishedDevice[] = [
   },
   {
     id: "rf-pixel-8",
+    model: "pixel-8",
     brand: "Google",
     name: "Pixel 8",
     storage: "128 GB",
@@ -195,6 +212,7 @@ export const refurbishedDevices: RefurbishedDevice[] = [
   },
   {
     id: "rf-pixel-7a",
+    model: "pixel-7a",
     brand: "Google",
     name: "Pixel 7a",
     storage: "128 GB",

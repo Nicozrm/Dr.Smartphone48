@@ -23,6 +23,7 @@ npm run lint          # ESLint
 npm run verify:qr         # QR-Encoder gegen ISO/IEC 18004 prüfen
 npm run verify:procedure  # Werkstattabläufe gegen die zugesagten Zeiten
 npm run verify:inspection # Prüfprotokoll + Bestand gegen die eigenen Zusagen
+npm run verify:support    # Update-Horizont gegen den Gerätekatalog
 
 npm run cf:build      # Cloudflare-Worker bauen (OpenNext)
 npm run cf:preview    # Worker lokal in workerd testen
@@ -34,7 +35,7 @@ node scripts/generate-og.mjs      # public/og.png neu rendern (Link-Vorschaubild
 
 Es gibt keine Test-Suite. Verifikation = `npm run build` + `npm run lint`.
 
-Dazu drei Prüfskripte, und alle drei prüfen dasselbe: dass eine Zusage der
+Dazu vier Prüfskripte, und alle vier prüfen dasselbe: dass eine Zusage der
 Seite noch stimmt. Sie sind kein Ersatz für Tests, sondern die Stellen, an
 denen ein stiller Fehler die Website zur Lügnerin macht, ohne dass jemand
 etwas merkt.
@@ -47,6 +48,9 @@ etwas merkt.
 - `verify:inspection` – die Anzahl der Positionen im Prüfprotokoll gegen
   `site.checkpoints` (das „40-Punkte-Protokoll“), plus jedes Gerät im
   Bestand gegen seinen eigenen Zustandsgrad.
+- `verify:support` – jedes Modell im Katalog hat einen Update-Horizont,
+  jede Angabe einen Beleg, und die Daten stehen in plausibler Reihenfolge.
+  Schlägt außerdem an, wenn `SUPPORT_CHECKED` über ein Jahr alt ist.
 
 ## Deployment (Cloudflare Workers – empfohlen)
 
@@ -116,6 +120,8 @@ app/                     App-Router-Seiten (alle statisch prerendert)
   check/                 Geräte-Check: Sensor-Diagnose im Browser
   ankauf/                Restwert-Rechner mit offengelegter Rechnung
   zwilling/              Digitaler Zwilling, Akku-Coach, Reparieren-oder-neu
+  versorgung/            Update-Horizont: bis wann jedes Modell noch
+                         Sicherheitsupdates bekommt
   ticket/                Reparatur-Ticket + Übergabeprotokoll (noindex)
   refurbished/           Bestand (Gitter) …
   refurbished/[id]/      … und je Gerät eine Akte: Prüfprotokoll mit allen
@@ -144,6 +150,7 @@ components/
   emergency/             RescueClock
   parts/                 DisplayCompare (echte Eingabeverzögerung)
   procedure/             RepairProcedure (Werkstattablauf im Zeitraffer)
+  support/               SupportHorizon (Zeitachse), SupportTable (alle Modelle)
   invoice/               InvoiceBuilder (Editor) + InvoiceSheet (das Blatt, DIN 5008)
   pwa/                   ServiceWorkerRegister
 lib/
@@ -158,7 +165,8 @@ lib/
   data/                  devices.ts (Modelle, Preise, Ankaufswerte), refurbished.ts
                          (Bestand inkl. Zyklen, Prüfdatum, ersetzte Teile, Befund),
                          inspection.ts (die 40 Prüfpositionen), procedure.ts
-                         (Werkstattschritte), faq.ts, reviews.ts, emergency.ts
+                         (Werkstattschritte), support.ts (Update-Horizont je
+                         Modell), faq.ts, reviews.ts, emergency.ts
   invoice/               types.ts calc.ts (Cent-Arithmetik) catalog.ts validate.ts
                          (§ 14 UStG) store.ts (localStorage) girocode.ts qr.ts
 public/
@@ -171,6 +179,7 @@ scripts/
   verify-qr.mjs          QR-Encoder gegen die Norm prüfen
   verify-procedure.mjs   Ablaufzeiten gegen repairMeta.minutes
   verify-inspection.mjs  Prüfpositionen gegen site.checkpoints, Bestand gegen Grad
+  verify-support.mjs     Update-Horizont gegen den Gerätekatalog
 ```
 
 ## Konventionen
@@ -257,6 +266,30 @@ vermeiden soll.
 über dem Mindestwert des eigenen Grades, „Akku ersetzt“ nur bei niedriger
 Zyklenzahl, jeder Grad unterhalb „Wie neu“ mit benanntem Befund. Ein Gerät
 ohne Befund, das trotzdem „Gut“ heißt, fällt durch.
+
+### Update-Horizont (`lib/data/support.ts`)
+
+Die heikelste Tabelle der Website: Sie nennt Datumsangaben, nach denen
+Kunden entscheiden, ob sie 219 € in ein Gerät stecken – und sie veraltet von
+selbst, weil Hersteller ihre Zusagen ändern.
+
+Zwei Regeln halten das aus:
+
+- **Jede Angabe trägt ihre Quellenart.** `hersteller` heißt: Der Hersteller
+  hat den Zeitraum öffentlich zugesagt (Google und Samsung tun das seit 2023
+  ausdrücklich). `schaetzung` heißt: Es gibt keine Zusage, nur ein bisher
+  eingehaltenes Muster – das trifft auf Apple zu. Auf der Seite steht die
+  Sorte immer dabei. Eine Schätzung, die aussieht wie eine Zusage, ist eine
+  Lüge mit Zwischenschritt.
+- **`SUPPORT_CHECKED` ist das Datum der letzten Prüfung.** `verify:support`
+  warnt nach sechs Monaten und bricht nach zwölf ab. Wer die Tabelle prüft,
+  setzt das Datum hoch – auch dann, wenn sich nichts geändert hat.
+
+Die Restlaufzeit („noch 6 Monate") wird **im Browser** gerechnet, nicht beim
+Bauen. Die Seite wird statisch exportiert; ein serverseitig gerechneter Wert
+wäre auf dem Datum des letzten Deploys eingefroren und Monat für Monat
+falscher. Ohne JavaScript bleiben die Datumsangaben stehen – sie sind die
+Information, die Restlaufzeit ist die Bequemlichkeit.
 
 ### Rechnungswerkzeug (`/intern/rechnung`)
 

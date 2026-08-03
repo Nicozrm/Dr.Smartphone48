@@ -316,6 +316,14 @@
 
   --color-positive: var(--positive);
   --color-positive-subtle: var(--positive-subtle);
+  /* Warn und Danger gab es als Token schon lange, nur nicht als Utility –
+     wer sie brauchte, schrieb `style={{ color: "var(--warn)" }}`. Damit lief
+     die Statusfarbe an der Kaskade vorbei und wäre im Druck (dort werden
+     alle drei zu Schwarz) nicht mitgezogen worden. */
+  --color-warn: var(--warn);
+  --color-warn-subtle: var(--warn-subtle);
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
 
   --radius-s: var(--radius-s);
   --radius-m: var(--radius-m);
