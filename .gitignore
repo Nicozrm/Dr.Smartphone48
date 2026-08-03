@@ -19,6 +19,8 @@ yarn-error.log*
 
 # env files
 .env*
+# … außer der Vorlage: Sie enthält keine Werte, nur die Namen und wozu sie da sind.
+!.env.example
 
 # typescript
 *.tsbuildinfo

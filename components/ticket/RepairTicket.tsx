@@ -7,9 +7,11 @@ import { Icon } from "@/components/ui/Icon";
 import { QrCode } from "@/components/ui/QrCode";
 import { ConsentGate, useConsentGate } from "@/components/ui/ConsentGate";
 import { DamageMap, markKinds, type Mark, type MarkKind } from "./DamageMap";
+import { TicketRegistration } from "./TicketRegistration";
 import { inspectImei } from "@/lib/imei";
 import { formatEuro, formatMinutes } from "@/lib/format";
 import { parseTicket, ticketIcs, type Ticket } from "@/lib/ticket";
+import { hasTicketBackend } from "@/lib/supabase/env";
 import { site, fullAddress } from "@/lib/site";
 
 /*
@@ -398,6 +400,18 @@ function TicketBody({ ticket }: { ticket: Ticket }) {
               gesendet, nicht gespeichert – auch nicht lokal – und ist
               verschwunden, sobald Sie den Tab schließen. Drucken Sie es, wenn
               Sie es behalten wollen.
+              {/* Sobald es die Anmeldung gibt, stimmt der Satz oben nur noch
+                  mit dieser Ergänzung: Sie ist die eine Ausnahme, und sie
+                  passiert nie nebenbei. */}
+              {hasTicketBackend() ? (
+                <>
+                  {" "}
+                  Die einzige Ausnahme ist die Anmeldung ganz unten – dort
+                  übertragen Sie ausdrücklich die Angaben, die in jenem
+                  Abschnitt noch einmal aufgeführt sind. Vom Blatt hier geht
+                  nichts mit.
+                </>
+              ) : null}
             </span>
           </p>
         </div>
@@ -726,6 +740,15 @@ function TicketBody({ ticket }: { ticket: Ticket }) {
           {shareUrl}
         </p>
       </section>
+
+      {/* ---- Anmeldung ------------------------------------------------
+          Erscheint nur, wo es eine Vorgangsverwaltung gibt. Die Felder
+          sind aus dem Protokoll vorbelegt, übertragen wird trotzdem nur,
+          was dort steht – und erst nach Zustimmung. */}
+      <TicketRegistration
+        ticket={ticket}
+        prefill={{ name: holder, phone, imei, notes }}
+      />
     </div>
   );
 }

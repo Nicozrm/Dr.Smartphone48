@@ -24,6 +24,7 @@ npm run verify:qr         # QR-Encoder gegen ISO/IEC 18004 prüfen
 npm run verify:procedure  # Werkstattabläufe gegen die zugesagten Zeiten
 npm run verify:inspection # Prüfprotokoll + Bestand gegen die eigenen Zusagen
 npm run verify:support    # Update-Horizont gegen den Gerätekatalog
+npm run verify:status     # Werkstattablauf gegen das Datenbankschema
 
 npm run cf:build      # Cloudflare-Worker bauen (OpenNext)
 npm run cf:preview    # Worker lokal in workerd testen
@@ -51,6 +52,11 @@ etwas merkt.
 - `verify:support` – jedes Modell im Katalog hat einen Update-Horizont,
   jede Angabe einen Beleg, und die Daten stehen in plausibler Reihenfolge.
   Schlägt außerdem an, wenn `SUPPORT_CHECKED` über ein Jahr alt ist.
+- `verify:status` – der Werkstattablauf in `lib/tickets/status.ts` gegen das
+  Postgres-Enum in `supabase/migrations/`: gleiche Zustände, gleiche
+  Reihenfolge. Dazu Kontaktkanäle, die Form des Vorgangscodes, die Namen der
+  Realtime-Kanäle und die Zusage, dass es auf den Vorgangstabellen keine
+  Policy für `anon` gibt.
 
 ## Deployment (Cloudflare Workers – empfohlen)
 
@@ -122,14 +128,22 @@ app/                     App-Router-Seiten (alle statisch prerendert)
   zwilling/              Digitaler Zwilling, Akku-Coach, Reparieren-oder-neu
   versorgung/            Update-Horizont: bis wann jedes Modell noch
                          Sicherheitsupdates bekommt
-  ticket/                Reparatur-Ticket + Übergabeprotokoll (noindex)
+  ticket/                Reparatur-Ticket + Übergabeprotokoll (noindex),
+                         am Ende die freiwillige Anmeldung eines Vorgangs
+  status/                Vorgangsnummer eingeben …
+  status/[ticketCode]/   … und den Stand verfolgen (Realtime, noindex; im
+                         statischen Export ausgeklammert)
   refurbished/           Bestand (Gitter) …
   refurbished/[id]/      … und je Gerät eine Akte: Prüfprotokoll mit allen
                          40 Positionen, Messwerte, Product-JSON-LD, druckbar
   ersatzteile/ werkstatt/ kontakt/
   impressum/ datenschutz/ agb/ offline/ not-found.tsx
   intern/rechnung/       Rechnungswerkzeug (nicht verlinkt, noindex, kein Server)
+  intern/werkstatt/      Vorgangs-Dashboard (nicht verlinkt, noindex, Anmeldung)
   api/kontakt/           Route Handler für das Formular (nur im Server-Build)
+  api/tickets/           Vorgang anmelden (POST)
+  api/status/[code]/     Vorgang lesen (GET, redigiert) und ändern (PATCH)
+  api/werkstatt/         Anmeldung, Liste und Akte für das Dashboard
   layout.tsx             Root-Layout: Metadata, JSON-LD, Header/Footer, SW-Registrierung
   globals.css            Design-Tokens (CSS-Variablen) + Tailwind-4-Theme + Motion + Druck
   sitemap.ts robots.ts manifest.ts   Metadata-Routen (force-static)
@@ -146,7 +160,13 @@ components/
   twin/                  DigitalTwin, RepairOrReplace
   battery/               BatteryCoach (3-Jahres-Prognose)
   resale/                ResaleCalculator (Ankauf)
-  ticket/                RepairTicket, DamageMap (Schadenskarte)
+  ticket/                RepairTicket, DamageMap (Schadenskarte),
+                         TicketRegistration (Anmeldung – nur mit Backend)
+  status/                TicketStatusView (lädt + hört zu), StatusTimeline,
+                         StatusBadge, TicketLookup
+  workshop/              WorkshopDashboard, TicketList, TicketDetail,
+                         StatusControl, WorkshopStats, WorkshopLogin,
+                         ShortcutHelp
   emergency/             RescueClock
   parts/                 DisplayCompare (echte Eingabeverzögerung)
   procedure/             RepairProcedure (Werkstattablauf im Zeitraffer)
@@ -169,17 +189,34 @@ lib/
                          Modell), faq.ts, reviews.ts, emergency.ts
   invoice/               types.ts calc.ts (Cent-Arithmetik) catalog.ts validate.ts
                          (§ 14 UStG) store.ts (localStorage) girocode.ts qr.ts
+  tickets/               status.ts (die acht Zustände), code.ts (Vorgangscode),
+                         types.ts, validate.ts, public-view.ts (Redaktion),
+                         repository.ts (einzige Datenzugriffsschicht),
+                         registration.ts, links.ts
+  supabase/              env.ts (gibt es ein Backend?), admin.ts (Service-Role,
+                         nur Server), server.ts (Sitzung + requireStaff),
+                         browser.ts (nur Realtime), database.ts (Schema als Typ)
+  notify/                types.ts (Adapter-Vertrag), registry.ts, dispatch.ts,
+                         messages.ts, adapters/ (email, webhook, push)
+  realtime/              topics.ts, useStatusChannel.ts
+  api/                   respond.ts (Antwortform), rate-limit.ts, client.ts
+                         (jede Adresse genau einmal)
+  workshop/              useWorkshopTickets.ts, useShortcuts.ts
+supabase/
+  migrations/            Schema, RLS, Realtime – in dieser Reihenfolge
+  README.md              Einrichtung, Personal freischalten, Aufbewahrung
 public/
   sw.js                  Handgeschriebener Service Worker (Precache, /offline-Fallback)
   og.png                 Link-Vorschaubild 1200×630 (scripts/generate-og.mjs)
   icons/                 PWA-Icons
 scripts/
-  build-static.mjs       Statischer Export (legt app/api beiseite)
+  build-static.mjs       Statischer Export (legt app/api und app/status/[…] beiseite)
   generate-icons.mjs     PWA-Icons rendern
   verify-qr.mjs          QR-Encoder gegen die Norm prüfen
   verify-procedure.mjs   Ablaufzeiten gegen repairMeta.minutes
   verify-inspection.mjs  Prüfpositionen gegen site.checkpoints, Bestand gegen Grad
   verify-support.mjs     Update-Horizont gegen den Gerätekatalog
+  verify-status.mjs      Werkstattablauf gegen das Datenbankschema
 ```
 
 ## Konventionen
@@ -356,6 +393,93 @@ per Seiten-Metadaten, `Disallow: /intern/` in `robots.ts`.
   EPC-Nutzlast liegt bei ~278 Zeichen und passt damit sicher hinein.
 
 
+### Vorgangsverwaltung (`/status`, `/intern/werkstatt`)
+
+Der einzige Teil dieser Website mit einer Datenbank – und der einzige, der
+**abschaltbar** ist. Ohne `NEXT_PUBLIC_SUPABASE_URL` läuft alles wie zuvor:
+Der Sofortpreis-Rechner rechnet, das Ticket entsteht aus der Adresse, das
+Übergabeprotokoll bleibt im Browser. Die Anmeldung und die Statusseite
+erscheinen dann gar nicht erst. Einrichtung: `supabase/README.md`,
+Variablennamen: `.env.example`.
+
+**Die Grenze ist die Anmeldung.** Bis dahin speichert diese Website über einen
+Besucher nichts, und das steht auf der Ticketseite als Zusage. Der Abschnitt
+`TicketRegistration` überschreitet die Grenze bewusst: sichtbar getrennt vom
+Protokoll, mit einer Liste dessen, was übertragen wird, und mit dem
+`ConsentGate` davor. Vom Übergabeprotokoll geht dabei **nichts** mit –
+Schadenskarte, Zubehör und Sperrcode bleiben im Arbeitsspeicher. Wer daran
+etwas ändert, zieht `app/datenschutz` mit; dort steht der Abschnitt
+„Reparaturvorgang anmelden“ und erscheint unter derselben Bedingung.
+
+**Der Vorgangscode ist ein Schlüssel, kein Ausweis** (`lib/tickets/code.ts`).
+Acht Zeichen aus einem Alphabet ohne I, O, 0 und 1, gezogen mit
+`crypto.getRandomValues`. Wer ihn hat, sieht die Statusseite – deshalb steht
+dort nichts, was in fremden Händen schadet. Was nach draußen geht, entscheidet
+`toPublicTicket` in `lib/tickets/public-view.ts`, und zwar an genau einer
+Stelle: kein Name, kein Telefon, keine E-Mail, keine IMEI, keine internen
+Vermerke. Ein Vermerk wird nur sichtbar, wenn er mit `+` beginnt.
+
+**Für Kunden gibt es keine RLS-Policy.** Nicht für `anon`, nicht für
+`authenticated`. Die Statusseite liest ausschließlich über
+`/api/status/[ticketCode]`, das serverseitig mit der Service-Role liest und
+vorher redigiert. Eine Lese-Policy für `anon` wäre eine Lese-Policy für jeden,
+der acht Zeichen durchprobiert. `verify:status` schlägt an, wenn doch eine
+entsteht.
+
+**Realtime ist ein Signal, keine Datenquelle.** Kein `postgres_changes` – das
+verschickte die ganze Zeile samt Name, Telefon und IMEI. Stattdessen sendet
+der Trigger je Kanal genau so viel, wie der Empfänger braucht:
+
+- `vorgang:<CODE>` – Zustand und zwei Zeitstempel. Die Kundenseite schaltet
+  damit sofort um und lädt die Zeitleiste entprellt nach.
+- `werkstatt:vorgaenge` – **nur ein Zeitstempel.** Das Dashboard lädt bei
+  jedem Anstoß ohnehin über die angemeldete API nach.
+
+Kein Intervall, kein Polling.
+
+Beide Kanäle sind **öffentlich**, und das ist kein Versehen: Policies auf
+`realtime.messages` kann die Rolle `postgres` nicht anlegen (die Tabelle
+gehört `supabase_realtime_admin`), private Kanäle ohne Policy lassen niemanden
+zu. Die Sicherheit steckt deshalb in der Nutzlast. Themennamen lassen sich
+nicht durchsuchen – wer `vorgang:K7M2-B94X` hören will, muss den Code kennen,
+dasselbe Modell wie bei der Statusseite. Und der Werkstattkanal, dessen Name
+im JavaScript steht, trägt nichts, was jemandem nützt. `verify:status` prüft
+genau das: Steht dort eines Tages ein Vorgangscode, schlägt es an.
+
+**Der Ablauf steht zweimal**, in TypeScript und als Postgres-Enum. Das ist
+unvermeidbar und deshalb maschinell abgesichert: `npm run verify:status`
+vergleicht beide Listen zeichen- und reihenfolgengenau. Wer einen Zustand
+hinzufügt, ändert beide Seiten – sonst lehnt die Datenbank ab, was die
+Oberfläche anbietet.
+
+**Ein Statuswechsel ist unteilbar.** Vorgang und Historie schreibt die
+Datenbankfunktion `apply_ticket_status` in einer Transaktion; `changed_by`
+kommt bei angemeldeten Aufrufen aus dem Token, nicht aus dem Parameter. Welche
+Übergänge erlaubt sind, entscheidet dagegen `lib/tickets/status.ts` –
+vorwärts frei, genau ein Schritt zurück. Zwei Implementierungen derselben
+Regel driften auseinander.
+
+**Zugang zur Werkstatt:** Supabase Auth plus ein Eintrag in `workshop_staff`.
+Beides ist nötig, und den zweiten Teil kann nur jemand mit Datenbankzugriff
+setzen – ein Dashboard, an dem man sich selbst freischaltet, ist keins. Der
+Service-Role-Schlüssel liegt nie im Browser; das Dashboard arbeitet mit dem
+Token der angemeldeten Person, und die Policies entscheiden.
+
+**Im statischen Export gibt es die Vorgangsverwaltung nicht.**
+`scripts/build-static.mjs` legt `app/api` und `app/status/[ticketCode]`
+beiseite (ein dynamisches Segment braucht dort eine vollständige Werteliste,
+und eine leere lehnt Next.js ab). `/status` und `/intern/werkstatt` stehen
+trotzdem und sagen, dass es hier nichts zu bedienen gibt, statt in einen
+Ladebalken zu laufen.
+
+**Benachrichtigungen sind Adapter, keine Anbieter** (`lib/notify/`). E-Mail
+läuft über Resend – dieselben Variablen wie das Kontaktformular. WhatsApp, SMS
+und Push gehen an einen eigenen HTTPS-Endpunkt mit fester Nutzlast, damit der
+Anbieter austauschbar bleibt. Ein Adapter ohne Zugangsdaten meldet
+`isConfigured() === false` und sendet nicht; das Dashboard zeigt, was fehlt.
+Benachrichtigt wird nur bei drei Zuständen und nur, wenn der Kunde einen Weg
+gewählt hat – Vorauswahl ist „keine Nachrichten“.
+
 ### Zwei Regeln, die über der Optik stehen
 
 **Nichts behaupten, was nicht stimmt.** Die Werkzeuge hier rechnen, statt zu
@@ -403,8 +527,9 @@ und als erste Zeile im Absendepfad `if (!consent.allow()) return;`. Dort sitzt
 die Sperre – `sendProps` liefert nur die Optik (`data-consent-pending`, siehe
 globals.css) und den Satz für die Vorlesehilfe.
 
-Zurzeit gilt sie an vier Stellen: Kontaktformular, Sofortpreis-Rechner
-(Terminanfrage), Ankaufsrechner und WhatsApp-Anfrage im Reparatur-Ticket.
+Zurzeit gilt sie an fünf Stellen: Kontaktformular, Sofortpreis-Rechner
+(Terminanfrage), Ankaufsrechner, WhatsApp-Anfrage im Reparatur-Ticket und die
+Anmeldung eines Vorgangs (`components/ticket/TicketRegistration.tsx`).
 Nackte `mailto:`-Verweise ohne vorausgefüllte Angaben (Footer, Impressum,
 „Teileliste senden") fallen nicht darunter: Dort schreibt der Besucher seine
 Nachricht selbst, die Seite überträgt nichts.
