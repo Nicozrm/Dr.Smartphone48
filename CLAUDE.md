@@ -101,6 +101,7 @@ app/                     App-Router-Seiten (alle statisch prerendert)
   reparatur/             Sofortpreis-Rechner (Signature-Feature) + FAQ
   notfall/               Notfall-Protokolle (ohne JS lesbar, offline im Cache)
   check/                 Geräte-Check: Sensor-Diagnose im Browser
+  vorbereitung/          Übergabe-Assistent: was vor der Abgabe zu tun ist
   ankauf/                Restwert-Rechner mit offengelegter Rechnung
   zwilling/              Digitaler Zwilling, Akku-Coach, Reparieren-oder-neu
   ticket/                Reparatur-Ticket + Übergabeprotokoll (noindex)
@@ -121,6 +122,7 @@ components/
   experience/            Bootloader, CommandPalette (⌘K), ShaderField (WebGL-Hero),
                          DeviceExploded, XRay, MagneticField, ScrollProgress
   check/                 DeviceCheck (Display-, Sensor-, Audio-, Akku-Tests)
+  handover/              HandoverAssistant (Vorbereitung zur Abgabe)
   twin/                  DigitalTwin, RepairOrReplace
   battery/               BatteryCoach (3-Jahres-Prognose)
   resale/                ResaleCalculator (Ankauf)
@@ -139,7 +141,7 @@ lib/
   battery.ts             Alterungsmodell (kalendarisch + zyklisch)
   format.ts detect.ts theme.ts
   data/                  devices.ts (Modelle, Preise, Ankaufswerte), refurbished.ts,
-                         faq.ts, reviews.ts, emergency.ts
+                         faq.ts, reviews.ts, emergency.ts, handover.ts
   invoice/               types.ts calc.ts (Cent-Arithmetik) catalog.ts validate.ts
                          (§ 14 UStG) store.ts (localStorage) girocode.ts qr.ts
 public/
@@ -291,6 +293,29 @@ Netz und auf jedem Gerät funktionieren. Deshalb stehen dort alle vier
 Protokolle vollständig im HTML statt hinter einem Umschalter, und deshalb
 steht die Seite an erster Stelle im Precache des Service Workers. Wer daran
 etwas ändert, prüft beides.
+
+### Übergabe-Assistent (`/vorbereitung`)
+
+Beantwortet, was vor einer Abgabe zu erledigen ist – und grenzt sich damit
+bewusst von `/ticket` ab: Das Ticket **protokolliert** am Tresen, dass Backup
+und Gerätesuche erledigt sind, diese Seite erklärt zu Hause das **Wie**.
+
+- **Jeder Schritt nennt seine Folge** (`ifSkipped` in `lib/data/handover.ts`).
+  Nicht „bitte erledigen", sondern was konkret entfällt. Neue Schritte ohne
+  diese Angabe sind unvollständig.
+- **Menüpfade sind Beispiele, keine Zusicherung.** Apple und die
+  Android-Hersteller benennen Menüs um; wo ein Pfad veralten kann, steht das
+  dabei, statt eine Genauigkeit zu behaupten, die niemand pflegt.
+- **Der Sperrcode ist eine Abwägung, keine Aufforderung.** Für alle drei Wege
+  steht, welche Prüfungen möglich bleiben (`covered`) und welche entfallen
+  (`notCovered`). Die Werkstatt hat ein Interesse am bequemsten Weg – das ist
+  kein Grund, die anderen schlechtzureden. Wer hier etwas ändert, prüft, dass
+  `notCovered` weiterhin vollständig ist.
+- **Keine Markdown-Syntax in den Textwerten.** Die Strings werden direkt
+  gerendert; `**fett**` erscheint wörtlich auf der Seite. Betonung gehört in
+  die Formulierung.
+- Der Fortschritt steht in der Adresse (`?p=ios&ok=backup.lock&c=muendlich`) –
+  nichts Persönliches, kein Speicher, teilbar wie das Ticket.
 
 ### Personenbezogene Daten
 

@@ -501,6 +501,21 @@ html[data-js] .reveal[data-revealed="true"] {
   transform: none;
 }
 
+/* Dasselbe Gate für Werkzeuge, die ohne JavaScript nichts anzeigen würden:
+   Der Übergabe-Assistent (/vorbereitung) ist ein Client-Werkzeug. Ohne JS
+   steht stattdessen der vollständige Text beider Plattformen im Dokument –
+   sonst bliebe von einer Seite, deren ganzer Wert im Text liegt, nur die
+   Überschrift. Sichtbar ist immer genau eine der beiden Fassungen. */
+.js-only {
+  display: none;
+}
+html[data-js] .js-only {
+  display: block;
+}
+html[data-js] .nojs-only {
+  display: none;
+}
+
 /* Sanfter Theme-Wechsel: kurzzeitige Transition, nur während des Umschaltens.
    Die Klasse wird vom ThemeToggle für ~320 ms gesetzt und wieder entfernt –
    so bleibt der Rest der Seite frei von permanenten Farb-Transitions. */
