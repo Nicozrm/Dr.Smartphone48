@@ -67,7 +67,10 @@
   /* Status (sparsam eingesetzt) – ebenfalls auf 4.5:1 gegen sunken geprüft. */
   --positive: #197c4a;
   --positive-subtle: rgba(26, 127, 75, 0.1);
-  --warn: #916500;
+  /* 4.70:1 auf sunken. Der Vorgängerwert #916500 lag bei 4.48:1 – rechnerisch
+     auf die Schwelle gezielt und von der Rundung darunter gekippt. Der
+     Prüfstand hat es gefunden, nicht das Auge. */
+  --warn: #8d6200;
   --warn-subtle: rgba(154, 107, 0, 0.1);
   --danger: #c0362c;
   --danger-subtle: rgba(192, 54, 44, 0.1);

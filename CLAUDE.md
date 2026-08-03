@@ -20,6 +20,7 @@ npm run dev           # Entwicklungsserver
 npm run build         # Server-Build (Vercel, Cloudflare Workers)
 npm run build:static  # Statischer Export nach ./out (ohne /api)
 npm run lint          # ESLint
+npm run verify        # Prüfstand: die Regeln dieser Datei, ausgeführt
 npm run verify:qr     # QR-Encoder gegen ISO/IEC 18004 prüfen
 
 npm run cf:build      # Cloudflare-Worker bauen (OpenNext)
@@ -30,10 +31,41 @@ node scripts/generate-icons.mjs   # PWA-Icons neu rendern (headless Chromium)
 node scripts/generate-og.mjs      # public/og.png neu rendern (Link-Vorschaubild)
 ```
 
-Es gibt keine Test-Suite. Verifikation = `npm run build` + `npm run lint`.
-Einzige Ausnahme: `scripts/verify-qr.mjs` prüft den QR-Encoder gegen die
-Norm – er ist der einzige Code hier, bei dem ein stiller Fehler zu einem
-unlesbaren Ausdruck führt, ohne dass es jemandem auffällt.
+Es gibt keine Test-Suite. Verifikation = `npm run build` + `npm run lint`
++ **`npm run verify`**.
+
+### Der Prüfstand (`scripts/verify.mjs`)
+
+Die Regeln in dieser Datei sind ausführbar. Der Grund steht in der
+Fehlergeschichte des Projekts: Nacheinander sind ein Kontrastwert unter dem
+Schwellenwert, jede Unterseite mit der Startseite als kanonischer URL,
+Markdown-Sternchen in gerendertem Text, zweimal ein Backtick im GLSL-Literal
+und ein reserviertes Wort als Shader-Variable durchgerutscht. Keiner dieser
+Fehler war schwer zu finden. Alle waren schwer zu **bemerken**.
+
+Geprüft wird:
+
+| Prüfung | Worauf |
+|---|---|
+| Kontrast | alle Ink×Flächen-Paare in beiden Themes ≥ 4.5:1, Statusfarben, `--accent-contrast` auf `--accent`, kein `text-white` auf `bg-accent` |
+| Redaktion | keine Markdown-Betonung in `lib/data/`-Textwerten, keine feste Garantiedauer außerhalb `site.ts` |
+| Shader | kein Backtick im GLSL-Literal, keine GLSL-Schlüsselwörter als Bezeichner |
+| Metadaten | jede Route nutzt `pageMeta()` |
+| Export | eigener Canonical je Seite, `og:image` überall, nichts zugleich in Sitemap und auf `noindex` |
+
+Die Export-Prüfungen laufen nur, wenn `./out` vorliegt – also nach
+`npm run build:static`. In CI läuft der Prüfstand zweimal: vor dem Build für
+den Quelltext, danach für den Export.
+
+**Wer eine Regel ergänzt, ergänzt die Prüfung.** Und wer eine Prüfung
+schreibt, baut den Fehler einmal absichtlich ein und sieht nach, ob sie
+anschlägt – die `text-white`-Prüfung sah beim ersten Selbsttest nur in
+`className`-Attribute und übersah damit genau die Stelle, an der der Fehler
+tatsächlich saß.
+
+`scripts/verify-qr.mjs` bleibt eigenständig: Es prüft den QR-Encoder gegen
+ISO/IEC 18004, weil dort ein stiller Fehler zu einem unlesbaren Ausdruck
+führt, ohne dass es jemandem auffällt.
 
 ## Deployment (Cloudflare Workers – empfohlen)
 
