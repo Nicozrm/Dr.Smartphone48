@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/ui/Icon";
 import { formatEuro } from "@/lib/format";
+import { brands } from "@/lib/data/devices";
+import { formatDuration, formatMonth, monthsUntil, supportFor } from "@/lib/data/support";
 
 /*
   Reparieren oder neu kaufen – die Frage, die keine Reparaturwerkstatt gern
@@ -29,6 +31,27 @@ export function RepairOrReplace() {
   const [newPrice, setNewPrice] = useState(899);
   /** Wie lange das reparierte Gerät voraussichtlich noch genutzt wird. */
   const [months, setMonths] = useState(24);
+  /** Optional: das eigene Modell, für den Update-Horizont. */
+  const [modelId, setModelId] = useState("");
+
+  /*
+    Die Nutzungsdauer oben ist ein Wunsch. Der Update-Horizont ist eine
+    Tatsache. Wer 48 Monate plant und ein Gerät hat, dessen
+    Sicherheitsupdates in sechs Monaten enden, rechnet mit einer Zahl, die
+    es nicht gibt – und das ist ausgerechnet die Zahl, die aus einer teuren
+    Reparatur eine gute macht.
+
+    Gerechnet wird erst nach der Auswahl, also nach der Hydration. Vor dem
+    ersten Klick steht hier nichts, deshalb kann `new Date()` an dieser
+    Stelle nichts auseinanderlaufen lassen.
+  */
+  const horizont = useMemo(() => {
+    if (!modelId) return null;
+    const entry = supportFor(modelId);
+    if (!entry) return null;
+    const rest = monthsUntil(entry.securityUntil);
+    return { entry, rest, zuKnapp: months > rest };
+  }, [modelId, months]);
 
   const calc = useMemo(() => {
     const saved = newPrice - repair;
@@ -107,6 +130,78 @@ export function RepairOrReplace() {
           </div>
         </div>
 
+        {/* Der Wirklichkeitsabgleich: freiwillig, aber wer ihn ausfüllt,
+            bekommt die unbequeme Hälfte der Antwort dazu. */}
+        <div className="mt-6">
+          <label
+            htmlFor="ror-model"
+            className="mb-1.5 block text-[0.875rem] font-medium text-ink-strong"
+          >
+            Welches Gerät?{" "}
+            <span className="font-normal text-ink-faint">(freiwillig)</span>
+          </label>
+          <select
+            id="ror-model"
+            value={modelId}
+            onChange={(e) => setModelId(e.target.value)}
+            className={field}
+          >
+            <option value="">Ohne Angabe</option>
+            {brands.map((brand) => (
+              <optgroup key={brand.id} label={brand.name}>
+                {brand.models
+                  .filter((m) => supportFor(m.id))
+                  .map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+              </optgroup>
+            ))}
+          </select>
+
+          {horizont ? (
+            <div
+              className={`mt-3 rounded-[var(--radius-s)] border p-4 ${
+                horizont.zuKnapp ? "border-warn/40 bg-warn-subtle" : "border-line bg-sunken"
+              }`}
+            >
+              <p className="text-[0.875rem] leading-relaxed text-ink-strong">
+                {horizont.rest <= 0 ? (
+                  <>
+                    Für dieses Modell sind die Sicherheitsupdates seit{" "}
+                    {formatMonth(horizont.entry.securityUntil)} beendet.
+                  </>
+                ) : horizont.zuKnapp ? (
+                  /* Umgestellt statt dekliniert: „in {formatDuration(…)}"
+                     ergäbe „in 6 Monate" – die Dauer steht hier im Nominativ
+                     und lässt sich nicht in einen Dativ zwingen, ohne die
+                     Funktion an zwei Stellen zu doppeln. */
+                  <>
+                    Sie planen {months} Monate. Die Sicherheitsupdates enden
+                    aber schon im {formatMonth(horizont.entry.securityUntil)} –
+                    das sind noch {formatDuration(horizont.rest)}.
+                  </>
+                ) : (
+                  <>
+                    Passt: Sicherheitsupdates gibt es noch{" "}
+                    {formatDuration(horizont.rest)}, bis{" "}
+                    {formatMonth(horizont.entry.securityUntil)}.
+                  </>
+                )}
+              </p>
+              <p className="mt-2 text-[0.8125rem] leading-relaxed text-ink-soft">
+                {horizont.entry.source === "hersteller"
+                  ? "Zugesagt vom Hersteller."
+                  : "Schätzung – der Hersteller nennt keinen Zeitraum."}{" "}
+                <Link href="/versorgung" className="text-accent underline underline-offset-4">
+                  Alle Modelle
+                </Link>
+              </p>
+            </div>
+          ) : null}
+        </div>
+
         <p className="mt-6 text-[0.875rem] leading-relaxed text-ink-soft">
           Der Neupreis kommt von Ihnen – wir setzen keinen ein. So sehen Sie
           Ihre Rechnung, nicht unsere.
@@ -160,6 +255,42 @@ export function RepairOrReplace() {
             </dd>
           </div>
         </dl>
+
+        {/*
+          Die Rechnung oben ist reine Arithmetik mit den Zahlen des Besuchers.
+          Sie kann aufgehen und die Entscheidung trotzdem falsch sein, wenn
+          die geplante Nutzungsdauer nach dem Ende der Sicherheitsupdates
+          liegt. Das steht deshalb als eigener Absatz da und nicht als
+          Fußnote – und es korrigiert das Urteil oben ausdrücklich.
+        */}
+        {horizont && horizont.zuKnapp ? (
+          <div className="mt-6 border-t border-line pt-5">
+            <div className="flex items-start gap-3.5">
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-s)] bg-warn-subtle text-warn">
+                <Icon name="shield" size={20} />
+              </span>
+              <div>
+                <p className="font-medium text-ink-strong">
+                  Die Zeit rechnet dagegen.
+                </p>
+                <p className="mt-1 text-[0.875rem] leading-relaxed text-ink-soft">
+                  {horizont.rest <= 0
+                    ? `Dieses Modell bekommt seit ${formatMonth(horizont.entry.securityUntil)} keine Sicherheitsupdates mehr. Die Reparatur können wir trotzdem machen – für Bankgeschäfte würden wir das Gerät nicht mehr benutzen.`
+                    : `Die Rechnung oben geht über ${months} Monate. Sicherheitsupdates gibt es aber nur noch ${formatDuration(horizont.rest)}. Rechnen Sie mit ${horizont.rest} Monaten, dann sehen Sie den ehrlichen Wert.`}
+                </p>
+                {horizont.rest >= 6 ? (
+                  <button
+                    type="button"
+                    onClick={() => setMonths(Math.max(6, Math.min(60, horizont.rest)))}
+                    className="mt-2.5 inline-flex h-9 items-center rounded-full border border-line-strong px-4 text-[0.8125rem] font-medium text-ink-strong transition-colors hover:border-ink-strong"
+                  >
+                    Mit {horizont.rest} Monaten rechnen
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {/* CO2 */}
         <div className="mt-6 border-t border-line pt-5">
