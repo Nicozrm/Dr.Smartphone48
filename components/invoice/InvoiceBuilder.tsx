@@ -20,6 +20,12 @@ import {
   parseQty,
 } from "@/lib/invoice/calc";
 import { searchCatalog, type CatalogItem } from "@/lib/invoice/catalog";
+import { ciiXml } from "@/lib/invoice/cii";
+import {
+  validateEInvoice,
+  xmlFileName,
+  type EInvoiceTarget,
+} from "@/lib/invoice/einvoice";
 import { formatIban, isValidIban } from "@/lib/invoice/girocode";
 import {
   buildBackup,
@@ -557,6 +563,21 @@ export function InvoiceBuilder() {
   }, [invoice, profile, totals, overflows]);
   const ready = isReady(issues);
 
+  /* Was fehlt der E-Rechnung noch – je Zielformat getrennt. */
+  const eInvoiceIssues = useMemo(
+    () => ({
+      zugferd:
+        invoice && profile && totals
+          ? validateEInvoice(invoice, profile, totals, "zugferd")
+          : [],
+      xrechnung:
+        invoice && profile && totals
+          ? validateEInvoice(invoice, profile, totals, "xrechnung")
+          : [],
+    }),
+    [invoice, profile, totals],
+  );
+
   const patch = useCallback((p: Partial<Invoice>) => {
     setInvoice((inv) => (inv ? { ...inv, ...p } : inv));
   }, []);
@@ -646,6 +667,32 @@ export function InvoiceBuilder() {
     clearDraft();
     setInvoice(newInvoice(profile));
     setFlash("Neuer Entwurf.");
+  };
+
+  /**
+   * E-Rechnung als XML herunterladen.
+   *
+   * Kein Serverweg, kein Dienst: Das XML entsteht im Browser und wird direkt
+   * als Datei ausgegeben. Für Rechnungsdaten mit Namen, Anschriften und
+   * Gerätekennungen ist das dieselbe Entscheidung wie beim Rest des Werkzeugs.
+   */
+  const downloadEInvoice = (target: EInvoiceTarget) => {
+    if (!invoice || !profile || !totals) return;
+    const xml = ciiXml(invoice, profile, target, totals);
+    // BOM voran: Die Norm schreibt UTF-8 vor, und manche Prüfprogramme der
+    // Verwaltung erkennen die Kodierung sonst nicht zuverlässig.
+    const blob = new Blob(["﻿", xml], { type: "application/xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = xmlFileName(invoice, target);
+    a.click();
+    URL.revokeObjectURL(url);
+    setFlash(
+      target === "xrechnung"
+        ? "XRechnung 3.0 gespeichert."
+        : "ZUGFeRD-XML (EN 16931) gespeichert.",
+    );
   };
 
   const exportBackup = () => {
@@ -879,6 +926,27 @@ export function InvoiceBuilder() {
                 className="inv-input text-[0.8125rem]"
                 aria-label="USt-IdNr. des Kunden"
               />
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  value={invoice.customer.email ?? ""}
+                  onChange={(e) =>
+                    patch({ customer: { ...invoice.customer, email: e.target.value } })
+                  }
+                  placeholder="E-Mail für die Rechnung (E-Rechnung)"
+                  inputMode="email"
+                  className="inv-input text-[0.8125rem]"
+                  aria-label="E-Mail-Adresse des Kunden"
+                />
+                <input
+                  value={invoice.customer.reference ?? ""}
+                  onChange={(e) =>
+                    patch({ customer: { ...invoice.customer, reference: e.target.value } })
+                  }
+                  placeholder="Leitweg-ID oder Bestellnummer"
+                  className="inv-input text-[0.8125rem]"
+                  aria-label="Leitweg-ID oder Bestellnummer des Kunden"
+                />
+              </div>
             </div>
           </Section>
 
@@ -1035,6 +1103,66 @@ export function InvoiceBuilder() {
                   />
                 </Labeled>
               </div>
+            </div>
+          </Section>
+
+          {/* E-Rechnung */}
+          <Section
+            id="erechnung"
+            title="E-Rechnung"
+            hint="Strukturiertes Format nach EN 16931. Ab 2028 im Geschäftsverkehr Pflicht – Empfangen muss sie heute schon jeder."
+          >
+            <div className="rounded-[var(--radius-m)] border border-line bg-raised p-4">
+              <p className="text-[0.8125rem] leading-relaxed text-ink-soft">
+                Ein PDF ist kein strukturierter Datensatz, sondern ein Bild von
+                einer Rechnung. Die Datei hier enthält dieselben Beträge
+                maschinenlesbar – der Empfänger bucht sie, ohne sie abzutippen.
+              </p>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <ToolButton
+                  icon="arrow-up-right"
+                  label="ZUGFeRD-XML"
+                  onClick={() => downloadEInvoice("zugferd")}
+                  disabled={eInvoiceIssues.zugferd.length > 0}
+                />
+                <ToolButton
+                  icon="arrow-up-right"
+                  label="XRechnung-XML"
+                  onClick={() => downloadEInvoice("xrechnung")}
+                  disabled={eInvoiceIssues.xrechnung.length > 0}
+                />
+              </div>
+
+              {eInvoiceIssues.zugferd.length === 0 &&
+              eInvoiceIssues.xrechnung.length === 0 ? (
+                <p className="mt-3 flex items-center gap-2 text-[0.8125rem] text-ink-soft">
+                  <Icon name="check" size={15} className="text-[var(--positive)]" />
+                  Beide Formate vollständig.
+                </p>
+              ) : (
+                <ul className="mt-3 space-y-1.5">
+                  {/* Die XRechnung fordert am meisten; ihre Liste enthält die
+                      von ZUGFeRD bereits mit. */}
+                  {eInvoiceIssues.xrechnung.map((issue) => (
+                    <li
+                      key={issue.id}
+                      className="flex items-start gap-2 text-[0.8125rem] leading-snug text-ink-soft"
+                    >
+                      <span
+                        className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
+                        style={{ background: "var(--warn)" }}
+                      />
+                      {issue.text}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <p className="mt-3 text-[0.75rem] leading-relaxed text-ink-faint">
+                ZUGFeRD für Unternehmen, XRechnung für Behörden. Beide entstehen
+                hier im Browser; die Rechnungsdaten verlassen das Gerät nicht.
+              </p>
             </div>
           </Section>
 

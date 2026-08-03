@@ -48,6 +48,20 @@ export interface Party {
   country: string;
   /** USt-IdNr. des Empfängers – nötig bei innergemeinschaftlichen Leistungen. */
   vatId: string;
+  /**
+   * Elektronische Adresse des Empfängers (BT-49). Für die XRechnung Pflicht:
+   * Ohne sie weiß der Empfänger nicht, an welches Postfach die Antwort geht.
+   */
+  email?: string;
+  /**
+   * Leitweg-ID bzw. Bestellnummer des Kunden (BT-10).
+   *
+   * Behörden vergeben eine Leitweg-ID und weisen jede XRechnung ohne sie
+   * zurück – sie ist die Adresse innerhalb der Verwaltung. Unternehmen nennen
+   * hier ihre Bestell- oder Auftragsnummer, damit die Rechnung intern
+   * zugeordnet werden kann.
+   */
+  reference?: string;
 }
 
 export interface Invoice {

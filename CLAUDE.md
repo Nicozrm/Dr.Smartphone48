@@ -142,6 +142,7 @@ lib/
                          faq.ts, reviews.ts, emergency.ts
   invoice/               types.ts calc.ts (Cent-Arithmetik) catalog.ts validate.ts
                          (§ 14 UStG) store.ts (localStorage) girocode.ts qr.ts
+                         einvoice.ts + cii.ts (E-Rechnung nach EN 16931)
 public/
   sw.js                  Handgeschriebener Service Worker (Precache, /offline-Fallback)
   og.png                 Link-Vorschaubild 1200×630 (scripts/generate-og.mjs)
@@ -225,6 +226,67 @@ per Seiten-Metadaten, `Disallow: /intern/` in `robots.ts`.
   Byte-Modus, Fehlerkorrektur M, Versionen 1–13). Die längstmögliche
   EPC-Nutzlast liegt bei ~278 Zeichen und passt damit sicher hinein.
 
+### E-Rechnung nach EN 16931 (`lib/invoice/einvoice.ts`, `cii.ts`)
+
+Rechtlicher Hintergrund: Seit dem 1.1.2025 muss jedes deutsche Unternehmen
+strukturierte E-Rechnungen **empfangen** können. Ausstellen muss sie ab dem
+1.1.2027, wer über 800.000 € Vorjahresumsatz liegt – ab dem **1.1.2028 jeder**
+im B2B-Geschäft. Eine Werkstatt, die einer GmbH ein Display tauscht, fällt
+darunter.
+
+Erzeugt werden zwei Ausprägungen derselben CII-Syntax (UN/CEFACT):
+**ZUGFeRD 2.3 / Factur-X** (`urn:cen.eu:en16931:2017`) für Unternehmen und
+**XRechnung 3.0** für Behörden. Beide entstehen im Browser, ohne Server.
+
+- **Die Kennung der XRechnung lautet `urn:xeinkauf.de:kosit:xrechnung_3.0`**,
+  nicht mehr `urn:xoev-de:kosit:standard:...`. Die KoSIT hat den Namensraum mit
+  Version 3.0 gewechselt; die alte Kennung sieht fast gleich aus, gilt der
+  Prüfung der Verwaltung aber als „keine XRechnung“.
+- **CII ist ein sequenzielles Schema.** Die Reihenfolge der Elemente ist
+  bindend – in `ram:ApplicableTradeTax` etwa CalculatedAmount → TypeCode →
+  ExemptionReason → BasisAmount → CategoryCode → RateApplicablePercent. Wer
+  umsortiert, produziert ein Dokument, das automatisch abgelehnt wird.
+- **§ 19 und § 25a werden als Kategorie `E` mit Befreiungsgrund abgebildet.**
+  Für die Differenzbesteuerung ist das gängige Praxis, aber keine reine Lehre –
+  die Norm kennt dafür keine eigene Kategorie. Einmal vom Steuerbüro
+  bestätigen lassen.
+- Für die XRechnung sind Leitweg-ID (BT-10) und elektronische Adresse des
+  Empfängers (BT-49) Pflicht. Beide stehen im Abschnitt „Empfänger“.
+
+Prüfen mit dem Validator der Referenzimplementierung (Java erforderlich):
+
+```bash
+curl -sSLo validator.jar \
+  https://repo1.maven.org/maven2/org/mustangproject/validator/2.24.0/validator-2.24.0-shaded.jar
+# Wrapper, weil das Jar keine Main-Klasse mitbringt:
+cat > Val.java <<'EOF'
+import org.mustangproject.validator.ZUGFeRDValidator;
+public class Val { public static void main(String[] a) throws Exception {
+  System.out.println(new ZUGFeRDValidator().validate(a[0])); } }
+EOF
+javac -cp validator.jar -d . Val.java && java -cp .:validator.jar Val rechnung.xml
+```
+
+Erwartung: XRechnung `failed = 0`. Für ZUGFeRD bleibt genau eine Meldung
+(BR-DE-21) – der Validator prüft immer gegen XRechnung, und ein ZUGFeRD-Beleg
+trägt zu Recht die neutrale EN-16931-Kennung.
+
+### Warum `calc.ts` gruppenweise rechnet
+
+Die Steuer wird **je Steuersatz aus der Bemessungsgrundlage** abgeleitet, nicht
+aus der Summe gerundeter Einzelsteuern. Das ist keine Feinheit: EN 16931
+verlangt es in BR-CO-17, und beide Wege lagen im Test regelmäßig einen Cent
+auseinander. Das gedruckte Blatt sah dabei weiterhin plausibel aus, während die
+E-Rechnung automatisch zurückgewiesen wurde.
+
+Damit trotzdem kein Kunde „2 × 19,90 = 39,79“ liest, gilt: **Der eingegebene
+Wert bleibt unangetastet, verteilt wird nur der abgeleitete.** Bei
+Bruttoeingabe stehen die Bruttobeträge der Positionen fest; die Nettobeträge
+werden mit der Methode der größten Reste so verteilt, dass ihre Summe die
+Bemessungsgrundlage trifft (`largestRemainder`). `netFromGross` sucht zusätzlich
+den Nettowert, der die Bruttosumme **exakt** reproduziert – das gelingt in rund
+83 % der Fälle. Sonst gewinnt die Norm und ein Cent wandert auf die größte
+Position.
 
 ### Zwei Regeln, die über der Optik stehen
 
