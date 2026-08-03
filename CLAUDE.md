@@ -301,6 +301,51 @@ Gerät nur, wenn er selbst eine Anfrage absendet. Der Zustand des
 Reparatur-Tickets steht bewusst lesbar in der Adresse (Gerät und Reparaturen,
 nichts Persönliches). Wer hier etwas ergänzt, zieht `app/datenschutz` mit.
 
+### Die Absenderegel: erst zustimmen, dann senden
+
+**Kein Auftrag und keine Anfrage verlässt das Gerät ohne zwei bewusste
+Handlungen** – Haken an der Datenschutzerklärung, danach Druck auf „Senden".
+Das gilt für jeden Weg nach draußen, gleich ob Server, E-Mail-Entwurf oder
+WhatsApp. Der Haken ist nie vorausgewählt; ohne ihn passiert beim Drücken
+nichts außer einer Erklärung.
+
+Die Regel wohnt in **`components/ui/ConsentGate.tsx`**, nicht im Markup der
+einzelnen Formulare. Eine neue Absendestelle bindet beides ein:
+
+```tsx
+const consent = useConsentGate();
+…
+<ConsentGate {...consent.gate} channel="mail" />   // oder channel="whatsapp"
+<button {...consent.sendProps()} type="submit">Anfrage senden</button>
+```
+
+und als erste Zeile im Absendepfad `if (!consent.allow()) return;`. Dort sitzt
+die Sperre – `sendProps` liefert nur die Optik (`data-consent-pending`, siehe
+globals.css) und den Satz für die Vorlesehilfe.
+
+Zurzeit gilt sie an vier Stellen: Kontaktformular, Sofortpreis-Rechner
+(Terminanfrage), Ankaufsrechner und WhatsApp-Anfrage im Reparatur-Ticket.
+Nackte `mailto:`-Verweise ohne vorausgefüllte Angaben (Footer, Impressum,
+„Teileliste senden") fallen nicht darunter: Dort schreibt der Besucher seine
+Nachricht selbst, die Seite überträgt nichts.
+
+Drei Dinge, die dabei leicht kaputtgehen:
+
+- **Kein `disabled` und kein `aria-disabled` an der Absende-Schaltfläche.**
+  Beides hieße „nicht bedienbar" – der Druck ist hier aber der Weg zur
+  Erklärung. `disabled` nimmt den Knopf zusätzlich aus der Tabulatorreihenfolge.
+- **Die Nutzlast gehört nicht ins `href`.** Ein `<a href="…?text=…">` ließe
+  sich per mittlerer Maustaste, „In neuem Tab öffnen" oder „Link kopieren" an
+  jeder Prüfung im JavaScript vorbeitragen. Absendestellen sind Knöpfe; die
+  Adresse entsteht erst nach `allow()`.
+- **Serverseitig zweite Prüfung.** `app/api/kontakt/route.ts` verlangt die
+  Zustimmung ein weiteres Mal. Was nur im Browser geprüft wird, ist nicht
+  geprüft.
+
+Wer daran etwas ändert, zieht `app/datenschutz` mit – dort steht die Regel
+als Zusage an den Kunden, samt Ziel der Anfrage (das Google-Postfach des
+Betriebs) und Widerrufsmöglichkeit.
+
 ### Offene Punkte vor dem Livegang
 
 - **Bankverbindung eintragen:** Das Rechnungswerkzeug startet ohne IBAN, BIC und

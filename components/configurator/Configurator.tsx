@@ -22,6 +22,7 @@ import { detectDevice, type DetectResult } from "@/lib/detect";
 import { ticketQuery } from "@/lib/ticket";
 import { useCountUp } from "@/lib/useCountUp";
 import { Icon } from "@/components/ui/Icon";
+import { ConsentGate, useConsentGate } from "@/components/ui/ConsentGate";
 import Link from "next/link";
 import { DeviceDiagram } from "./DeviceDiagram";
 import { BrandMark } from "./BrandMark";
@@ -66,6 +67,7 @@ export function Configurator() {
   const [submitted, setSubmitted] = useState(false);
   const [detected, setDetected] = useState<DetectResult | null>(null);
   const [detectDismissed, setDetectDismissed] = useState(false);
+  const consent = useConsentGate();
 
   // Erkennung einmal vor dem ersten Bild – rein lesend, ohne Netzwerk.
   useBeforePaint(() => {
@@ -141,6 +143,11 @@ export function Configurator() {
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    // Ohne Einwilligung wird kein E-Mail-Entwurf geöffnet – der Entwurf
+    // trägt Name, Telefonnummer und Gerät, und die gehören nicht ungefragt
+    // in ein fremdes Programm.
+    if (!consent.allow()) return;
+
     const data = new FormData(event.currentTarget);
     const name = String(data.get("name") ?? "");
     const phone = String(data.get("phone") ?? "");
@@ -400,10 +407,12 @@ export function Configurator() {
                 placeholder="z. B. morgen ab 16 Uhr"
               />
             </label>
+            <ConsentGate {...consent.gate} channel="mail" />
             <button
               type="submit"
               data-magnetic=""
               data-ripple=""
+              {...consent.sendProps()}
               className="press inline-flex h-13 w-full items-center justify-center rounded-full bg-accent px-7 text-base font-medium text-accent-contrast shadow-button transition-[background-color,box-shadow,scale] duration-[var(--duration-base)] hover:bg-accent-hover hover:shadow-[var(--shadow-button-hover)] sm:w-auto"
             >
               <span className="relative z-[1] inline-flex items-center gap-2">

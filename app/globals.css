@@ -824,6 +824,37 @@ html[data-js] .reveal[data-revealed="true"] {
   translate: var(--mag-x, 0px) var(--mag-y, 0px);
 }
 
+/* ---- Gesperrter Versand ---------------------------------------------------
+   Solange die Datenschutz-Einwilligung fehlt, wartet die Absende-Schaltfläche
+   sichtbar ab – bedienbar bleibt sie trotzdem (siehe components/ui/ConsentGate:
+   die Sperre sitzt in `allow()`, nicht im `disabled`-Attribut). Wer trotzdem
+   drückt, bekommt den Grund genannt, statt gegen einen toten Knopf zu laufen.
+
+   Deshalb hier nur Optik: kein `pointer-events: none` – das nähme dem Druck
+   genau die Antwort, für die er da ist.
+
+   Nicht per `opacity` gelöst. Ein heruntergeblendeter Knopf zieht seine
+   Beschriftung mit, und auf gefüllter Fläche fällt der Kontrast damit unter
+   4.5:1. Getauscht wird stattdessen die Fläche gegen --ink-faint, die Schrift
+   bleibt voll deckend: hell 5.34:1 (#ffffff auf #696b6f), dunkel 4.60:1
+   (#101114 auf #797d84). Wer eine der beiden Farben anfasst, rechnet nach.
+*/
+[data-consent-pending] {
+  cursor: not-allowed;
+}
+/* Gefüllte Akzentfläche – Kontaktformular, Terminanfrage, Ankauf. */
+[data-consent-pending="fill"],
+[data-consent-pending="fill"]:hover {
+  background-color: var(--ink-faint);
+  box-shadow: none;
+}
+/* Knopf mit Rand – die WhatsApp-Anfrage im Reparatur-Ticket. */
+[data-consent-pending="quiet"],
+[data-consent-pending="quiet"]:hover {
+  border-color: var(--line);
+  color: var(--ink-soft);
+}
+
 /* ---- Karten-Hover --------------------------------------------------------
    Drei Pixel nach oben und ein weiterer Schatten – mehr nicht. Der Weg ist
    absichtlich kürzer als der Schattenzuwachs: Was eine Karte anhebt, ist

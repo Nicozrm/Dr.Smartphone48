@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 import { QrCode } from "@/components/ui/QrCode";
+import { ConsentGate, useConsentGate } from "@/components/ui/ConsentGate";
 import { DamageMap, markKinds, type Mark, type MarkKind } from "./DamageMap";
 import { inspectImei } from "@/lib/imei";
 import { formatEuro, formatMinutes } from "@/lib/format";
@@ -140,6 +141,7 @@ function TicketBody({ ticket }: { ticket: Ticket }) {
   const [notes, setNotes] = useState("");
   const [copied, setCopied] = useState(false);
   const [origin, setOrigin] = useState("");
+  const consent = useConsentGate();
 
   // Die absolute Adresse steht erst im Browser fest – im Export gibt es
   // keinen Server, der sie kennen könnte.
@@ -317,32 +319,61 @@ function TicketBody({ ticket }: { ticket: Ticket }) {
           </div>
         </div>
 
-        {/* Aktionen – auf Papier sinnlos */}
+        {/* Aktionen – auf Papier sinnlos.
+
+            Drucken, Teilen und Kalender bleiben auf diesem Gerät und
+            brauchen deshalb keine Einwilligung. Die Terminanfrage per
+            WhatsApp verlässt es – für sie gilt die Regel der Website:
+            erst zustimmen, dann senden. */}
         <div
-          className="flex flex-wrap gap-2.5 border-t border-line bg-sunken px-6 py-4 md:px-8"
+          className="border-t border-line bg-sunken px-6 py-4 md:px-8"
           data-print="hide"
         >
-          <button type="button" onClick={() => window.print()} className={actionClass}>
-            <Icon name="check" size={16} />
-            Protokoll drucken
-          </button>
-          <button type="button" onClick={share} className={actionClass}>
-            <Icon name="arrow-up-right" size={16} />
-            {copied ? "Link kopiert" : "Ticket teilen"}
-          </button>
-          <button type="button" onClick={downloadIcs} className={actionClass}>
-            <Icon name="calendar" size={16} />
-            In den Kalender
-          </button>
-          <a
-            href={`${site.whatsappHref}?text=${whatsappText}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={actionClass}
-          >
-            <Icon name="phone" size={16} />
-            Termin per WhatsApp
-          </a>
+          <div className="flex flex-wrap gap-2.5">
+            <button type="button" onClick={() => window.print()} className={actionClass}>
+              <Icon name="check" size={16} />
+              Protokoll drucken
+            </button>
+            <button type="button" onClick={share} className={actionClass}>
+              <Icon name="arrow-up-right" size={16} />
+              {copied ? "Link kopiert" : "Ticket teilen"}
+            </button>
+            <button type="button" onClick={downloadIcs} className={actionClass}>
+              <Icon name="calendar" size={16} />
+              In den Kalender
+            </button>
+            {/* Bewusst ein Knopf, kein Verweis.
+
+                Als `<a href="https://wa.me/…?text=…">` trüge die Adresse die
+                fertige Nachricht schon vor der Einwilligung – und ein Klick
+                mit der mittleren Maustaste, „In neuem Tab öffnen" oder
+                „Link kopieren" ginge an jeder Prüfung im JavaScript vorbei.
+                Die Adresse entsteht deshalb erst, wenn der Haken sitzt. */}
+            <button
+              type="button"
+              onClick={() => {
+                if (!consent.allow()) return;
+                window.open(
+                  `${site.whatsappHref}?text=${whatsappText}`,
+                  "_blank",
+                  "noopener,noreferrer",
+                );
+              }}
+              {...consent.sendProps("quiet")}
+              className={actionClass}
+            >
+              <Icon name="phone" size={16} />
+              Termin per WhatsApp
+            </button>
+          </div>
+          <ConsentGate
+            {...consent.gate}
+            channel="whatsapp"
+            /* Kein Server hört hier mit – der Name im Formular wäre
+               eine Zusage, die niemand einlöst. */
+            name=""
+            className="mt-4 max-w-2xl"
+          />
         </div>
       </div>
 
