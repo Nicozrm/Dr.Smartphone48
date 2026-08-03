@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/ui/Icon";
+import { ConsentGate, useConsentGate } from "@/components/ui/ConsentGate";
 import { brands, findModel } from "@/lib/data/devices";
 import { formatEuro } from "@/lib/format";
 import { site } from "@/lib/site";
@@ -60,6 +61,7 @@ export function ResaleCalculator() {
   const [faults, setFaults] = useState<string[]>([]);
   const [boxed, setBoxed] = useState(false);
   const [locked, setLocked] = useState(false);
+  const consent = useConsentGate();
 
   const brand = brands.find((b) => b.id === brandId)!;
   const entry = findModel(brandId, modelId) ?? findModel(brandId, brand.models[0].id)!;
@@ -355,13 +357,24 @@ export function ResaleCalculator() {
                 </ul>
               </div>
 
-              <a
-                href={`mailto:${site.email}?subject=${encodeURIComponent("Ankauf-Anfrage")}&body=${mailBody}`}
-                className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-accent text-[0.9375rem] font-medium text-accent-contrast transition-colors hover:bg-accent-hover"
+              {/* Aus dem Verweis ist eine Absendestelle geworden: Bis zum
+                  Haken passiert beim Drücken nichts – erst danach öffnet
+                  sich der Entwurf mit Gerät, Zustand und Spanne. */}
+              <ConsentGate {...consent.gate} channel="mail" className="mt-6" />
+              <button
+                type="button"
+                onClick={() => {
+                  if (!consent.allow()) return;
+                  window.location.href = `mailto:${site.email}?subject=${encodeURIComponent(
+                    "Ankauf-Anfrage",
+                  )}&body=${mailBody}`;
+                }}
+                {...consent.sendProps()}
+                className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-accent text-[0.9375rem] font-medium text-accent-contrast transition-colors hover:bg-accent-hover"
               >
                 Angebot anfragen
                 <Icon name="arrow-right" size={17} />
-              </a>
+              </button>
               <p className="mt-3 text-center text-[0.75rem] leading-relaxed text-ink-faint">
                 Zum Termin bitte Ausweis und – wenn vorhanden – den Kaufbeleg
                 mitbringen. Wir sind zur Dokumentation des Ankaufs

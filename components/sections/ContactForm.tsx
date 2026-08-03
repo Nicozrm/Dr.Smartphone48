@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Link from "next/link";
 import { Icon } from "@/components/ui/Icon";
+import { ConsentGate, useConsentGate } from "@/components/ui/ConsentGate";
 import { site } from "@/lib/site";
 
 const topics = ["Reparatur", "Geräte-Check", "Refurbished", "Ersatzteile", "Sonstiges"];
@@ -19,12 +19,17 @@ type Errors = Record<string, string>;
  * der Versand noch nicht eingerichtet, öffnet sich ein fertig ausgefüllter
  * E-Mail-Entwurf. Die Nachricht des Besuchers geht nie verloren, und interne
  * Technik ist nie sichtbar.
+ *
+ * Wie überall auf der Website gilt die Regel aus `ConsentGate`: erst der
+ * Haken an der Datenschutzerklärung, dann „Senden" – und zwar auf beiden
+ * Wegen. Der E-Mail-Entwurf ist kein Schlupfloch.
  */
 export function ContactForm() {
   const [state, setState] = useState<"idle" | "sending" | "sent" | "drafted">("idle");
   const [errors, setErrors] = useState<Errors>({});
   const [fileName, setFileName] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const consent = useConsentGate();
 
   const openDraft = (data: FormData) => {
     const body = [
@@ -46,6 +51,10 @@ export function ContactForm() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    // Ohne Einwilligung endet der Weg hier – vor jedem Netzwerkaufruf und
+    // vor jedem E-Mail-Entwurf.
+    if (!consent.allow()) return;
+
     const form = event.currentTarget;
     const data = new FormData(form);
     setErrors({});
@@ -69,6 +78,9 @@ export function ContactForm() {
         setState("sent");
         form.reset();
         setFileName(null);
+        // `form.reset()` erreicht den Haken nicht, er ist kontrolliert.
+        // Die nächste Nachricht braucht ihre eigene Einwilligung.
+        consent.reset();
         return;
       }
       if (json.errors) {
@@ -240,30 +252,17 @@ export function ContactForm() {
         className="absolute left-[-9999px] h-0 w-0 opacity-0"
       />
 
-      <label className="flex items-start gap-3">
-        <input
-          type="checkbox"
-          name="consent"
-          required
-          aria-invalid={!!errors.consent}
-          aria-describedby={describedBy("consent")}
-          className="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]"
-        />
-        <span className="text-[0.875rem] leading-relaxed text-ink-soft">
-          Ich bin einverstanden, dass meine Angaben zur Bearbeitung meiner
-          Anfrage verarbeitet werden. Details in der{" "}
-          <Link href="/datenschutz" className="text-accent hover:underline">
-            Datenschutzerklärung
-          </Link>
-          . Die Daten werden nicht an Dritte weitergegeben.
-        </span>
-      </label>
-      {err("consent")}
+      {/* Die Einwilligung – dieselbe Komponente wie an jeder anderen
+          Absendestelle der Website. `errors.consent` kommt aus der
+          zweiten Prüfung im Endpunkt und wird hier angezeigt, falls die
+          Zustimmung ohne Browser umgangen wurde. */}
+      <ConsentGate {...consent.gate} channel="mail" error={errors.consent} />
 
       <button
         type="submit"
         disabled={state === "sending"}
         data-magnetic=""
+        {...consent.sendProps()}
         className="inline-flex h-13 items-center justify-center gap-2 rounded-full bg-accent px-7 text-base font-medium text-accent-contrast shadow-button transition-colors duration-[var(--duration-fast)] hover:bg-accent-hover disabled:opacity-60"
         style={{ transitionProperty: "background-color, opacity" }}
       >
