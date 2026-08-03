@@ -42,6 +42,11 @@ selbst anlegen kann, ist keiner.
 
 1. In Supabase unter **Authentication → Users** eine Benutzerin anlegen
    (E-Mail + Passwort). „Auto Confirm User" anhaken.
+
+   Nicht per `insert into auth.users`: Ein von Hand geschriebenes Konto meldet
+   sich nicht an. GoTrue verlangt leere Zeichenketten statt `NULL` in den
+   Token-Spalten und einen passenden Eintrag in `auth.identities` – beides
+   legt die Oberfläche automatisch an.
 2. Im SQL-Editor freischalten:
 
    ```sql

@@ -7,16 +7,42 @@
 -- Datenleck mit Ansage, und für das Dashboard eine Last, die mit jeder Zeile
 -- wächst.
 --
--- Hier entscheidet stattdessen die Datenbank, was rausgeht: zwei Rundrufe mit
--- genau vier Feldern, keines davon personenbezogen.
+-- Hier entscheidet stattdessen die Datenbank, was rausgeht – und zwar je
+-- Kanal etwas anderes:
 --
---   vorgang:<CODE>        → der eine Kunde, der den Code hat
---   werkstatt:vorgaenge   → alle angemeldeten Arbeitsplätze
+--   vorgang:<CODE>        Zustand und zwei Zeitstempel. Wer den Code hat,
+--                         kennt ihn bereits; er steht im Themennamen.
+--   werkstatt:vorgaenge   nur ein Zeitstempel. Kein Code, kein Zustand,
+--                         nichts. Ein „irgendetwas hat sich bewegt“.
 --
--- Beide Kanäle sind privat; die Berechtigung entscheidet sich an den Policies
--- auf `realtime.messages` weiter unten. Der Rundruf ist ein Signal, keine
--- Datenquelle: Wer mehr braucht als den neuen Zustand, holt es sich über die
--- API, wo redigiert wird.
+-- ---------------------------------------------------------------------------
+-- Warum die Kanäle öffentlich sind
+--
+-- Private Kanäle prüfen ihre Zuhörer über Policies auf `realtime.messages`.
+-- Diese Tabelle gehört `supabase_realtime_admin`; die Rolle `postgres`, mit
+-- der Migrationen laufen, ist nicht ihr Eigentümer und darf dort keine Policy
+-- anlegen („must be owner of table messages"). Ohne Policy lässt ein privater
+-- Kanal niemanden zu – die Statusseite bliebe für immer stumm.
+--
+-- Statt die Sicherheit an eine Berechtigung zu hängen, die es hier nicht gibt,
+-- steckt sie in der Nutzlast:
+--
+-- – **Themennamen kann man nicht durchsuchen.** Realtime kennt keine Muster-
+--   Abonnements; wer `vorgang:K7M2-B94X` hören will, muss den Code kennen.
+--   Damit gilt genau dasselbe Modell wie für die Statusseite selbst: Der Code
+--   ist der Schlüssel.
+-- – **Der Werkstattkanal trägt kein Geheimnis.** Sein Name steht im
+--   JavaScript und ist damit öffentlich bekannt. Also enthält seine Nutzlast
+--   nichts als einen Zeitstempel. Das Dashboard lädt ohnehin über die
+--   angemeldete API nach – es braucht nur den Anstoß.
+--
+-- Was ein Fremder daraus erfahren kann: dass irgendwann etwas passiert ist.
+-- Nicht was, nicht bei wem, nicht an welchem Gerät.
+--
+-- Sollte das Projekt eines Tages Zugriff auf `realtime.messages` haben
+-- (eigener Postgres, angehobene Rechte), sind es zwei Zeilen: `true` als
+-- vierter Parameter von `realtime.send` und die beiden Policies, die in der
+-- Fassung dieser Datei vom 3. August 2026 in der Versionsgeschichte stehen.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.broadcast_ticket_change()
@@ -25,8 +51,6 @@ language plpgsql
 security definer
 set search_path = public, pg_temp
 as $$
-declare
-  v_payload jsonb;
 begin
   -- Nur Zustandswechsel und Neuanlagen sind ein Rundruf wert. Ein geänderter
   -- interner Vermerk geht niemanden an, der zuhört.
@@ -34,19 +58,30 @@ begin
     return new;
   end if;
 
-  v_payload := jsonb_build_object(
-    'ticketCode', new.ticket_code,
-    'status', new.status,
-    'statusChangedAt', new.status_changed_at,
-    'updatedAt', new.updated_at
-  );
-
   -- Ein Aussetzer im Rundruf darf nie einen Statuswechsel verhindern. Die
   -- Seite aktualisiert sich dann beim nächsten Aufruf – ärgerlich, aber
   -- folgenlos. Ein fehlgeschlagenes `update` wäre das Gegenteil.
   begin
-    perform realtime.send(v_payload, 'status', 'vorgang:' || new.ticket_code, true);
-    perform realtime.send(v_payload, 'status', 'werkstatt:vorgaenge', true);
+    -- An den einen Kunden, der den Code hat.
+    perform realtime.send(
+      jsonb_build_object(
+        'ticketCode', new.ticket_code,
+        'status', new.status,
+        'statusChangedAt', new.status_changed_at,
+        'updatedAt', new.updated_at
+      ),
+      'status',
+      'vorgang:' || new.ticket_code,
+      false
+    );
+
+    -- An die Werkstatt: nur der Anstoß, ohne jeden Inhalt.
+    perform realtime.send(
+      jsonb_build_object('changedAt', new.updated_at),
+      'status',
+      'werkstatt:vorgaenge',
+      false
+    );
   exception
     when others then
       raise warning 'Rundruf für Vorgang % fehlgeschlagen: %', new.ticket_code, sqlerrm;
@@ -61,38 +96,11 @@ create trigger repair_tickets_broadcast
   after insert or update on public.repair_tickets
   for each row execute function public.broadcast_ticket_change();
 
--- ---------------------------------------------------------------------------
--- Wer darf zuhören?
---
--- Der Kundenkanal steht `anon` offen – aber nur, wer den Themennamen kennt,
--- bekommt etwas, und der Themenname enthält den Vorgangscode. Der Code ist
--- damit dasselbe wie überall in diesem System: ein Schlüssel. Deshalb steht
--- im Rundruf auch nichts, was über den Zustand hinausgeht.
---
--- Der Werkstattkanal verlangt eine Anmeldung und einen Eintrag in
--- `workshop_staff`.
--- ---------------------------------------------------------------------------
+-- Ein Auslöser ist kein Endpunkt. Warum das ausdrücklich dasteht, erklärt der
+-- gleichlautende Abschnitt in der vorigen Migration.
+revoke all on function public.broadcast_ticket_change() from public, anon, authenticated;
 
-alter table realtime.messages enable row level security;
-
-drop policy if exists "Kunde hoert seinen Vorgang" on realtime.messages;
-create policy "Kunde hoert seinen Vorgang"
-  on realtime.messages for select
-  to anon, authenticated
-  using (
-    extension = 'broadcast'
-    and realtime.topic() like 'vorgang:%'
-  );
-
-drop policy if exists "Werkstatt hoert alle Vorgaenge" on realtime.messages;
-create policy "Werkstatt hoert alle Vorgaenge"
-  on realtime.messages for select
-  to authenticated
-  using (
-    extension = 'broadcast'
-    and realtime.topic() = 'werkstatt:vorgaenge'
-    and public.is_workshop_staff()
-  );
-
--- Niemand sendet von außen. Alles, was auf diesen Kanälen läuft, kommt aus
--- dem Trigger oben – es gibt bewusst keine Insert-Policy.
+-- Gesendet wird ausschließlich aus diesem Trigger. Ein Client kann auf diesen
+-- Themen nichts veröffentlichen, was jemand anderes glauben würde: Die
+-- Statusseite übernimmt aus dem Rundruf nur den Zustand und lädt die
+-- Zeitleiste danach über die API nach, wo der Server die Wahrheit kennt.

@@ -54,11 +54,19 @@ $$;
 revoke all on function public.is_workshop_staff() from public;
 grant execute on function public.is_workshop_staff() to authenticated, service_role;
 
-/** Läuft der Aufruf mit dem Service-Role-Schlüssel, also serverseitig? */
+/**
+ * Läuft der Aufruf mit dem Service-Role-Schlüssel, also serverseitig?
+ *
+ * `search_path` steht auch hier fest. Die Funktion ist zwar kein Definer,
+ * aber sie entscheidet über eine Berechtigung – und eine solche Funktion mit
+ * beweglichem Schemapfad ist genau die Sorte Kleinigkeit, die Supabases
+ * Sicherheitsprüfung zu Recht anmahnt.
+ */
 create or replace function public.is_service_role()
 returns boolean
 language sql
 stable
+set search_path = public, pg_temp
 as $$
   select coalesce(auth.jwt() ->> 'role', '') = 'service_role';
 $$;
@@ -242,3 +250,35 @@ drop trigger if exists repair_tickets_log_created on public.repair_tickets;
 create trigger repair_tickets_log_created
   after insert on public.repair_tickets
   for each row execute function public.log_ticket_created();
+
+-- ---------------------------------------------------------------------------
+-- Ausführungsrechte, ausdrücklich
+--
+-- `revoke ... from public` allein genügt hier nicht, und das ist die Sorte
+-- Detail, die man erst sieht, wenn man die Sicherheitsprüfung gegen eine
+-- echte Datenbank laufen lässt: Supabase erteilt neuen Funktionen im Schema
+-- `public` über Standardrechte EXECUTE an `anon` und `authenticated`. Diese
+-- Erteilungen nennen die Rollen beim Namen – ein Entzug von PUBLIC lässt sie
+-- unberührt, und `anon` könnte jede dieser Funktionen über
+-- `/rest/v1/rpc/<name>` aufrufen.
+--
+-- Auslöserfunktionen laufen ausschließlich als Trigger; sie sind für niemanden
+-- ein Endpunkt.
+-- ---------------------------------------------------------------------------
+
+revoke all on function public.log_ticket_created() from public, anon, authenticated;
+revoke all on function public.touch_repair_ticket() from public, anon, authenticated;
+revoke all on function public.is_service_role() from public, anon, authenticated;
+
+-- Erreichbar bleiben genau zwei, und nur für Angemeldete:
+--
+--   is_workshop_staff()    wird in den RLS-Policies ausgewertet und muss
+--                          deshalb von der fragenden Rolle aufrufbar sein.
+--   apply_ticket_status()  ist der Schreibpfad des Dashboards.
+--
+-- Beide sind `security definer` und prüfen deshalb selbst, wer ruft. Genau
+-- dafür stehen die Prüfungen in ihrem Rumpf; Supabases Linter meldet die
+-- beiden weiterhin, und das ist richtig so – es ist eine Frage, keine
+-- Feststellung, und hier ist sie beantwortet.
+revoke all on function public.is_workshop_staff() from anon;
+revoke all on function public.apply_ticket_status(uuid, public.ticket_status, text, text) from anon;

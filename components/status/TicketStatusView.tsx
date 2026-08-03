@@ -7,7 +7,7 @@ import { StatusBadge } from "./StatusBadge";
 import { StatusTimeline } from "./StatusTimeline";
 import { fetchPublicTicket } from "@/lib/api/client";
 import { useStatusChannel } from "@/lib/realtime/useStatusChannel";
-import { ticketTopic } from "@/lib/realtime/topics";
+import { isStatusBroadcast, ticketTopic } from "@/lib/realtime/topics";
 import { hasTicketBackend } from "@/lib/supabase/env";
 import { formatDateTime, formatEuro, formatMinutes, formatSince } from "@/lib/format";
 import {
@@ -90,15 +90,19 @@ export function TicketStatusView({ ticketCode }: { ticketCode: string }) {
 
   /* Der Rundruf: erst umschalten, dann entprellt nachladen. */
   const onBroadcast = useCallback(
-    (payload: { status: string; statusChangedAt: string; updatedAt: string }) => {
-      if (!isTicketStatus(payload.status)) return;
+    (payload: unknown) => {
+      // Aus dem Netz kommt nichts Vertrauenswürdiges. Erst die Form prüfen,
+      // dann den Zustand – ein unbekannter Wert würde sonst als Schritt
+      // gezählt und ließe die Zeitleiste leer.
+      if (!isStatusBroadcast(payload) || !isTicketStatus(payload.status)) return;
+      const status = payload.status;
 
       setTicket((current) =>
         current
           ? {
               ...current,
-              status: payload.status as PublicTicket["status"],
-              progress: statusProgress(payload.status as PublicTicket["status"]),
+              status,
+              progress: statusProgress(status),
               statusChangedAt: payload.statusChangedAt,
               updatedAt: payload.updatedAt,
             }

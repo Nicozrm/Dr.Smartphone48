@@ -15,7 +15,12 @@
 
 create extension if not exists "pgcrypto";
 -- Für die Suche in der Werkstattliste (Name, Gerät, Vorgangscode).
-create extension if not exists "pg_trgm";
+--
+-- Ausdrücklich **nicht** im Schema `public`: Dort liegt die von PostgREST
+-- veröffentlichte API, und jede Funktion einer Erweiterung stünde damit als
+-- Endpunkt bereit. Supabases Sicherheitsprüfung mahnt das zu Recht an
+-- („Extension in Public").
+create extension if not exists "pg_trgm" with schema extensions;
 
 -- ---------------------------------------------------------------------------
 -- Der Ablauf als Typ
@@ -154,8 +159,9 @@ create index if not exists repair_tickets_status_changed_at_idx
 create index if not exists repair_tickets_open_idx
   on public.repair_tickets (status, status_changed_at desc)
   where status <> 'completed';
+-- Operatorklasse mit Schema, weil die Erweiterung nicht in `public` liegt.
 create index if not exists repair_tickets_search_idx
-  on public.repair_tickets using gin (search_text gin_trgm_ops);
+  on public.repair_tickets using gin (search_text extensions.gin_trgm_ops);
 
 -- ---------------------------------------------------------------------------
 -- Historie

@@ -166,16 +166,59 @@ const kundenPräfix = beispiel.slice(0, beispiel.indexOf(":") + 1);
 
 if (!sql.includes(`'${kundenPräfix}' || new.ticket_code`)) {
   fail(`Der Trigger sendet nicht auf „${kundenPräfix}<code>“ – Kunden hören ins Leere.`);
-} else if (!sql.includes(`like '${kundenPräfix}%'`)) {
-  fail(`Die Policy auf realtime.messages erlaubt „${kundenPräfix}%“ nicht.`);
 } else {
-  ok(`Kundenkanal „${kundenPräfix}<code>“ wird gesendet und ist erlaubt`);
+  ok(`Kundenkanal „${kundenPräfix}<code>“ wird gesendet`);
 }
 
 if (!sql.includes(`'${WORKSHOP_TOPIC}'`)) {
   fail(`Der Werkstattkanal „${WORKSHOP_TOPIC}“ kommt in keiner Migration vor.`);
 } else {
-  ok(`Werkstattkanal „${WORKSHOP_TOPIC}“ wird gesendet und ist erlaubt`);
+  ok(`Werkstattkanal „${WORKSHOP_TOPIC}“ wird gesendet`);
+}
+
+/*
+  Die eigentliche Zusage dieses Abschnitts.
+
+  Die Kanäle sind öffentlich (Policies auf `realtime.messages` kann die Rolle
+  `postgres` nicht anlegen – siehe die Migration). Damit hängt die Sicherheit
+  ausschließlich an der Nutzlast, und genau das wird hier geprüft: Der
+  Werkstattkanal, dessen Name im JavaScript steht, darf **nichts** über einen
+  Vorgang verraten. Wer dort eines Tages den Vorgangscode mitschickt, macht
+  jeden Vorgang für jeden lesbar, der die Statusseite kennt – ohne dass
+  irgendwo ein Fehler entstünde.
+*/
+const werkstattRuf = sql.match(
+  /perform realtime\.send\(\s*jsonb_build_object\(([^)]*)\)[^;]*'werkstatt:vorgaenge'/i,
+);
+if (!werkstattRuf) {
+  fail("Der Rundruf an die Werkstatt ist nicht auffindbar – Prüfung nicht möglich.");
+} else {
+  const verboten = ["ticket_code", "customer", "phone", "email", "imei", "status"];
+  const gefunden = verboten.filter((feld) => werkstattRuf[1].includes(feld));
+  if (gefunden.length > 0) {
+    fail(
+      `Der öffentliche Werkstattkanal trägt ${gefunden.join(", ")} – dort gehört nur ein Zeitstempel hin.`,
+    );
+  } else {
+    ok("Werkstattkanal trägt keine Vorgangsdaten, nur einen Zeitstempel");
+  }
+}
+
+// Auf dem Kundenkanal darf stehen, was der Zuhörer ohnehin kennt oder braucht –
+// aber nichts über die Person.
+const kundenRuf = sql.match(
+  /perform realtime\.send\(\s*jsonb_build_object\(([\s\S]*?)\)[\s\S]{0,80}?'vorgang:'/i,
+);
+if (!kundenRuf) {
+  fail("Der Rundruf an den Kunden ist nicht auffindbar – Prüfung nicht möglich.");
+} else {
+  const verboten = ["customer", "phone", "email", "imei", "internal_notes", "customer_note"];
+  const gefunden = verboten.filter((feld) => kundenRuf[1].includes(feld));
+  if (gefunden.length > 0) {
+    fail(`Der Kundenkanal trägt ${gefunden.join(", ")} – personenbezogene Daten gehören nicht in einen Rundruf.`);
+  } else {
+    ok("Kundenkanal trägt Zustand und Zeitstempel, nichts Personenbezogenes");
+  }
 }
 
 /* ---- 7. Schutz der Tabellen ---------------------------------------------- */

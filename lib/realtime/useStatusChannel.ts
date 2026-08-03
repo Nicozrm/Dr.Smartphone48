@@ -21,27 +21,39 @@
      ausgehängt, während die Anmeldung läuft, würde ein später eintreffender
      Zustand sonst noch `setState` aufrufen.
 
-  Private Kanäle brauchen ein Token; `setAuth()` reicht das aktuelle nach –
-  für Kunden das des öffentlichen Schlüssels, für die Werkstatt das der
-  Anmeldung.
+  Die Kanäle sind öffentlich. Warum das hier sicher ist und was stattdessen
+  schützt, steht ausführlich in
+  `supabase/migrations/*_repair_tickets_realtime.sql`; kurz: Themennamen lassen
+  sich nicht durchsuchen, der Kundenkanal heißt nach dem Vorgangscode, und der
+  öffentlich benannte Werkstattkanal trägt nichts als einen Zeitstempel.
+
+  `setAuth()` bleibt trotzdem stehen. Es kostet nichts, hält das Token frisch
+  und ist die eine Zeile, die zusätzlich nötig wäre, falls die Kanäle je auf
+  privat umgestellt werden.
 */
 
 import { useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getBrowserClient } from "@/lib/supabase/browser";
-import { STATUS_EVENT, isStatusBroadcast, type StatusBroadcast } from "./topics";
+import { STATUS_EVENT } from "./topics";
 
 export type ChannelState = "aus" | "verbindet" | "verbunden" | "gestoert";
 
 /**
  * Abonniert ein Thema und ruft `onStatus` bei jedem Rundruf.
  *
+ * Die Nutzlast kommt als `unknown` heraus, und das ist Absicht: Auf den beiden
+ * Themen liegen verschiedene Formen (der Kundenkanal trägt den Zustand, der
+ * Werkstattkanal nur einen Zeitstempel), und beide kommen aus dem Netz. Wer
+ * sie braucht, prüft sie – `isStatusBroadcast` in `topics.ts`. Wer sie
+ * ignoriert, nimmt eine Rückruffunktion ohne Parameter.
+ *
  * `topic === null` heißt: nicht abonnieren (kein Backend, kein Code, Seite
  * noch nicht bereit). Der Zustand bleibt dann `aus`.
  */
 export function useStatusChannel(
   topic: string | null,
-  onStatus: (payload: StatusBroadcast) => void,
+  onStatus: (payload: unknown) => void,
 ): ChannelState {
   const [state, setState] = useState<ChannelState>("aus");
   const handler = useRef(onStatus);
@@ -71,17 +83,16 @@ export function useStatusChannel(
     setState("verbindet");
 
     const start = async () => {
-      // Ohne aktuelles Token weist der Server private Kanäle ab. Bei Kunden
-      // ist es das des öffentlichen Schlüssels, in der Werkstatt das der
-      // Anmeldung – `setAuth` ohne Argument nimmt, was gerade gilt.
+      // `setAuth` ohne Argument nimmt das Token, das gerade gilt – beim Kunden
+      // das des öffentlichen Schlüssels, in der Werkstatt das der Anmeldung.
       await client.realtime.setAuth();
       if (cancelled) return;
 
       channel = client
-        .channel(topic, { config: { private: true } })
+        .channel(topic)
         .on("broadcast", { event: STATUS_EVENT }, (message) => {
           if (cancelled) return;
-          if (isStatusBroadcast(message.payload)) handler.current(message.payload);
+          handler.current(message.payload);
         })
         .subscribe((status) => {
           if (cancelled) return;

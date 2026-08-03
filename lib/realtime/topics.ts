@@ -8,21 +8,36 @@
   nach demselben Muster.
 */
 
-/** Der Kanal eines einzelnen Vorgangs. Wer den Code hat, darf zuhören. */
+/**
+ * Der Kanal eines einzelnen Vorgangs.
+ *
+ * Der Themenname enthält den Code, und Realtime kennt keine Muster-
+ * Abonnements: Zuhören kann nur, wer den Code hat. Das ist dasselbe Modell wie
+ * bei der Statusseite selbst – und der Grund, warum in der Nutzlast nichts
+ * steht, was über den Zustand hinausgeht.
+ */
 export function ticketTopic(ticketCode: string): string {
   return `vorgang:${ticketCode}`;
 }
 
-/** Der Kanal aller Arbeitsplätze. Verlangt eine Anmeldung. */
+/**
+ * Der Kanal aller Arbeitsplätze.
+ *
+ * Sein Name steht im JavaScript und ist damit öffentlich. Deshalb trägt er
+ * kein Geheimnis: Über ihn geht ein Zeitstempel, sonst nichts – siehe
+ * `WorkshopPing`. Wer die Vorgänge sehen will, muss angemeldet sein und über
+ * die API lesen.
+ */
 export const WORKSHOP_TOPIC = "werkstatt:vorgaenge";
 
 /** Das Ereignis, das der Trigger sendet. */
 export const STATUS_EVENT = "status";
 
 /**
- * Die Nutzlast des Rundrufs.
+ * Die Nutzlast auf dem Kundenkanal.
  *
- * Vier Felder, keines personenbezogen. Der Rundruf ist ein Signal, keine
+ * Vier Felder, keines personenbezogen; der Code darunter ist dem Zuhörer
+ * ohnehin bekannt, er steht im Themennamen. Der Rundruf ist ein Signal, keine
  * Datenquelle: Wer mehr braucht, holt es über die API, wo redigiert wird.
  */
 export interface StatusBroadcast {
@@ -30,6 +45,16 @@ export interface StatusBroadcast {
   status: string;
   statusChangedAt: string;
   updatedAt: string;
+}
+
+/**
+ * Die Nutzlast auf dem Werkstattkanal: ein Zeitstempel.
+ *
+ * Absichtlich nutzlos für jeden, der nicht angemeldet ist. Das Dashboard
+ * braucht auch nicht mehr – es lädt bei jedem Anstoß über die API nach.
+ */
+export interface WorkshopPing {
+  changedAt: string;
 }
 
 /** Nutzlasten kommen aus dem Netz – also geprüft, nicht geglaubt. */

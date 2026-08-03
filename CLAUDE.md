@@ -426,11 +426,25 @@ vorher redigiert. Eine Lese-Policy für `anon` wäre eine Lese-Policy für jeden
 der acht Zeichen durchprobiert. `verify:status` schlägt an, wenn doch eine
 entsteht.
 
-**Realtime ist ein Signal, keine Datenquelle.** Der Trigger sendet vier Felder
-(Code, Zustand, zwei Zeitstempel) auf `vorgang:<CODE>` und
-`werkstatt:vorgaenge` – kein `postgres_changes`, das die ganze Zeile
-verschicken würde. Die Kundenseite schaltet damit sofort um und lädt die
-Zeitleiste entprellt nach. Kein Intervall, kein Polling.
+**Realtime ist ein Signal, keine Datenquelle.** Kein `postgres_changes` – das
+verschickte die ganze Zeile samt Name, Telefon und IMEI. Stattdessen sendet
+der Trigger je Kanal genau so viel, wie der Empfänger braucht:
+
+- `vorgang:<CODE>` – Zustand und zwei Zeitstempel. Die Kundenseite schaltet
+  damit sofort um und lädt die Zeitleiste entprellt nach.
+- `werkstatt:vorgaenge` – **nur ein Zeitstempel.** Das Dashboard lädt bei
+  jedem Anstoß ohnehin über die angemeldete API nach.
+
+Kein Intervall, kein Polling.
+
+Beide Kanäle sind **öffentlich**, und das ist kein Versehen: Policies auf
+`realtime.messages` kann die Rolle `postgres` nicht anlegen (die Tabelle
+gehört `supabase_realtime_admin`), private Kanäle ohne Policy lassen niemanden
+zu. Die Sicherheit steckt deshalb in der Nutzlast. Themennamen lassen sich
+nicht durchsuchen – wer `vorgang:K7M2-B94X` hören will, muss den Code kennen,
+dasselbe Modell wie bei der Statusseite. Und der Werkstattkanal, dessen Name
+im JavaScript steht, trägt nichts, was jemandem nützt. `verify:status` prüft
+genau das: Steht dort eines Tages ein Vorgangscode, schlägt es an.
 
 **Der Ablauf steht zweimal**, in TypeScript und als Postgres-Enum. Das ist
 unvermeidbar und deshalb maschinell abgesichert: `npm run verify:status`

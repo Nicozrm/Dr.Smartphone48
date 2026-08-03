@@ -200,11 +200,15 @@ export function validatePatch(raw: unknown): Validated<TicketPatchInput> {
     }
   }
 
+  // Erst prüfen, wenn sonst nichts zu beanstanden ist: Wer einen unbekannten
+  // Status schickt, hat sehr wohl etwas ändern wollen. Zwei Befunde zum selben
+  // Feld, von denen einer am Thema vorbeigeht, lesen sich wie ein Fehler im
+  // Formular.
   const touchesSomething =
     patch.status !== undefined ||
     patch.internalNotes !== undefined ||
     patch.estimatedReadyAt !== undefined;
-  if (!touchesSomething) {
+  if (!touchesSomething && issues.length === 0) {
     issues.push({
       field: "status",
       message: "Die Anfrage ändert nichts – Status, Vermerk oder Termin angeben.",
