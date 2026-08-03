@@ -1,5 +1,6 @@
 import { site } from "@/lib/site";
 import { pageMeta } from "@/lib/seo";
+import { hasTicketBackend } from "@/lib/supabase/env";
 
 export const metadata = pageMeta({
   path: "/datenschutz",
@@ -41,8 +42,10 @@ export default function DatenschutzPage() {
           <p className="mt-3 text-ink-soft">
             Auf dieser Website geht nichts ungefragt hinaus. Jede Anfrage und
             jeder Auftrag – Kontaktformular, Terminanfrage aus dem
-            Sofortpreis-Rechner, Ankauf-Anfrage und die Terminanfrage aus dem
-            Reparatur-Ticket – verlangt zwei getrennte Handlungen:
+            Sofortpreis-Rechner, Ankauf-Anfrage
+            {hasTicketBackend() ? ", die Anmeldung eines Vorgangs" : ""} und die
+            Terminanfrage aus dem Reparatur-Ticket – verlangt zwei getrennte
+            Handlungen:
           </p>
           <ol className="mt-4 space-y-2.5 text-ink-soft">
             <li>
@@ -107,6 +110,14 @@ export default function DatenschutzPage() {
               gesendet und auch nicht lokal gespeichert; mit dem Schließen des
               Tabs sind sie weg. Gerät und gewählte Reparaturen stehen in der
               Adresse der Seite – teilen Sie diesen Link daher nur bewusst.
+              {hasTicketBackend() ? (
+                <>
+                  {" "}
+                  Die Ausnahme ist die freiwillige Anmeldung eines Vorgangs am
+                  Ende der Ticketseite; sie ist im übernächsten Abschnitt
+                  beschrieben.
+                </>
+              ) : null}
             </li>
             <li>
               <strong className="font-medium text-ink-strong">
@@ -127,6 +138,77 @@ export default function DatenschutzPage() {
             </li>
           </ul>
         </section>
+        {/* Der Abschnitt erscheint nur, wo es die Vorgangsverwaltung gibt.
+            Eine Datenschutzerklärung, die eine Verarbeitung beschreibt, die
+            gar nicht stattfindet, ist genauso falsch wie eine, die eine
+            verschweigt. */}
+        {hasTicketBackend() ? (
+          <section>
+            <h2 className="text-title">Reparaturvorgang anmelden (freiwillig)</h2>
+            <p className="mt-3 text-ink-soft">
+              Am Ende der Ticketseite können Sie Ihren Vorgang bei uns
+              anmelden. Erst dieser Schritt legt einen Datensatz an – ohne ihn
+              bleibt es beim oben Beschriebenen. Die Anmeldung ist freiwillig;
+              ohne sie können Sie das Gerät genauso abgeben.
+            </p>
+            <ul className="mt-4 space-y-2.5 text-ink-soft">
+              <li>
+                <strong className="font-medium text-ink-strong">
+                  Was gespeichert wird:
+                </strong>{" "}
+                Name, Telefonnummer und/oder E-Mail-Adresse, auf Wunsch die
+                IMEI, Ihre Anmerkung, das Gerät, die beauftragten Leistungen
+                mit Festpreis sowie der Bearbeitungsstand mit seinen
+                Zeitpunkten. Aus dem Übergabeprotokoll wird nichts übernommen –
+                Schadenskarte, Zubehörliste und Angaben zur Gerätesperre
+                bleiben in Ihrem Browser.
+              </li>
+              <li>
+                <strong className="font-medium text-ink-strong">Wozu:</strong>{" "}
+                zur Durchführung des Reparaturauftrags und zur Auskunft über
+                den Stand (Art. 6 Abs. 1 lit. b DSGVO). Wenn Sie einen Weg für
+                Benachrichtigungen wählen, verarbeiten wir Ihre Kontaktdaten
+                zusätzlich dafür auf Grundlage Ihrer Einwilligung (Art. 6
+                Abs. 1 lit. a DSGVO); „keine Nachrichten“ ist die Vorauswahl.
+              </li>
+              <li>
+                <strong className="font-medium text-ink-strong">Wo:</strong>{" "}
+                in einer Datenbank bei Supabase (Rechenzentrum in der EU), die
+                ausschließlich {site.name} zugänglich ist – über ein
+                persönliches Konto mit Passwort. Eine Weitergabe an Dritte
+                findet nicht statt.
+              </li>
+              <li>
+                <strong className="font-medium text-ink-strong">
+                  Die Vorgangsnummer ist ein Schlüssel:
+                </strong>{" "}
+                Wer sie hat, sieht die Statusseite. Deshalb stehen dort weder
+                Ihr Name noch Telefonnummer, E-Mail oder IMEI – nur Gerät,
+                Auftrag und Bearbeitungsstand. Behandeln Sie die Nummer wie
+                einen Schlüssel und geben Sie sie nur weiter, wenn jemand
+                mitschauen soll.
+              </li>
+              <li>
+                <strong className="font-medium text-ink-strong">
+                  Wie lange:
+                </strong>{" "}
+                bis zum Abschluss des Vorgangs und darüber hinaus, solange
+                Gewährleistungs- und Garantiefragen möglich sind oder
+                gesetzliche Aufbewahrungspflichten bestehen. Danach wird der
+                Vorgang samt Verlauf gelöscht.
+              </li>
+              <li>
+                <strong className="font-medium text-ink-strong">
+                  Widerruf und Löschung:
+                </strong>{" "}
+                formlos an {site.email} oder telefonisch unter {site.phone} –
+                mit der Vorgangsnummer geht es am schnellsten. Der Widerruf der
+                Einwilligung in Benachrichtigungen wirkt sofort und lässt die
+                Bearbeitung des Auftrags unberührt.
+              </li>
+            </ul>
+          </section>
+        ) : null}
         <section>
           <h2 className="text-title">Offline-Nutzung (Service Worker)</h2>
           <p className="mt-3 text-ink-soft">

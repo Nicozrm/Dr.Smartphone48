@@ -45,6 +45,10 @@ const entries: Entry[] = [
 // ("indexiere das nicht" / "hier ist es") ist ein widersprüchliches Signal.
 // Aus demselben Grund fehlt /ticket – ohne Parameter ist es eine leere Hülle
 // und trägt deshalb noindex.
+//
+// /status und /status/<nummer> fehlen aus demselben Grund und einem zweiten:
+// Ein Vorgang ist die Sache eines Menschen. Seine Nummer gehört in kein
+// Suchergebnis, auch nicht in eins, das niemand liest.
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date(CONTENT_UPDATED);

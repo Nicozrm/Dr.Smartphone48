@@ -54,6 +54,28 @@ meisten bringt.
 billigen Nachbaus wird nicht dargestellt, sondern erzeugt. Wer den Punkt
 zieht, spürt den Unterschied zwischen 0 und 35 Millisekunden sofort.
 
+## Vorgangsverfolgung (optional)
+
+Der einzige Teil mit Datenbank – und abschaltbar. Ohne hinterlegtes
+Supabase-Projekt läuft alles oben genau wie beschrieben; die folgenden zwei
+Dinge erscheinen dann gar nicht erst. Einrichtung: [`supabase/README.md`](./supabase/README.md).
+
+**Vorgang anmelden** – am Ende des Reparatur-Tickets, freiwillig und deutlich
+vom Übergabeprotokoll getrennt. Was übertragen wird, steht als Liste an der
+Schaltfläche; vom Protokoll darüber geht nichts mit. Zurück kommt eine
+Vorgangsnummer und ein QR-Code.
+
+**Status verfolgen** (`/status/<nummer>`) – acht Schritte von „Angemeldet“ bis
+„Abgeschlossen“, mit den Zeitpunkten, die wirklich stattgefunden haben. Die
+Seite aktualisiert sich von selbst, sobald die Werkstatt etwas ändert: kein
+Neuladen, kein Polling, ein Rundruf aus der Datenbank mit vier Feldern. Die
+Nummer ist ein Schlüssel, kein Ausweis – deshalb stehen dort weder Name noch
+Telefonnummer oder IMEI.
+
+**Werkstatt-Dashboard** (`/intern/werkstatt`) – Suche, Filter, Statuswechsel,
+interne Vermerke und Kennzahlen, live für alle Arbeitsplätze. Nicht verlinkt,
+`noindex`, Zugang nur mit Konto **und** Freischaltung in der Datenbank.
+
 ## Entwicklung
 
 ```bash
@@ -63,7 +85,11 @@ npm run build      # Produktions-Build
 npm run start      # Produktionsserver
 npm run lint       # ESLint
 npm run verify:qr  # QR-Encoder gegen ISO/IEC 18004 prüfen
+npm run verify:status  # Werkstattablauf gegen das Datenbankschema
 ```
+
+Für die Vorgangsverfolgung `.env.example` nach `.env.local` kopieren und die
+drei Supabase-Variablen eintragen. Ohne sie startet alles Übrige unverändert.
 
 PWA-Icons neu generieren (nutzt headless Chromium):
 
@@ -81,15 +107,21 @@ components/sections/     Seiten-Sektionen (FAQ, Refurbished, Kontaktformular …
 components/experience/   Bootloader, Command-Palette, Shader-Feld, Röntgenblick
 components/configurator/ Sofortpreis-Rechner + SVG-Gerätediagramm
 components/check/        Geräte-Check
-components/ticket/       Reparatur-Ticket + Schadenskarte
+components/ticket/       Reparatur-Ticket + Schadenskarte + Anmeldung
+components/status/       Statusseite (Zeitleiste, Rundruf)
+components/workshop/     Werkstatt-Dashboard
 components/battery/      Akku-Coach   components/resale/  Ankauf-Rechner
 components/twin/         Digitaler Zwilling   components/parts/  Display-Vergleich
 lib/                     site.ts (Stammdaten), format.ts, qr.ts, imei.ts,
                          ticket.ts, resale.ts, battery.ts
 lib/data/                Geräte/Preise/Ankaufswerte, Refurbished, FAQ,
                          Rezensionen, Notfall-Protokolle
+lib/tickets/             Zustände, Vorgangscode, Redaktion, Datenzugriff
+lib/supabase/            Clients (Server, Sitzung, Browser) + Schema als Typ
+lib/notify/              Zustellwege als Adapter (E-Mail, WhatsApp, SMS, Push)
+supabase/migrations/     Schema, RLS, Realtime
 public/                  Service Worker, PWA-Icons
-scripts/                 Statischer Export, Icon-Rendering, QR-Prüfung
+scripts/                 Statischer Export, Icon-Rendering, Prüfskripte
 ```
 
 Hinweis: Alle Firmendaten (Adresse, Telefonnummer, Reparatur- und

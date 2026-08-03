@@ -14,9 +14,12 @@
     "verify:qr": "node --experimental-strip-types --no-warnings scripts/verify-qr.mjs",
     "verify:procedure": "node --experimental-strip-types --no-warnings scripts/verify-procedure.mjs",
     "verify:inspection": "node --experimental-strip-types --no-warnings scripts/verify-inspection.mjs",
-    "verify:support": "node --experimental-strip-types --no-warnings scripts/verify-support.mjs"
+    "verify:support": "node --experimental-strip-types --no-warnings scripts/verify-support.mjs",
+    "verify:status": "node --experimental-strip-types --no-warnings scripts/verify-status.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.4",
+    "@supabase/supabase-js": "^2.112.0",
     "geist": "^1.7.2",
     "next": "^15.4.5",
     "react": "^19.1.0",

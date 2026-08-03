@@ -45,6 +45,7 @@ const commands: Command[] = [
   { id: "ankauf", label: "Ankauf – Restwert", hint: "Was Ihr Gerät noch wert ist", icon: "leaf", group: "Navigation", keywords: "verkaufen ankauf wert restwert geld gebraucht abgeben", run: (r) => r.push("/ankauf") },
   { id: "zwilling", label: "Digitaler Zwilling", hint: "Zustand, Akku-Coach & Lebensdauer", icon: "sparkle", group: "Navigation", keywords: "twin zustand akku prognose lebensdauer laden ladeverhalten coach", run: (r) => r.push("/zwilling") },
   { id: "ticket", label: "Reparatur-Ticket", hint: "Voranschlag & Übergabeprotokoll", icon: "calendar", group: "Navigation", keywords: "ticket auftrag protokoll qr imei drucken vorgang", run: (r) => r.push("/ticket") },
+  { id: "status", label: "Reparaturstatus", hint: "Wo steht mein Gerät?", icon: "clock", group: "Navigation", keywords: "status vorgang verfolgen sendung wo ist mein handy fertig abholbereit nummer", run: (r) => r.push("/status") },
   { id: "refurbished", label: "Refurbished-Geräte", icon: "shield", group: "Navigation", keywords: "gebraucht kaufen", run: (r) => r.push("/refurbished") },
   { id: "versorgung", label: "Update-Horizont", hint: "Wie lange es noch Sicherheitsupdates gibt", icon: "shield", group: "Navigation", keywords: "updates sicherheit support android ios versorgung wie lange veraltet unsicher", run: (r) => r.push("/versorgung") },
   { id: "ersatzteile", label: "Ersatzteile", icon: "cpu", group: "Navigation", keywords: "teile", run: (r) => r.push("/ersatzteile") },

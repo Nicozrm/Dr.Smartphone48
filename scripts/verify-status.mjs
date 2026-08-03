@@ -1,0 +1,204 @@
+/*
+  Prüft den Werkstattablauf gegen das Datenbankschema.
+
+  Der Ablauf steht zweimal: in `lib/tickets/status.ts` als TypeScript-Liste
+  und in `supabase/migrations/*_repair_tickets.sql` als Postgres-Enum. Das ist
+  unvermeidbar – Postgres kennt keine TypeScript-Typen –, aber es ist auch die
+  Sorte Wiederholung, die still auseinanderläuft:
+
+  – Ein neuer Zustand nur in TypeScript: Die Werkstatt drückt einen Knopf, die
+    Datenbank lehnt den Wert ab, im Dashboard steht ein Fehler ohne Ursache.
+  – Ein neuer Zustand nur in SQL: Die Statusseite bekommt einen Wert, den sie
+    nicht kennt, und zeigt eine leere Zeitleiste.
+  – Andere **Reihenfolge**: Der Fortschrittsbalken rechnet mit der falschen
+    Position, und „ein Schritt zurück“ erlaubt plötzlich etwas anderes. Das
+    ist der heimtückischste Fall, weil nichts abstürzt.
+
+  Deshalb vergleicht dieses Skript beide Listen zeichen- und reihenfolgegenau.
+  Dazu drei Dinge, die ebenfalls zusammenpassen müssen: die Kanäle für
+  Benachrichtigungen, das Muster des Vorgangscodes und die Namen der
+  Realtime-Kanäle.
+
+  Aufruf: npm run verify:status
+*/
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import {
+  TICKET_STATUSES,
+  ticketStatusMeta,
+  NOTIFYING_STATUSES,
+  canTransition,
+  statusProgress,
+} from "../lib/tickets/status.ts";
+import { CONTACT_CHANNELS } from "../lib/tickets/types.ts";
+import { TICKET_CODE_PATTERN, generateTicketCode } from "../lib/tickets/code.ts";
+import { WORKSHOP_TOPIC, ticketTopic } from "../lib/realtime/topics.ts";
+
+let failures = 0;
+const fail = (text) => {
+  failures++;
+  console.log(`  FEHLER ${text}`);
+};
+const ok = (text) => console.log(`  ok     ${text}`);
+
+const migrationsDir = join(process.cwd(), "supabase", "migrations");
+const sql = readdirSync(migrationsDir)
+  .filter((name) => name.endsWith(".sql"))
+  .sort()
+  .map((name) => readFileSync(join(migrationsDir, name), "utf8"))
+  .join("\n");
+
+/** Liest die Werte eines `create type … as enum (…)` aus dem SQL. */
+function enumValues(name) {
+  const match = sql.match(
+    new RegExp(`create type public\\.${name} as enum\\s*\\(([^)]*)\\)`, "i"),
+  );
+  if (!match) return null;
+  return [...match[1].matchAll(/'([^']+)'/g)].map((entry) => entry[1]);
+}
+
+/* ---- 1. Die Zustände ---------------------------------------------------- */
+
+console.log("\nZustände (TypeScript ↔ Postgres)");
+
+const sqlStatuses = enumValues("ticket_status");
+if (!sqlStatuses) {
+  fail("In den Migrationen fehlt `create type public.ticket_status as enum (…)`.");
+} else if (sqlStatuses.join(",") !== [...TICKET_STATUSES].join(",")) {
+  fail("Die Listen unterscheiden sich:");
+  console.log(`         TypeScript: ${TICKET_STATUSES.join(", ")}`);
+  console.log(`         Postgres:   ${sqlStatuses.join(", ")}`);
+} else {
+  ok(`${TICKET_STATUSES.length} Zustände, gleiche Reihenfolge`);
+}
+
+/* ---- 2. Beschreibungen -------------------------------------------------- */
+
+for (const status of TICKET_STATUSES) {
+  const meta = ticketStatusMeta[status];
+  if (!meta) {
+    fail(`Zu „${status}“ fehlt der Eintrag in ticketStatusMeta.`);
+    continue;
+  }
+  if (!meta.label || !meta.customerHint) {
+    fail(`Zu „${status}“ fehlt Beschriftung oder Kundenhinweis.`);
+  }
+}
+if (failures === 0) ok("jeder Zustand hat Beschriftung, Kundenhinweis, Ton und Zeichen");
+
+/* ---- 3. Fortschritt und Übergänge --------------------------------------- */
+
+const first = TICKET_STATUSES[0];
+const last = TICKET_STATUSES[TICKET_STATUSES.length - 1];
+if (statusProgress(first) !== 0) fail("Der erste Zustand muss bei 0 stehen.");
+if (statusProgress(last) !== 1) fail("Der letzte Zustand muss bei 1 stehen.");
+
+// Vorwärts immer erlaubt, zwei Schritte zurück nie, ein Schritt zurück immer.
+for (let i = 0; i < TICKET_STATUSES.length; i++) {
+  for (let j = 0; j < TICKET_STATUSES.length; j++) {
+    const erlaubt = canTransition(TICKET_STATUSES[i], TICKET_STATUSES[j]);
+    const erwartet = j > i || j === i - 1;
+    if (erlaubt !== erwartet) {
+      fail(
+        `Übergang ${TICKET_STATUSES[i]} → ${TICKET_STATUSES[j]}: ${erlaubt ? "erlaubt" : "verboten"}, erwartet ${erwartet ? "erlaubt" : "verboten"}.`,
+      );
+    }
+  }
+}
+ok("Fortschritt von 0 bis 1, Übergänge vorwärts frei und genau ein Schritt zurück");
+
+for (const status of NOTIFYING_STATUSES) {
+  if (!TICKET_STATUSES.includes(status)) {
+    fail(`„${status}“ löst eine Nachricht aus, ist aber kein gültiger Zustand.`);
+  }
+}
+
+/* ---- 4. Kontaktkanäle --------------------------------------------------- */
+
+console.log("\nKontaktkanäle");
+
+const sqlChannels = enumValues("contact_channel");
+if (!sqlChannels) {
+  fail("In den Migrationen fehlt `create type public.contact_channel as enum (…)`.");
+} else if (sqlChannels.join(",") !== [...CONTACT_CHANNELS].join(",")) {
+  fail(
+    `Die Listen unterscheiden sich: TypeScript ${CONTACT_CHANNELS.join(", ")} / Postgres ${sqlChannels.join(", ")}`,
+  );
+} else {
+  ok(`${CONTACT_CHANNELS.length} Kanäle, gleiche Reihenfolge`);
+}
+
+/* ---- 5. Vorgangscode ----------------------------------------------------- */
+
+console.log("\nVorgangscode");
+
+// Die Bedingung in der Tabelle muss dieselbe Form erzwingen wie der Erzeuger.
+const checkMatch = sql.match(/ticket_code\s*~\s*'([^']+)'/i);
+if (!checkMatch) {
+  fail("In der Tabelle fehlt die Prüfbedingung auf die Form des Vorgangscodes.");
+} else {
+  const dbPattern = new RegExp(checkMatch[1]);
+  let verstöße = 0;
+  for (let i = 0; i < 500; i++) {
+    const code = generateTicketCode();
+    if (!TICKET_CODE_PATTERN.test(code) || !dbPattern.test(code)) verstöße++;
+  }
+  if (verstöße > 0) {
+    fail(`${verstöße} von 500 erzeugten Codes passen nicht zu beiden Mustern.`);
+  } else {
+    ok("500 erzeugte Codes passen zum TypeScript-Muster und zur Prüfbedingung");
+  }
+
+  // Ein Code mit verwechselbaren Zeichen darf nirgends durchkommen.
+  for (const schlecht of ["ABCD-EFGI", "ABCD-EFG0", "ABCD-EFG1", "ABCDEFGH", "abcd-efgh"]) {
+    if (dbPattern.test(schlecht)) {
+      fail(`Die Prüfbedingung lässt „${schlecht}“ durch.`);
+    }
+  }
+}
+
+/* ---- 6. Realtime-Kanäle -------------------------------------------------- */
+
+console.log("\nRundruf-Kanäle");
+
+const beispiel = ticketTopic("K7M2-B94X");
+const kundenPräfix = beispiel.slice(0, beispiel.indexOf(":") + 1);
+
+if (!sql.includes(`'${kundenPräfix}' || new.ticket_code`)) {
+  fail(`Der Trigger sendet nicht auf „${kundenPräfix}<code>“ – Kunden hören ins Leere.`);
+} else if (!sql.includes(`like '${kundenPräfix}%'`)) {
+  fail(`Die Policy auf realtime.messages erlaubt „${kundenPräfix}%“ nicht.`);
+} else {
+  ok(`Kundenkanal „${kundenPräfix}<code>“ wird gesendet und ist erlaubt`);
+}
+
+if (!sql.includes(`'${WORKSHOP_TOPIC}'`)) {
+  fail(`Der Werkstattkanal „${WORKSHOP_TOPIC}“ kommt in keiner Migration vor.`);
+} else {
+  ok(`Werkstattkanal „${WORKSHOP_TOPIC}“ wird gesendet und ist erlaubt`);
+}
+
+/* ---- 7. Schutz der Tabellen ---------------------------------------------- */
+
+console.log("\nZugriff");
+
+for (const tabelle of ["repair_tickets", "ticket_history", "workshop_staff"]) {
+  if (!sql.includes(`alter table public.${tabelle} enable row level security`)) {
+    fail(`Für ${tabelle} wird Row Level Security nicht eingeschaltet.`);
+  }
+}
+
+// Eine Policy für `anon` auf den Vorgangstabellen wäre eine Policy für jeden.
+const anonPolicy = /create policy[\s\S]{0,400}?on public\.(repair_tickets|ticket_history)[\s\S]{0,200}?to [^\n]*\banon\b/i;
+if (anonPolicy.test(sql)) {
+  fail("Es gibt eine Policy für `anon` auf den Vorgangstabellen – die Kundensicht läuft über den Server.");
+} else {
+  ok("RLS überall aktiv, keine Policy für anonyme Zugriffe auf die Vorgangstabellen");
+}
+
+console.log(
+  failures === 0
+    ? `\nAblauf, Kanäle, Codeform und Zugriff stimmen mit dem Schema überein.`
+    : `\n${failures} Abweichung(en).`,
+);
+process.exit(failures === 0 ? 0 : 1);
