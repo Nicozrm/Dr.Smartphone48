@@ -142,32 +142,42 @@ vec3 env(vec3 rd){
 }
 
 /*
-  Displayinhalt – kein Screenshot, ein Lichtfeld.
+  Displayinhalt.
 
-  Ein nachgebauter Startbildschirm wäre in dieser Auflösung Matsch und würde
-  außerdem ein fremdes Betriebssystem zitieren. Stattdessen drei Bänder aus
-  der Markenfarbe, die übereinander driften: aus der Entfernung liest sich das
-  als eingeschaltetes Gerät, aus der Nähe als Grafik – und beides ist ehrlich.
+  Die erste Fassung leuchtete über die ganze Fläche und sah damit aus wie ein
+  Hintergrundbild, nicht wie Glas. Ein eingeschaltetes Gerät im Produktlicht
+  ist überwiegend **dunkel**: Was man sieht, ist zu neun Zehnteln die
+  gespiegelte Umgebung und nur zu einem Zehntel das Panel darunter.
+
+  Deshalb jetzt: tiefes Schwarz als Grund, ein einzelner ruhiger Lichtbogen
+  in der Markenfarbe im unteren Drittel, und darüber die harte Spiegelung der
+  Softbox. Das liest sich als Gerät, das an ist – ohne zu leuchten wie ein
+  Werbedisplay.
 */
 vec3 screenContent(vec2 uv, float t){
   vec2 q = uv * 2.0 - 1.0;
 
-  // Drei versetzte Bänder mit eigener Geschwindigkeit.
-  float b1 = smoothstep(0.62, 0.0, abs(q.x * 0.75 + sin(q.y * 1.7 + t * 0.45) * 0.55));
-  float b2 = smoothstep(0.48, 0.0, abs(q.x * 0.90 - sin(q.y * 1.2 - t * 0.31) * 0.70 + 0.35));
-  float b3 = smoothstep(0.34, 0.0, abs(q.x * 1.20 + sin(q.y * 2.4 + t * 0.62) * 0.40 - 0.45));
+  /*
+    Die Zahlen sind klein, und das ist der Punkt. Zwei Fassungen vorher
+    leuchtete das Panel über die volle Fläche und sah damit aus wie ein
+    Werbebildschirm im Schaufenster. Ein Gerät im Produktlicht ist fast
+    schwarz: Das Panel liefert einen Hauch Farbe, die Zeichnung kommt aus
+    der Spiegelung darüber.
+  */
+  float arc = smoothstep(0.62, 0.0, abs(q.x * 0.85 + sin(q.y * 1.05 + t * 0.26) * 0.42));
+  float low = smoothstep(0.10, -0.95, q.y);       // nur das untere Drittel
+  vec3 c = u_accent * arc * low * 0.30;
 
-  float fade = smoothstep(1.15, -0.35, abs(q.y));
+  // Zweiter, kühlerer Schleier für Tiefe.
+  c += mix(u_accent, vec3(0.55, 0.72, 1.0), 0.55)
+     * smoothstep(0.42, 0.0, abs(q.x * 1.15 - sin(q.y * 0.85 - t * 0.19) * 0.5 + 0.34))
+     * low * 0.13;
 
-  vec3 c  = u_accent * b1 * 1.35 * fade;
-  c += mix(u_accent, vec3(0.42, 0.62, 1.0), 0.55) * b2 * 0.85 * fade;
-  c += mix(u_accent, vec3(0.86, 0.92, 1.0), 0.75) * b3 * 0.55 * fade;
+  // Kaum wahrnehmbarer Grundschimmer – das Panel ist an, nicht aus.
+  c += u_accent * 0.022 * smoothstep(1.2, -0.4, length(q * vec2(0.58, 0.42)));
 
-  // Grundschimmer, damit das Glas nie ganz tot wirkt.
-  c += u_accent * 0.22 * smoothstep(1.25, -0.2, length(q * vec2(0.70, 0.52)));
-
-  // Heller Saum oben und unten – die Ränder eines randlosen Displays.
-  c += vec3(0.88, 0.93, 1.0) * 0.09 * smoothstep(0.80, 1.0, abs(q.y));
+  // Ecken bleiben schwarz, wie bei einem echten Panel im Streiflicht.
+  c *= 1.0 - 0.55 * smoothstep(0.55, 1.25, length(q * vec2(0.75, 0.95)));
   return c;
 }
 
@@ -198,7 +208,10 @@ void main(){
     dagegen immer die Dreiviertelansicht, in der Rahmen, Glas und Kamera
     gleichzeitig zu sehen sind. Der Zeiger überlagert das.
   */
-  float spin = sin(t * 0.24) * 0.72 + u_pointer.x * 0.55;
+  // Der feste Versatz hält den Körper aus der reinen Frontalen heraus: Von
+  // etwa -14 bis +49 Grad ist immer eine Schmalseite zu sehen, und damit die
+  // Fase, an der das Titan sein Licht bekommt.
+  float spin = 0.30 + sin(t * 0.24) * 0.56 + u_pointer.x * 0.55;
   float tilt = -0.06 + sin(t * 0.17) * 0.07 + u_pointer.y * 0.26;
   mat3 rot = rotX(tilt) * rotY(spin);
   mat3 inv = mat3(
@@ -217,15 +230,50 @@ void main(){
   float dist = 0.0;
   float mat = 0.0;
   bool hit = false;
+  /*
+    edge merkt sich, wie dicht der Strahl am Körper vorbeigeschrammt ist.
+    Daraus entsteht weiter unten die Deckung für die Silhouette – eine
+    Kantenglättung, die keinen einzigen zusätzlichen Strahl kostet. Ohne sie
+    ist das Profil bei gedeckelter Auflösung sichtbar gestuft.
+  */
+  float edge = 1.0;
   for(int i = 0; i < 64; i++){
     vec3 p = rov + rdv * dist;
     vec2 h = map(p);
+    edge = min(edge, h.x / max(dist, 0.001));
     if(h.x < 0.0008 * dist){ mat = h.y; hit = true; break; }
     dist += h.x;
     if(dist > 7.0) break;
   }
 
   vec3 col;
+
+  /*
+    Bühnengrund – wird sowohl für den Fehlschlag als auch für die
+    Kantenglättung gebraucht, deshalb vorab.
+
+    Der Schlagschatten ist bewusst gemalt und nicht geworfen: Ein zweiter
+    Marsch auf eine Bodenebene würde die Bildkosten fast verdoppeln, und für
+    einen Körper, der über der Mitte pendelt, ist eine gestauchte Ellipse
+    unter ihm von einem gerechneten Schatten nicht zu unterscheiden.
+  */
+  vec2 sp0 = frag + vec2(shift, 0.0);
+  vec3 stage;
+  {
+    float pool = smoothstep(0.95, 0.0, length(sp0 * vec2(0.78, 1.20)));
+    stage = mix(vec3(0.014, 0.016, 0.020), vec3(0.052, 0.056, 0.066), pool);
+    stage += vec3(0.50, 0.54, 0.62) * 0.085
+           * smoothstep(0.52, 0.0, length(sp0 * vec2(1.15, 0.72)));
+    stage += u_accent * 0.14
+           * smoothstep(0.70, 0.0, length((sp0 - vec2(0.0, -0.12)) * vec2(1.35, 0.95)));
+
+    // Kontaktschatten: dicht und dunkel unter dem Gerät, schnell auslaufend.
+    float sx = sp0.x * 1.15;
+    float sy = (sp0.y + 0.90) * 3.6;
+    stage *= 1.0 - 0.82 * smoothstep(1.0, 0.0, length(vec2(sx, sy)));
+    // Zweiter, weiter Schatten für den weichen Übergang zum Grund.
+    stage *= 1.0 - 0.30 * smoothstep(1.0, 0.0, length(vec2(sp0.x * 0.75, (sp0.y + 0.85) * 1.5)));
+  }
 
   if(!hit){
     /*
@@ -235,20 +283,7 @@ void main(){
       dunklen Glaskörper frisst genau die Kanten auf, die den Körper
       plastisch machen.
     */
-    vec2 sp = frag + vec2(shift, 0.0);
-    /*
-      Der Grund bleibt fast schwarz. Jedes Quäntchen Aufhellung hier geht
-      direkt vom Kontrast der Titankante ab – und die ist das Einzige, was
-      den Körper als Metall ausweist.
-    */
-    float pool = smoothstep(0.95, 0.0, length(sp * vec2(0.78, 1.20)));
-    vec3 bg = mix(vec3(0.014, 0.016, 0.020), vec3(0.052, 0.056, 0.066), pool);
-
-    // Enger Lichtkegel dicht hinter dem Gerät.
-    bg += vec3(0.50, 0.54, 0.62) * 0.085 * smoothstep(0.52, 0.0, length(sp * vec2(1.15, 0.72)));
-    // Markenfarbe als Abglanz des Displays auf dem Bühnengrund.
-    bg += u_accent * 0.14 * smoothstep(0.70, 0.0, length((sp - vec2(0.0, -0.12)) * vec2(1.35, 0.95)));
-    col = bg;
+    col = stage;
   } else {
     vec3 p = rov + rdv * dist;
     vec3 n = calcNormal(p);
@@ -264,23 +299,38 @@ void main(){
     bool back  = n.z < -0.72 && mat < 1.5;
 
     if(front){
-      /* Frontglas: fast schwarz, aber nie tot – Fresnel plus Displaylicht. */
-      vec2 uv = vec2(
-        (p.x + BODY.x - 0.045) / (2.0 * (BODY.x - 0.045)),
-        (p.y + BODY.y - 0.055) / (2.0 * (BODY.y - 0.055))
-      );
+      /*
+        Frontglas. Der Aufbau folgt dem echten Gerät: eine durchgehende
+        Glasscheibe über dem Körper, darunter das Panel, das ringsum einen
+        schmalen schwarzen Rand frei lässt. Genau dieser Rand fehlte vorher –
+        ohne ihn wirkt die Fläche wie bedrucktes Plastik statt wie Glas über
+        einem Display.
+      */
+      // Achtung: half ist in GLSL ein reserviertes Wort - der Name kostete
+      // beim Bauen einen stillen Kompilierfehler und damit das ganze Gerät.
+      const float BEZEL = 0.052;
+      vec2 panelHalf = vec2(BODY.x - BEZEL, BODY.y - BEZEL);
+      vec2 uv = (p.xy + panelHalf) / (2.0 * panelHalf);
+
+      // Abgerundetes Panel, an den Radius des Gehäuses angelehnt.
+      vec2 d2 = abs(p.xy) - (panelHalf - vec2(0.055));
+      float panel = length(max(d2, 0.0)) + min(max(d2.x, d2.y), 0.0) - 0.055;
+      float inPanel = smoothstep(0.006, -0.004, panel);
+
       vec3 screen = vec3(0.0);
-      if(uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0){
-        screen = screenContent(uv, t);
-        // Abgerundete Displayecken
-        vec2 c2 = abs(uv * 2.0 - 1.0);
-        float corner = length(max(c2 - vec2(0.80, 0.90), 0.0));
-        screen *= smoothstep(0.22, 0.10, corner);
-      }
-      vec3 glass = mix(vec3(0.020, 0.022, 0.028), env(refl), fres * 0.85 + 0.05);
+      if(inPanel > 0.001) screen = screenContent(clamp(uv, 0.0, 1.0), t) * inPanel;
+
+      // Glas: sehr dunkel, die Umgebung übernimmt zu den Rändern hin.
+      vec3 glass = mix(vec3(0.012, 0.013, 0.017), env(refl), fres * 0.80 + 0.035);
       col = glass + screen;
-      // Harter Glanzstreifen der Softbox auf dem Glas
-      col += vec3(1.0) * pow(clamp(dot(refl, normalize(vec3(-0.4, 0.9, 0.35))), 0.0, 1.0), 220.0) * 0.8;
+
+      // Zwei Spiegelungen: ein harter Kern und ein weicher Hof darum.
+      float sb = clamp(dot(refl, normalize(vec3(-0.42, 0.88, 0.32))), 0.0, 1.0);
+      col += vec3(1.0) * pow(sb, 320.0) * 1.5;
+      col += vec3(0.85, 0.90, 1.0) * pow(sb, 28.0) * 0.10;
+
+      // Lichtkante, wo das Glas auf den Rahmen trifft.
+      col += vec3(1.0) * smoothstep(0.030, 0.0, abs(panel) - 0.026) * 0.045;
     } else if(mat > 2.5){
       /* Linsenglas: tief, mit blauem Vergütungsschimmer. */
       col = mix(vec3(0.010, 0.012, 0.020), vec3(0.10, 0.16, 0.30), fres);
@@ -293,17 +343,46 @@ void main(){
       col = mix(col, env(refl) * 0.55, fres * 0.5 + 0.06);
       col += vec3(1.0) * pow(clamp(dot(refl, key), 0.0, 1.0), 46.0) * 0.30 * sh;
     } else {
-      /* Titanrahmen: gebürstetes Metall, Umgebung dominiert. */
-      vec3 tint = u_dark > 0.5 ? vec3(0.62, 0.63, 0.66) : vec3(0.74, 0.75, 0.78);
+      /*
+        Titanrahmen.
+
+        Metall entsteht im Auge durch **schmale, harte** Lichtstreifen, nicht
+        durch gleichmäßige Helligkeit. Deshalb hier ein dunkler Grundton und
+        darüber drei eng gezogene Glanzlichter aus unterschiedlichen
+        Richtungen – so bekommt die Kante beim Schwenken das Wandern, das
+        gebürstetes Titan ausmacht.
+      */
+      vec3 tint = u_dark > 0.5 ? vec3(0.44, 0.45, 0.48) : vec3(0.54, 0.55, 0.585);
       vec3 e = env(refl);
-      col = e * tint * (0.55 + 0.45 * sh);
-      // Feiner Grat an der Kante, wie eine polierte Fase
-      col += vec3(1.0) * pow(fres, 3.0) * 0.55;
-      col += vec3(1.0) * pow(clamp(dot(refl, key), 0.0, 1.0), 140.0) * 1.1 * sh;
+      col = e * tint * (0.42 + 0.58 * sh);
+
+      float g1 = clamp(dot(refl, key), 0.0, 1.0);
+      float g2 = clamp(dot(refl, normalize(vec3(0.72, 0.42, 0.55))), 0.0, 1.0);
+      float g3 = clamp(dot(refl, normalize(vec3(0.30, -0.25, -0.92))), 0.0, 1.0);
+      col += vec3(1.0, 0.99, 0.97) * pow(g1, 260.0) * 2.4 * sh;
+      col += vec3(0.93, 0.96, 1.0) * pow(g2, 180.0) * 1.4;
+      col += u_accent                * pow(g3, 120.0) * 1.1;
+
+      // Polierte Fase an der Silhouette – der helle Grat, der das Profil zeichnet.
+      col += vec3(1.0) * pow(fres, 2.4) * 0.85;
     }
 
     // Umgebungsverdeckung aus der Marschtiefe – hält die Kanten sauber.
     col *= mix(1.0, 0.86, clamp((dist - 2.4) * 0.6, 0.0, 1.0));
+  }
+
+  /*
+    Silhouette weichzeichnen. edge ist der kleinste Abstand, den ein Strahl
+    zum Körper hatte, auf die Entfernung normiert. Streifende Strahlen
+    bekommen dadurch eine Teildeckung – aus einer Treppe wird eine Kante.
+  */
+  if(!hit){
+    float cover = 1.0 - smoothstep(0.0, 0.0016, edge);
+    if(cover > 0.001){
+      // Der Rand nimmt den Ton des Rahmens an, nicht den des Hintergrunds.
+      vec3 rim = mix(stage, vec3(0.38, 0.40, 0.44), 0.75);
+      col = mix(col, rim, cover * 0.85);
+    }
   }
 
   /* Filmischer Abschluss: Tonwertkurve, Korn, Vignette. */
@@ -320,12 +399,24 @@ void main(){
 }
 `;
 
+/**
+ * Übersetzt einen Shader – und sagt es laut, wenn es schiefgeht.
+ *
+ * Ein Tippfehler im GLSL scheitert sonst völlig lautlos: Die Übersetzung
+ * schlägt fehl, die Komponente fällt auf den CSS-Verlauf zurück, und weil der
+ * gut aussieht, fällt tagelang niemandem auf, dass das Gerät fehlt. Genau das
+ * ist beim Bauen passiert – ein als Variablenname verwendetes reserviertes
+ * Wort. Der Übersetzungsbericht steht jetzt in der Konsole.
+ */
 function compile(gl: WebGLRenderingContext, type: number, src: string) {
   const sh = gl.createShader(type);
   if (!sh) return null;
   gl.shaderSource(sh, src);
   gl.compileShader(sh);
   if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+    console.error(
+      `[DeviceStage] Shader nicht übersetzbar:\n${gl.getShaderInfoLog(sh) ?? "(kein Bericht)"}`,
+    );
     gl.deleteShader(sh);
     return null;
   }
