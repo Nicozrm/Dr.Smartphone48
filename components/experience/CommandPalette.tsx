@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { toggleTheme } from "@/lib/theme";
+import { grades, refurbishedDevices } from "@/lib/data/refurbished";
+import { formatEuro } from "@/lib/format";
 import { site } from "@/lib/site";
 
 /**
@@ -19,9 +21,15 @@ type Command = {
   hint?: string;
   keywords?: string;
   icon: IconName;
-  group: "Navigation" | "Aktionen";
+  group: "Navigation" | "Aktionen" | "Geräte auf Lager";
   run: (router: ReturnType<typeof useRouter>) => void;
   keepOpen?: boolean;
+  /**
+   * Erscheint erst, wenn getippt wird. Der Bestand gehört in die Suche, nicht
+   * in die Grundansicht – zehn Geräte würden die elf Seiten der Website
+   * erdrücken, die jemand ohne Suchbegriff sehen will.
+   */
+  onlyWhenSearching?: boolean;
 };
 
 const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -52,6 +60,19 @@ const commands: Command[] = [
   { id: "act-mail", label: "E-Mail schreiben", hint: site.email, icon: "mail", group: "Aktionen", keywords: "kontakt", run: () => { window.location.href = `mailto:${site.email}`; } },
   { id: "act-whatsapp", label: "WhatsApp öffnen", hint: site.phone, icon: "phone", group: "Aktionen", keywords: "chat nachricht", run: () => window.open(site.whatsappHref, "_blank", "noopener,noreferrer") },
   { id: "act-reviews", label: "Google-Bewertungen", hint: `${site.google.rating.toLocaleString("de-DE", { minimumFractionDigits: 1 })} aus ${site.google.reviewCount}`, icon: "sparkle", group: "Aktionen", keywords: "rezensionen sterne", run: () => window.open(site.google.placeUrl, "_blank", "noopener,noreferrer") },
+
+  // Der Bestand aus einer Quelle: Wer „Pixel 8“ tippt, landet direkt im
+  // Prüfprotokoll des Geräts statt im gefilterten Gitter.
+  ...refurbishedDevices.map((device): Command => ({
+    id: `dev-${device.id}`,
+    label: `${device.name} · ${device.storage}`,
+    hint: `${formatEuro(device.price)} · Zustand ${grades.find((g) => g.id === device.grade)!.label} · Akku ${device.battery} %`,
+    icon: "shield",
+    group: "Geräte auf Lager",
+    keywords: `${device.brand} refurbished gebraucht ${device.color} prüfprotokoll`,
+    onlyWhenSearching: true,
+    run: (r) => r.push(`/refurbished/${device.id}`),
+  })),
 ];
 
 /** Teilsequenz-Match: alle Zeichen der Query in Reihenfolge? Score = Kompaktheit. */
@@ -91,6 +112,7 @@ export function CommandPalette() {
 
   const results = useMemo(() => {
     const scored = commands
+      .filter((c) => !c.onlyWhenSearching || query.trim().length > 0)
       .map((c) => ({ c, s: score(query, `${c.label} ${c.keywords ?? ""} ${c.hint ?? ""}`) }))
       .filter((x) => x.s !== null)
       .sort((a, b) => (a.s! - b.s!));
