@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Dr Smartphone48">
+  <!--
+    Die Marke als Glaskörper.
+
+    Zwei Anforderungen, die sich widersprechen: Bei 512 px soll man das Glas
+    sehen – Randlicht, Glanzschliff, Fase, Tiefe. Bei 16 px im Browser-Tab ist
+    davon nichts mehr übrig, dort zählt nur, ob Telefon und Kreuz als Form
+    lesbar bleiben.
+
+    Aufgelöst über die Schichtung: Der Glaskörper besteht aus großflächigen,
+    weichen Verläufen, die beim Verkleinern zu einem einzigen dunklen Ton
+    verschmelzen und nichts verschmutzen. Die Marke darüber ist reines Weiß
+    und trägt die Proportionen der Vorlage: Telefon 0,658 breit zu hoch,
+    Strichstärke 9,6 % der Breite, das Kreuz 77 % der Höhe und 92 % der
+    Breite – es füllt das Gerät fast aus, und genau das macht es bei 16 px
+    noch erkennbar.
+
+    Kein Schriftzug im Icon: „Dr Smartphone48" ist bei 16 px ein grauer
+    Balken. Die Wortmarke lebt im Kopf der Seite, nicht hier.
+  -->
+  <defs>
+    <!-- Korpus: kein flaches Schwarz. Von oben eingefallenes Licht, das nach
+         unten in echtes Schwarz ausläuft – das gibt dem Körper Gewicht. -->
+    <linearGradient id="dsBody" x1="0.28" y1="0" x2="0.72" y2="1">
+      <stop offset="0" stop-color="#2b2d32" />
+      <stop offset="0.3" stop-color="#0e0f12" />
+      <stop offset="1" stop-color="#000000" />
+    </linearGradient>
+
+    <!-- Randlicht: hell an der oberen linken Kante, fast erloschen in der
+         Mitte, unten rechts ein zweites, schwächeres Aufleuchten – so
+         verhält sich eine polierte Kante unter einer Lichtquelle. -->
+    <linearGradient id="dsRim" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95" />
+      <stop offset="0.16" stop-color="#ffffff" stop-opacity="0.34" />
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.05" />
+      <stop offset="0.86" stop-color="#ffffff" stop-opacity="0.16" />
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.4" />
+    </linearGradient>
+
+    <!-- Innenfase: der schmale helle Saum direkt hinter der Kante. Er ist
+         das, was eine Glasplatte von einer bedruckten Fläche unterscheidet –
+         Licht, das im Material selbst steht. -->
+    <linearGradient id="dsBevel" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.5" />
+      <stop offset="0.3" stop-color="#ffffff" stop-opacity="0.06" />
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Glanzschliff: die Spiegelung über der oberen Hälfte, die in einer
+         gebogenen Kante nach rechts unten ausläuft. -->
+    <linearGradient id="dsSheen" x1="0.05" y1="0" x2="0.5" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.34" />
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.09" />
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Bodenreflex: das schwache Licht, das von unten zurückgeworfen wird. -->
+    <radialGradient id="dsFloor" cx="0.5" cy="1.06" r="0.6">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22" />
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Superellipse (|x|^5 + |y|^5 = 1) statt abgerundetem Rechteck. Der
+         Unterschied ist bei 16 px unsichtbar und bei 512 px der zwischen
+         „App-Icon" und „Rechteck mit runden Ecken". -->
+    <path id="dsShape" d="M128.0 64.0 127.9 89.3 127.5 97.3 126.9 103.0 126.0 107.6 124.9 111.4 123.4 114.6 121.7 117.3 119.7 119.7 117.3 121.7 114.6 123.4 111.4 124.9 107.6 126.0 103.0 126.9 97.3 127.5 89.3 127.9 64.0 128.0 38.7 127.9 30.7 127.5 25.0 126.9 20.4 126.0 16.6 124.9 13.4 123.4 10.7 121.7 8.3 119.7 6.3 117.3 4.6 114.6 3.1 111.4 2.0 107.6 1.1 103.0 0.5 97.3 0.1 89.3 0.0 64.0 0.1 38.7 0.5 30.7 1.1 25.0 2.0 20.4 3.1 16.6 4.6 13.4 6.3 10.7 8.3 8.3 10.7 6.3 13.4 4.6 16.6 3.1 20.4 2.0 25.0 1.1 30.7 0.5 38.7 0.1 64.0 0.0 89.3 0.1 97.3 0.5 103.0 1.1 107.6 2.0 111.4 3.1 114.6 4.6 117.3 6.3 119.7 8.3 121.7 10.7 123.4 13.4 124.9 16.6 126.0 20.4 126.9 25.0 127.5 30.7 127.9 38.7Z" />
+    <clipPath id="dsClip"><use href="#dsShape" /></clipPath>
+  </defs>
+
+  <!-- Körper -->
+  <use href="#dsShape" fill="url(#dsBody)" />
+
+  <g clip-path="url(#dsClip)">
+    <rect width="128" height="128" fill="url(#dsFloor)" />
+    <!-- Spiegelung über der oberen Hälfte, gebogen auslaufend -->
+    <ellipse cx="44" cy="-16" rx="94" ry="62" transform="rotate(-12 44 -16)" fill="url(#dsSheen)" />
+    <!-- Innenfase, knapp hinter der Kante -->
+    <use href="#dsShape" fill="none" stroke="url(#dsBevel)" stroke-width="3" transform="translate(64 64) scale(0.955) translate(-64 -64)" />
+  </g>
+
+  <!-- Polierte Kante. Innen liegend, damit sie beim Skalieren nicht abreißt. -->
+  <use href="#dsShape" fill="none" stroke="url(#dsRim)" stroke-width="2.6" />
+
+  <!--
+    Die Marke. Maße aus der Vorlage:
+      Telefon 52 × 79 (0,658), Ecken 32 % der Breite, Strich 5 (9,6 %)
+      Kreuz senkrecht 89 % der Innenhöhe, waagerecht bündig mit der Innenkante
+    Runde Enden: Die waagerechte Linie läuft von 43 bis 85, mit dem halben
+    Strich als Kappe reicht sie damit exakt bis an die Innenkante – wie in
+    der Vorlage, wo der Balken das Gerät praktisch durchmisst.
+  -->
+  <g fill="none" stroke="#ffffff" stroke-linecap="round">
+    <rect x="38" y="24.5" width="52" height="79" rx="16.6" stroke-width="5" />
+    <path d="M64 36.5v55M43 64h42" stroke-width="5" />
+  </g>
+</svg>

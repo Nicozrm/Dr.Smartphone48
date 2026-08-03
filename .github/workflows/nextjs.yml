@@ -1,0 +1,99 @@
+# Baut den statischen Next.js-Export und veröffentlicht ihn auf GitHub Pages.
+#
+# Der Build läuft über scripts/build-static.mjs (klammert app/api aus, weil
+# `output: "export"` keine Route Handler verträgt). GITHUB_PAGES=true schaltet
+# in next.config.ts den basePath /Koko sowie die Pages-URL für Canonical,
+# Sitemap und JSON-LD frei.
+#
+# Voraussetzung im Repository: Settings → Pages → Source = "GitHub Actions".
+name: Deploy Next.js site to Pages
+
+on:
+  # Läuft bei jedem Push auf den Standard-Branch.
+  push:
+    branches: ["main"]
+
+  # Erlaubt den manuellen Start über den Actions-Tab.
+  workflow_dispatch:
+
+# Rechte des GITHUB_TOKEN für das Pages-Deployment.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Nur ein Deployment gleichzeitig; laufende Deployments werden nicht abgebrochen.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Next.js-Cache wiederherstellen
+        uses: actions/cache@v4
+        with:
+          path: |
+            .next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**.[jt]s', '**.[jt]sx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # Die Regeln aus CLAUDE.md, ausgeführt: Kontrastwerte, Redaktionsregeln,
+      # Shader-Fallstricke, pageMeta-Pflicht. Läuft vor dem Build, damit ein
+      # Verstoß nicht erst nach zwei Minuten Bauzeit auffällt.
+      - name: Prüfstand (Quelltext)
+        run: npm run verify
+
+      - name: QR-Encoder gegen die Norm prüfen
+        run: npm run verify:qr
+
+      - name: Statischen Export bauen
+        run: npm run build:static
+        env:
+          # Aktiviert basePath /Koko in next.config.ts
+          GITHUB_PAGES: "true"
+
+      # Zweiter Lauf: Jetzt liegt ./out vor, also greifen zusätzlich die
+      # Prüfungen am fertigen Export – eigener Canonical je Seite, og:image
+      # überall, keine Seite zugleich in der Sitemap und auf noindex.
+      - name: Prüfstand (Export)
+        run: npm run verify
+
+      - name: Jekyll-Verarbeitung abschalten
+        run: touch ./out/.nojekyll
+
+      - name: Artefakt hochladen
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./out
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Auf GitHub Pages deployen
+        id: deployment
+        uses: actions/deploy-pages@v5
