@@ -9,7 +9,11 @@ import {
   type InvoiceTotals,
 } from "@/lib/invoice/calc";
 import { canRenderGiroCode, formatIban, giroCodePayload } from "@/lib/invoice/girocode";
-import { encodeQr, qrPath } from "@/lib/invoice/qr";
+// Derselbe Encoder wie überall sonst auf der Seite. Es gab hier eine zweite,
+// eigene Umsetzung – dieselbe Norm, dieselbe Fehlerkorrekturstufe, nur von
+// `npm run verify:qr` nicht erfasst. Ausgerechnet der Code, der zum Bezahlen
+// auffordert, war damit der einzige ungeprüfte.
+import { encodeQr, qrToPath } from "@/lib/qr";
 import type { CompanyProfile, Invoice } from "@/lib/invoice/types";
 
 /*
@@ -70,8 +74,9 @@ function GiroCode({
         amountCents: grossCents,
         reference: `Rechnung ${invoice.number}`,
       });
-      const matrix = encodeQr(payload);
-      return { d: qrPath(matrix), size: matrix.size };
+      // Ruhezone 4 Module – so verlangt es die Norm. Zuvor waren es zwei;
+      // auf weißem Papier ging das gut, auf einem Beleg mit Rahmen nicht.
+      return qrToPath(encodeQr(payload), 4);
     } catch {
       return null;
     }
@@ -82,14 +87,14 @@ function GiroCode({
   return (
     <div className="flex items-start gap-3">
       <svg
-        viewBox={`-2 -2 ${svg.size + 4} ${svg.size + 4}`}
+        viewBox={`0 0 ${svg.extent} ${svg.extent}`}
         width="22mm"
         height="22mm"
         role="img"
         aria-label={`GiroCode zur Zahlung von Rechnung ${invoice.number}`}
         shapeRendering="crispEdges"
       >
-        <rect x={-2} y={-2} width={svg.size + 4} height={svg.size + 4} fill="#fff" />
+        <rect width={svg.extent} height={svg.extent} fill="#fff" />
         <path d={svg.d} fill="#000" />
       </svg>
       <p className="sheet-fine max-w-[38mm] leading-snug">

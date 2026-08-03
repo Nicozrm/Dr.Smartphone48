@@ -222,9 +222,11 @@ per Seiten-Metadaten, `Disallow: /intern/` in `robots.ts`.
   aus, nicht `header` / `footer`.** Der Fuß des Rechnungsblatts trägt
   Steuernummer, USt-IdNr. und Bankverbindung; ein Selektor auf das nackte
   Element nähme genau die Pflichtangaben mit.
-- Der GiroCode (EPC069-12) wird ohne Bibliothek erzeugt (`lib/invoice/qr.ts`,
-  Byte-Modus, Fehlerkorrektur M, Versionen 1–13). Die längstmögliche
-  EPC-Nutzlast liegt bei ~278 Zeichen und passt damit sicher hinein.
+- Der GiroCode (EPC069-12) nutzt denselben Encoder wie der Rest der Seite
+  (`lib/qr.ts`) und ist damit von `npm run verify:qr` erfasst. Es gab hier
+  einmal eine zweite, eigene Umsetzung derselben Norm – ausgerechnet der Code,
+  der zum Bezahlen auffordert, war dadurch der einzige ungeprüfte. Die
+  längstmögliche EPC-Nutzlast liegt bei ~278 Zeichen und passt sicher hinein.
 
 ### E-Rechnung nach EN 16931 (`lib/invoice/einvoice.ts`, `cii.ts`)
 
