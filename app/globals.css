@@ -64,6 +64,34 @@
      bestehen – Weiß darauf käme dann nur noch auf 3.33:1. */
   --accent-contrast: #ffffff;
 
+  /*
+    Fremdmarken – WhatsApp und Instagram.
+
+    Diese Töne gehören nicht in die Tonleiter oben. Sie gehören WhatsApp Inc.
+    bzw. Instagram, sind dort festgelegt, und wir stimmen sie nicht auf unser
+    Blau ein: Ein abgetöntes WhatsApp-Grün ist kein WhatsApp-Grün mehr, und
+    erkannt werden soll das Zeichen im Bruchteil einer Sekunde. Aus demselben
+    Grund stehen sie außerhalb des Theme-Wechsels – in Hell und Dunkel gleich.
+
+    Regel: nur als Fläche hinter dem jeweils eigenen Zeichen, nie als
+    Schriftfarbe. Über der gefüllten Fläche steht das Zeichen deshalb in
+    --brand-contrast (fast schwarz): auf dem Grün 9.52:1, auf dem dunkelsten
+    Ende des Instagram-Verlaufs (#4f5bd5) noch 3.41:1 – über der 3:1-Schwelle,
+    die WCAG 1.4.11 für grafische Elemente verlangt. Weiß käme auf dem Grün
+    auf 1.98:1 und auf dem gelben Ende des Verlaufs auf 1.36:1.
+  */
+  --brand-whatsapp: #25d366;
+  --brand-instagram: #e1306c;
+  --brand-instagram-sweep: linear-gradient(
+    135deg,
+    #feda75 0%,
+    #fa7e1e 24%,
+    #d62976 54%,
+    #962fbf 78%,
+    #4f5bd5 100%
+  );
+  --brand-contrast: #101114;
+
   /* Status (sparsam eingesetzt) – ebenfalls auf 4.5:1 gegen sunken geprüft. */
   --positive: #197c4a;
   --positive-subtle: rgba(26, 127, 75, 0.1);
@@ -843,6 +871,154 @@ html[data-js] .reveal[data-revealed="true"] {
     .lift:focus-visible,
     .lift:focus-within {
       translate: 0 -3px;
+    }
+  }
+}
+
+/* ---- Marken-Kachel -------------------------------------------------------
+   WhatsApp und Instagram im Fuß. Zwei Kacheln, die im Ruhezustand so still
+   sind wie der Rest der Seite – das Zeichen trägt seinen Markenton, sonst
+   nichts – und beim Anfahren einmal ganz aufmachen: Die Marke füllt das
+   Rondell, ein Schein läuft von links unter die Kachel, der Pfeil rückt aus.
+
+   Der Ton bleibt damit die Ausnahme und nicht die Regel. Ein Fuß, in dem
+   zwei fremde Marken dauerhaft leuchten, ist Times Square; einer, in dem sie
+   auf Ansprache antworten, ist es nicht.
+
+   Animiert werden ausschließlich opacity, color und translate. Kein
+   background-image-Wechsel (nicht interpolierbar) und keine animierten
+   Custom Properties – warum, steht in CLAUDE.md. */
+@layer components {
+  .brand-tile {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    overflow: hidden;
+    padding: 0.5rem 1.125rem 0.5rem 0.5rem;
+    border: 1px solid var(--line-inverse);
+    border-radius: var(--radius-full);
+    color: var(--ink-inverse-soft);
+    transition:
+      border-color var(--duration-base) var(--ease-out),
+      color var(--duration-base) var(--ease-out);
+  }
+
+  .brand-tile[data-brand="whatsapp"] {
+    --brand-mark: var(--brand-whatsapp);
+    --brand-fill: var(--brand-whatsapp);
+    --brand-glow: rgba(37, 211, 102, 0.24);
+  }
+
+  .brand-tile[data-brand="instagram"] {
+    --brand-mark: var(--brand-instagram);
+    --brand-fill: var(--brand-instagram-sweep);
+    --brand-glow: rgba(214, 41, 118, 0.26);
+  }
+
+  /* Der Schein liegt unter der Kachel, nicht in ihrem Rand. Eine Linie, die
+     zu leuchten versucht, sieht aus wie ein Fehler im Farbprofil. */
+  .brand-tile::before {
+    content: "";
+    position: absolute;
+    inset: -60% -20%;
+    background: radial-gradient(46% 100% at 16% 50%, var(--brand-glow), transparent 72%);
+    opacity: 0;
+    transition: opacity var(--duration-slow) var(--ease-glide);
+    pointer-events: none;
+  }
+
+  .brand-tile:hover,
+  .brand-tile:focus-visible {
+    border-color: rgba(245, 245, 243, 0.28);
+    color: var(--ink-inverse);
+  }
+
+  .brand-tile:hover::before,
+  .brand-tile:focus-visible::before {
+    opacity: 1;
+  }
+
+  /* Das Rondell: im Ruhezustand eine Glasfläche mit dem Zeichen im Markenton,
+     beim Anfahren die Marke selbst. */
+  .brand-tile__mark {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 2.375rem;
+    height: 2.375rem;
+    flex: none;
+    border-radius: var(--radius-full);
+    background: rgba(245, 245, 243, 0.07);
+    color: var(--brand-mark);
+    transition: color var(--duration-base) var(--ease-out);
+  }
+
+  .brand-tile__mark::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--brand-fill);
+    opacity: 0;
+    transition: opacity var(--duration-base) var(--ease-out);
+  }
+
+  .brand-tile__mark > svg {
+    position: relative;
+  }
+
+  .brand-tile:hover .brand-tile__mark,
+  .brand-tile:focus-visible .brand-tile__mark {
+    color: var(--brand-contrast);
+  }
+
+  .brand-tile:hover .brand-tile__mark::before,
+  .brand-tile:focus-visible .brand-tile__mark::before {
+    opacity: 1;
+  }
+
+  .brand-tile__text {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+  }
+
+  .brand-tile__title {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--ink-inverse);
+  }
+
+  .brand-tile__meta {
+    font-size: 0.75rem;
+    color: var(--ink-inverse-soft);
+  }
+
+  .brand-tile__arrow {
+    position: relative;
+    flex: none;
+    margin-left: auto;
+    opacity: 0.5;
+    transition: opacity var(--duration-base) var(--ease-out);
+  }
+
+  .brand-tile:hover .brand-tile__arrow,
+  .brand-tile:focus-visible .brand-tile__arrow {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .brand-tile__arrow {
+      transition:
+        opacity var(--duration-base) var(--ease-out),
+        translate var(--duration-base) var(--ease-out);
+    }
+
+    .brand-tile:hover .brand-tile__arrow,
+    .brand-tile:focus-visible .brand-tile__arrow {
+      translate: 2px -2px;
     }
   }
 }

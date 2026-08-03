@@ -93,6 +93,10 @@ const jsonLd = {
         addressCountry: site.countryCode,
       },
       openingHours: site.openingHoursSchema,
+      /* Bestätigte Profile desselben Betriebs. Google nutzt sameAs, um das
+         Instagram-Konto dem Unternehmen zuzuordnen statt es für ein fremdes
+         zu halten – nur echte, selbst betriebene Profile gehören hier hinein. */
+      sameAs: [site.instagram.url],
       aggregateRating: {
         "@type": "AggregateRating",
         ratingValue: site.google.rating,
