@@ -286,20 +286,37 @@ function checkShaders() {
 /* niemals ein handgeschriebenes Metadata-Objekt."                    */
 /* ================================================================== */
 
+/*
+  Zwei zulässige Formen, nicht eine.
+
+  Statische Seiten exportieren `metadata`. Dynamische Routen (`[id]`,
+  `[ticketCode]`) können das gar nicht – ihr Titel hängt vom Parameter ab –
+  und nutzen `generateMetadata()`. Die Prüfung sah zunächst nur die erste Form
+  und meldete damit ausgerechnet die Seiten als fehlerhaft, die es richtig
+  machen. Entscheidend ist nicht die Form, sondern dass `pageMeta()` den
+  Canonical setzt.
+*/
+const META_STATIC = /export\s+const\s+metadata/;
+const META_DYNAMIC = /export\s+(?:async\s+)?function\s+generateMetadata/;
+
 function checkPageMeta() {
   checksRun++;
   for (const file of walk("app", ["page.tsx"])) {
     const src = readFileSync(file, "utf8");
-    if (!/export\s+const\s+metadata/.test(src)) {
+    const hasStatic = META_STATIC.test(src);
+    const hasDynamic = META_DYNAMIC.test(src);
+
+    if (!hasStatic && !hasDynamic) {
       // Seiten ohne eigene Metadaten erben Titel und Beschreibung – erlaubt,
       // aber dann fehlt der Canonical. Deshalb ein Befund.
       report("metadaten", rel(file), "Kein metadata-Export – pageMeta() fehlt.");
       continue;
     }
     if (!/pageMeta\(/.test(src)) {
+      const at = src.search(hasStatic ? META_STATIC : META_DYNAMIC);
       report(
         "metadaten",
-        `${rel(file)}:${lineOf(src, src.search(/export\s+const\s+metadata/))}`,
+        `${rel(file)}:${lineOf(src, at)}`,
         "Handgeschriebenes Metadata-Objekt statt pageMeta() – Canonical und OG-Bild fehlen.",
       );
     }

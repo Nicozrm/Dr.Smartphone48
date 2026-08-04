@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { site } from "@/lib/site";
 import { Icon } from "@/components/ui/Icon";
+import { BrandIcon } from "@/components/ui/BrandIcon";
 import { Logo } from "./Logo";
 
 const columns = [
@@ -21,6 +22,7 @@ const columns = [
       { href: "/vorbereitung", label: "Vor der Abgabe" },
       { href: "/zwilling", label: "Digitaler Zwilling" },
       { href: "/ticket", label: "Reparatur-Ticket" },
+      { href: "/versorgung", label: "Update-Horizont" },
     ],
   },
   {
@@ -68,26 +70,54 @@ export function Footer() {
               </a>
             </address>
 
-            <div className="mt-5 flex flex-wrap gap-2">
+            {/* Die beiden Wege, auf denen hier tatsächlich Kontakt entsteht.
+                Beide tragen ihr Originalzeichen (siehe BrandIcon) – ein
+                Telefonhörer für WhatsApp wäre eine Umschreibung, die im
+                Vorbeisehen niemand auflöst. */}
+            <div className="mt-6 grid max-w-xs gap-2">
               <a
                 href={site.whatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-9 items-center gap-2 rounded-full border border-line-inverse px-3.5 text-[0.8125rem] transition-colors hover:border-ink-inverse-soft hover:text-ink-inverse"
+                className="brand-tile"
+                data-brand="whatsapp"
               >
-                <Icon name="phone" size={14} />
-                WhatsApp
+                <span className="brand-tile__mark">
+                  <BrandIcon name="whatsapp" size={21} />
+                </span>
+                <span className="brand-tile__text">
+                  <span className="brand-tile__title">WhatsApp</span>
+                  <span className="brand-tile__meta">{site.phone}</span>
+                </span>
+                <Icon name="arrow-up-right" size={15} className="brand-tile__arrow" />
               </a>
               <a
-                href={site.google.mapsUrl}
+                href={site.instagram.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-9 items-center gap-2 rounded-full border border-line-inverse px-3.5 text-[0.8125rem] transition-colors hover:border-ink-inverse-soft hover:text-ink-inverse"
+                className="brand-tile"
+                data-brand="instagram"
               >
-                <Icon name="pin" size={14} />
-                Route
+                <span className="brand-tile__mark">
+                  <BrandIcon name="instagram" size={21} />
+                </span>
+                <span className="brand-tile__text">
+                  <span className="brand-tile__title">Instagram</span>
+                  <span className="brand-tile__meta">{site.instagram.handle}</span>
+                </span>
+                <Icon name="arrow-up-right" size={15} className="brand-tile__arrow" />
               </a>
             </div>
+
+            <a
+              href={site.google.mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex h-9 items-center gap-2 rounded-full border border-line-inverse px-3.5 text-[0.8125rem] transition-colors hover:border-ink-inverse-soft hover:text-ink-inverse"
+            >
+              <Icon name="pin" size={14} />
+              Route
+            </a>
           </div>
 
           {columns.map((col) => (

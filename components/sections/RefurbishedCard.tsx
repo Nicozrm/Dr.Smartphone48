@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Icon } from "@/components/ui/Icon";
 import { grades, type RefurbishedDevice } from "@/lib/data/refurbished";
 import { formatEuro } from "@/lib/format";
 
@@ -14,13 +16,22 @@ export function RefurbishedCard({ device }: { device: RefurbishedDevice }) {
   );
 
   return (
-    <article className="lift group flex h-full flex-col rounded-[var(--radius-xl)] border border-line bg-raised p-7 shadow-raised">
+    <article className="lift group relative flex h-full flex-col rounded-[var(--radius-xl)] border border-line bg-raised p-7 shadow-raised focus-within:border-ink-faint">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.14em] text-ink-faint">
             {device.brand}
           </p>
-          <h3 className="mt-1.5 text-title">{device.name}</h3>
+          {/* Die Fläche der Karte ist der Verweis; der Titel trägt ihn, damit
+              Screenreader und Tastatur ein benanntes Ziel bekommen. */}
+          <h3 className="mt-1.5 text-title">
+            <Link
+              href={`/refurbished/${device.id}`}
+              className="rounded-[var(--radius-xl)] outline-none after:absolute after:inset-0 after:content-['']"
+            >
+              {device.name}
+            </Link>
+          </h3>
           <p className="mt-1 text-[0.875rem] text-ink-soft">
             {device.storage} · {device.color}
           </p>
@@ -62,6 +73,15 @@ export function RefurbishedCard({ device }: { device: RefurbishedDevice }) {
           −{saving} %
         </span>
       </div>
+
+      <p className="mt-4 flex items-center gap-1.5 text-[0.8125rem] font-medium text-accent">
+        Prüfprotokoll ansehen
+        <Icon
+          name="arrow-right"
+          size={14}
+          className="transition-transform duration-[var(--duration-base)] ease-[var(--ease-out)] group-hover:translate-x-1"
+        />
+      </p>
     </article>
   );
 }

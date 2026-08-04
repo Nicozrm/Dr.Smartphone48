@@ -18,10 +18,13 @@ import {
 } from "@/lib/data/devices";
 import { formatEuro, formatMinutes } from "@/lib/format";
 import { site } from "@/lib/site";
+import { supportFor } from "@/lib/data/support";
+import { SupportHorizon } from "@/components/support/SupportHorizon";
 import { detectDevice, type DetectResult } from "@/lib/detect";
 import { ticketQuery } from "@/lib/ticket";
 import { useCountUp } from "@/lib/useCountUp";
 import { Icon } from "@/components/ui/Icon";
+import { ConsentGate, useConsentGate } from "@/components/ui/ConsentGate";
 import Link from "next/link";
 import { DeviceDiagram } from "./DeviceDiagram";
 import { BrandMark } from "./BrandMark";
@@ -66,6 +69,7 @@ export function Configurator() {
   const [submitted, setSubmitted] = useState(false);
   const [detected, setDetected] = useState<DetectResult | null>(null);
   const [detectDismissed, setDetectDismissed] = useState(false);
+  const consent = useConsentGate();
 
   // Erkennung einmal vor dem ersten Bild – rein lesend, ohne Netzwerk.
   useBeforePaint(() => {
@@ -82,6 +86,7 @@ export function Configurator() {
 
   const brand = brands.find((b) => b.id === brandId) ?? null;
   const entry = brandId && modelId ? findModel(brandId, modelId) : undefined;
+  const support = modelId ? supportFor(modelId) : undefined;
   const repairs = entry ? repairsForModel(entry.model) : [];
 
   const chosen = repairs.filter((r) => selected.includes(r.kind));
@@ -141,6 +146,11 @@ export function Configurator() {
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    // Ohne Einwilligung wird kein E-Mail-Entwurf geöffnet – der Entwurf
+    // trägt Name, Telefonnummer und Gerät, und die gehören nicht ungefragt
+    // in ein fremdes Programm.
+    if (!consent.allow()) return;
+
     const data = new FormData(event.currentTarget);
     const name = String(data.get("name") ?? "");
     const phone = String(data.get("phone") ?? "");
@@ -400,10 +410,12 @@ export function Configurator() {
                 placeholder="z. B. morgen ab 16 Uhr"
               />
             </label>
+            <ConsentGate {...consent.gate} channel="mail" />
             <button
               type="submit"
               data-magnetic=""
               data-ripple=""
+              {...consent.sendProps()}
               className="press inline-flex h-13 w-full items-center justify-center rounded-full bg-accent px-7 text-base font-medium text-accent-contrast shadow-button transition-[background-color,box-shadow,scale] duration-[var(--duration-base)] hover:bg-accent-hover hover:shadow-[var(--shadow-button-hover)] sm:w-auto"
             >
               <span className="relative z-[1] inline-flex items-center gap-2">
@@ -556,6 +568,26 @@ export function Configurator() {
                 <dd>{site.warrantyMonths} Monate Garantie auf Teil und Arbeit</dd>
               </div>
             </dl>
+
+            {/*
+              Die Zahl, die den Preis daneben erst einordnet: Wie lange
+              bekommt dieses Modell noch Sicherheitsupdates? Ein Rückglas für
+              159 € an einem Gerät mit acht Monaten Restlaufzeit ist eine
+              andere Entscheidung als dieselbe Reparatur an einem mit fünf
+              Jahren. Wir verdienen hin und wieder weniger daran. Dafür muss
+              niemand später fragen, warum das keiner gesagt hat.
+            */}
+            {support ? (
+              <div className="mt-4 border-t border-line pt-4">
+                <SupportHorizon entry={support} compact />
+                <Link
+                  href="/versorgung"
+                  className="mt-2 inline-block text-[0.8125rem] text-ink-soft underline underline-offset-4 transition-colors hover:text-ink-strong"
+                >
+                  Alle Modelle im Vergleich
+                </Link>
+              </div>
+            ) : null}
 
             {/* Aus dem Preis wird ein Vorgang: eigene Nummer, QR-Code zum
                 Vorzeigen, druckbares Übergabeprotokoll. */}
