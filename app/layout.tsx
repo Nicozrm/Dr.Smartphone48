@@ -100,6 +100,8 @@ const jsonLd = {
         bestRating: 5,
         worstRating: 1,
       },
+      /* Belegte Profile desselben Betriebs – hilft Google beim Zusammenführen. */
+      sameAs: [site.instagram.url, site.google.placeUrl],
       areaServed: [
         { "@type": "City", name: "Greven" },
         { "@type": "City", name: "Münster" },

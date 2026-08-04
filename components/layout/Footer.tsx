@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { site } from "@/lib/site";
 import { Icon } from "@/components/ui/Icon";
+import { BrandIcon } from "@/components/ui/BrandIcon";
 import { Logo } from "./Logo";
 
 const columns = [
@@ -67,23 +68,37 @@ export function Footer() {
               </a>
             </address>
 
+            {/* Direktwege: die beiden Marken in ihren Originalzeichen, dazu
+                die Route. Alle drei tragen dieselbe Form – nur die Farbe
+                gehört jeweils der Marke. */}
             <div className="mt-5 flex flex-wrap gap-2">
               <a
                 href={site.whatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-9 items-center gap-2 rounded-full border border-line-inverse px-3.5 text-[0.8125rem] transition-colors hover:border-ink-inverse-soft hover:text-ink-inverse"
+                aria-label={`WhatsApp-Nachricht an ${site.phone}`}
+                className="social-chip social-chip--whatsapp inline-flex h-10 items-center gap-2.5 rounded-full border border-line-inverse pl-3.5 pr-4 text-[0.8125rem]"
               >
-                <Icon name="phone" size={14} />
+                <BrandIcon name="whatsapp" size={16} className="social-chip__mark" />
                 WhatsApp
+              </a>
+              <a
+                href={site.instagram.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Instagram-Profil @${site.instagram.handle}`}
+                className="social-chip social-chip--instagram inline-flex h-10 items-center gap-2.5 rounded-full border border-line-inverse pl-3.5 pr-4 text-[0.8125rem]"
+              >
+                <BrandIcon name="instagram" size={16} className="social-chip__mark" />
+                Instagram
               </a>
               <a
                 href={site.google.mapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-9 items-center gap-2 rounded-full border border-line-inverse px-3.5 text-[0.8125rem] transition-colors hover:border-ink-inverse-soft hover:text-ink-inverse"
+                className="social-chip inline-flex h-10 items-center gap-2.5 rounded-full border border-line-inverse pl-3.5 pr-4 text-[0.8125rem]"
               >
-                <Icon name="pin" size={14} />
+                <Icon name="pin" size={15} className="social-chip__mark" />
                 Route
               </a>
             </div>

@@ -36,6 +36,12 @@ export const site = {
   whatsappHref: "https://wa.me/491775196018",
   email: "Drsmartphone48268@gmail.com",
 
+  /** Öffentliches Instagram-Profil des Betriebs. */
+  instagram: {
+    handle: "dr.smartphone48",
+    url: "https://www.instagram.com/dr.smartphone48/",
+  },
+
   /** USt-IdNr. laut Angabe des Betriebs. */
   vatId: "DE458241430",
 

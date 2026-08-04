@@ -1053,6 +1053,85 @@ html[data-js] .reveal[data-revealed="true"] {
   box-shadow: 0 0 40px -8px var(--accent);
 }
 
+/* ---- Marken-Verweise (WhatsApp, Instagram) -------------------------------
+   Die Glyphen sind die Originale (components/ui/BrandIcon.tsx), also gehören
+   auch die Originalfarben dazu – sie sind Fremdmarken und deshalb bewusst
+   keine Design-Tokens, sondern hier als eigene Gruppe abgelegt.
+
+   Kontrast auf --surface-inverse (#101114): Grün 9.9:1, Pink 4.3:1, der
+   dunkelste Verlaufspunkt 3.3:1 – alle über den 3:1 für grafische Elemente.
+   Deshalb bleibt die Marke Fläche und Zeichen; Schrift steht nie darauf. */
+.social-chip {
+  --brand: var(--ink-inverse-soft);
+  --brand-wash: var(--brand);
+  position: relative;
+  isolation: isolate;
+  transition:
+    color var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-out);
+}
+
+.social-chip--whatsapp {
+  --brand: #25d366;
+}
+
+/* Der Instagram-Verlauf in seiner offiziellen Reihenfolge; --brand ist der
+   Punkt daraus, der als Linie und Zeichen für sich allein besteht. */
+.social-chip--instagram {
+  --brand: #e1306c;
+  --brand-wash: linear-gradient(
+    135deg,
+    #feda75 0%,
+    #fa7e1e 26%,
+    #d62976 56%,
+    #962fbf 78%,
+    #4f5bd5 100%
+  );
+}
+
+/* Die Fläche liegt als eigene Ebene darunter: So verblasst sie über die
+   Deckkraft (Compositor) statt über eine Farbmischung im Stil. */
+.social-chip::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--brand-wash);
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+
+.social-chip__mark {
+  color: var(--brand);
+  transition: transform var(--duration-base) var(--ease-spring);
+}
+
+.social-chip:hover,
+.social-chip:focus-visible {
+  color: var(--ink-inverse);
+  border-color: color-mix(in oklab, var(--brand) 60%, transparent);
+  box-shadow: 0 10px 28px -16px var(--brand);
+}
+
+.social-chip:hover::before,
+.social-chip:focus-visible::before {
+  opacity: 0.18;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .social-chip:hover,
+  .social-chip:focus-visible {
+    transform: translateY(-2px);
+  }
+  .social-chip:hover .social-chip__mark,
+  .social-chip:focus-visible .social-chip__mark {
+    transform: scale(1.12);
+  }
+}
+
 /* ---- Druck ---------------------------------------------------------------
    Der Befund soll man mitbringen können. Im Druck bleibt nur der Bericht:
    keine Navigation, kein Glas, keine Farbflächen – schwarz auf weiß, damit
