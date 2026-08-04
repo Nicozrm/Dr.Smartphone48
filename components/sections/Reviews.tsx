@@ -244,7 +244,7 @@ export function Reviews() {
                 target="_blank"
                 rel="noopener noreferrer"
                 data-magnetic=""
-                className="mt-6 inline-flex h-12 items-center gap-2 rounded-full bg-accent px-6 text-[0.9375rem] font-medium text-white shadow-button transition-colors hover:bg-accent-hover"
+                className="mt-6 inline-flex h-12 items-center gap-2 rounded-full bg-accent px-6 text-[0.9375rem] font-medium text-accent-contrast shadow-button transition-colors hover:bg-accent-hover"
                 style={{ transitionProperty: "background-color" }}
               >
                 Alle {reviewSummary.count} Rezensionen bei Google

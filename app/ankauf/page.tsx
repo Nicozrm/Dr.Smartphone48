@@ -1,15 +1,16 @@
-import type { Metadata } from "next";
 import { Icon } from "@/components/ui/Icon";
 import { Reveal } from "@/components/ui/Reveal";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { ResaleCalculator } from "@/components/resale/ResaleCalculator";
 import { site } from "@/lib/site";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMeta({
+  path: "/ankauf",
   title: "Ankauf – was Ihr Gerät noch wert ist",
   description:
     "Sofortige Wertschätzung für Ihr Smartphone – mit offengelegter Rechnung statt Blackbox. Jeder Abzug mit Betrag und Begründung. Auszahlung nach Prüfung vor Ort.",
-};
+});
 
 const promises = [
   {

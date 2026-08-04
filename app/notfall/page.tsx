@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/ui/Icon";
 import { Reveal } from "@/components/ui/Reveal";
@@ -6,12 +5,14 @@ import { RescueClock } from "@/components/emergency/RescueClock";
 import { LiveStatus } from "@/components/sections/LiveStatus";
 import { emergencyScenarios } from "@/lib/data/emergency";
 import { site } from "@/lib/site";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata = pageMeta({
+  path: "/notfall",
   title: "Notfall – die ersten Minuten",
   description:
     "Wasserschaden, gebrochenes Display, Gerät startet nicht, aufgeblähter Akku: was Sie sofort tun sollten und welche Fehler am meisten kosten. Ohne Anmeldung, auch offline lesbar.",
-};
+});
 
 /*
   Notfall-Seite.

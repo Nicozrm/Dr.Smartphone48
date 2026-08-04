@@ -26,7 +26,9 @@ import {
   xmlFileName,
   type EInvoiceTarget,
 } from "@/lib/invoice/einvoice";
-import { formatIban, isValidIban } from "@/lib/invoice/girocode";
+import { canRenderGiroCode, formatIban, isValidIban } from "@/lib/invoice/girocode";
+import { docTypeMeta, docTypes } from "@/lib/invoice/doctype";
+import { paginate } from "@/lib/invoice/paginate";
 import {
   buildBackup,
   clearDraft,
@@ -44,6 +46,7 @@ import {
   searchCustomers,
   type HistoryEntry,
 } from "@/lib/invoice/store";
+import type { DocType } from "@/lib/invoice/doctype";
 import type {
   CompanyProfile,
   Invoice,
@@ -457,7 +460,7 @@ export function InvoiceBuilder() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [flash, setFlash] = useState<string | null>(null);
   const [customerHits, setCustomerHits] = useState<Party[]>([]);
-  const [overflows, setOverflows] = useState(false);
+  const [zoom, setZoom] = useState(1);
 
   const quickRef = useRef<HTMLInputElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -478,52 +481,28 @@ export function InvoiceBuilder() {
     return () => window.clearTimeout(id);
   }, [invoice]);
 
-  /* Blatt auf die verfügbare Breite skalieren. */
+  /*
+    Blatt auf die verfügbare Breite skalieren.
+
+    Die Bühne muss die volle Höhe aller Seiten reservieren, sonst schneidet
+    das übergeordnete Layout Seite zwei ab. Höhe und Skalierung stecken
+    deshalb beide in CSS-Variablen und werden dort zusammengerechnet – kein
+    JavaScript, das bei jedem Scrollen nachmisst.
+  */
   const mounted = invoice !== null;
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
     const fit = () => {
       const available = stage.parentElement?.clientWidth ?? stage.clientWidth;
-      const scale = Math.min(1, Math.max(0.25, available / 793.7));
-      stage.style.setProperty("--sheet-scale", String(scale));
+      const base = Math.min(1, Math.max(0.25, (available - 44) / 793.7));
+      stage.style.setProperty("--sheet-scale", String(base * zoom));
     };
     fit();
     const ro = new ResizeObserver(fit);
     if (stage.parentElement) ro.observe(stage.parentElement);
     return () => ro.disconnect();
-  }, [mounted]);
-
-  /*
-    Passt der Inhalt noch auf das Blatt?
-
-    Das Blatt ist ein Blatt: 297 mm, `overflow: hidden`. Was darunter gerät,
-    verschwindet wortlos – und weil die Summe ganz unten steht, ist sie das
-    Erste, was fehlt. Eine gedruckte Rechnung ohne Rechnungsbetrag fällt
-    niemandem am Drucker auf, sondern dem Kunden. Deshalb wird gemessen statt
-    geschätzt: Ragt die Unterkante des Inhalts in die Fußzeile, ist das ein
-    Pflichtfehler wie eine fehlende Steuernummer.
-
-    Beide Kanten liegen unter derselben Skalierung (`--sheet-scale`), der
-    Vergleich gilt also im Editor genauso wie im Druck.
-  */
-  useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    const body = stage.querySelector("[data-sheet-body]");
-    const foot = stage.querySelector("[data-sheet-foot]");
-    if (!body || !foot) return;
-
-    const measure = () =>
-      setOverflows(body.getBoundingClientRect().bottom > foot.getBoundingClientRect().top);
-
-    // ResizeObserver misst schon beim Beobachten – und danach jedes Mal, wenn
-    // eine Zeile umbricht oder die Schrift nachgeladen wird.
-    const ro = new ResizeObserver(measure);
-    ro.observe(body);
-    ro.observe(foot);
-    return () => ro.disconnect();
-  }, [invoice]);
+  }, [mounted, zoom]);
 
   /* Kurzmeldung wieder ausblenden. */
   useEffect(() => {
@@ -548,19 +527,13 @@ export function InvoiceBuilder() {
   }, []);
 
   const totals = useMemo(() => (invoice ? invoiceTotals(invoice) : null), [invoice]);
-  const issues = useMemo<Issue[]>(() => {
-    if (!invoice || !profile || !totals) return [];
-    const found = validateInvoice(invoice, profile, totals.grossCents);
-    if (overflows) {
-      found.push({
-        id: "ueberlauf",
-        level: "pflicht",
-        text: "Der Inhalt passt nicht mehr auf ein Blatt – gedruckt würden Positionen und Rechnungsbetrag abgeschnitten. Bitte auf zwei Rechnungen aufteilen oder Zusatzzeilen kürzen.",
-        anchor: "positionen",
-      });
-    }
-    return found;
-  }, [invoice, profile, totals, overflows]);
+  const issues = useMemo<Issue[]>(
+    () =>
+      invoice && profile && totals
+        ? validateInvoice(invoice, profile, totals.grossCents)
+        : [],
+    [invoice, profile, totals],
+  );
   const ready = isReady(issues);
 
   /* Was fehlt der E-Rechnung noch – je Zielformat getrennt. */
@@ -577,6 +550,23 @@ export function InvoiceBuilder() {
     }),
     [invoice, profile, totals],
   );
+
+  /* Wie viele Blätter das ergibt – dieselbe Rechnung wie im Dokument. */
+  const pageCount = useMemo(() => {
+    if (!invoice || !profile || !totals) return 1;
+    const meta = docTypeMeta(invoice.docType);
+    const wantsSlip =
+      meta.demandsPayment &&
+      !invoice.paid &&
+      invoice.paymentMethod === "ueberweisung" &&
+      canRenderGiroCode(profile.iban, profile.name);
+    return paginate(
+      invoice,
+      totals.lines,
+      (l) => (invoice.grossEntry ? l.grossCents : l.netCents),
+      wantsSlip,
+    ).length;
+  }, [invoice, profile, totals]);
 
   const patch = useCallback((p: Partial<Invoice>) => {
     setInvoice((inv) => (inv ? { ...inv, ...p } : inv));
@@ -616,6 +606,20 @@ export function InvoiceBuilder() {
     [],
   );
 
+  /**
+   * Belegart wechseln.
+   *
+   * Das Kürzel im Nummernkreis zieht mit – aus RE-2026-0042 wird KV-2026-0042.
+   * Der Zähler bleibt, weil er erst beim Abschließen weiterspringt.
+   */
+  const changeDocType = (docType: DocType) => {
+    setInvoice((inv) => {
+      if (!inv) return inv;
+      const number = inv.number.replace(/^[A-Z]{2}-/, docTypeMeta(docType).prefix);
+      return { ...inv, docType, number };
+    });
+  };
+
   const removeLine = (id: string) =>
     setInvoice((inv) => (inv ? { ...inv, lines: inv.lines.filter((l) => l.id !== id) } : inv));
 
@@ -652,8 +656,10 @@ export function InvoiceBuilder() {
     setProfile(nextProfile);
     setHistory(loadHistory());
     clearDraft();
-    setInvoice(newInvoice(nextProfile));
-    setFlash(`${invoice.number} abgeschlossen. Nächste Nummer: ${peekNumber(nextProfile)}`);
+    setInvoice(newInvoice(nextProfile, invoice.docType));
+    setFlash(
+      `${invoice.number} abgeschlossen. Nächste Nummer: ${peekNumber(nextProfile, invoice.docType)}`,
+    );
   };
 
   const startNew = () => {
@@ -665,7 +671,7 @@ export function InvoiceBuilder() {
       if (!ok) return;
     }
     clearDraft();
-    setInvoice(newInvoice(profile));
+    setInvoice(newInvoice(profile, invoice?.docType ?? "rechnung"));
     setFlash("Neuer Entwurf.");
   };
 
@@ -773,6 +779,52 @@ export function InvoiceBuilder() {
       <div className="inv-app mx-auto grid max-w-[1600px] gap-8 px-5 py-8 md:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,760px)] lg:gap-12">
         {/* Editor */}
         <div className="inv-editor space-y-10">
+          <Section
+            id="belegart"
+            title="Belegart"
+            hint="Dieselben Positionen, dieselbe Rechenlogik – andere Sprache und anderes Kürzel im Nummernkreis."
+          >
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-1.5">
+                {docTypes.map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => changeDocType(d.id)}
+                    aria-pressed={invoice.docType === d.id}
+                    className={`rounded-full px-3.5 py-1.5 text-[0.8125rem] font-medium transition-colors duration-[var(--duration-fast)] ${
+                      invoice.docType === d.id
+                        ? "bg-ink-strong text-[var(--surface-page)]"
+                        : "border border-line text-ink-soft hover:border-line-strong hover:text-ink-strong"
+                    }`}
+                  >
+                    {d.short}
+                  </button>
+                ))}
+              </div>
+
+              {(invoice.docType === "storno" || invoice.docType === "gutschrift") && (
+                <input
+                  value={invoice.reference}
+                  onChange={(e) => patch({ reference: e.target.value })}
+                  placeholder="Bezug – Nummer der Ursprungsrechnung"
+                  className="inv-input inv-num text-left"
+                  aria-label="Bezug zur Ursprungsrechnung"
+                />
+              )}
+
+              <label className="flex items-center gap-2.5 text-[0.875rem] text-ink-strong">
+                <input
+                  type="checkbox"
+                  checked={invoice.copy}
+                  onChange={(e) => patch({ copy: e.target.checked })}
+                  className="h-4 w-4 accent-[var(--accent)]"
+                />
+                Zweitausfertigung – Stempel &bdquo;Kopie&ldquo;
+              </label>
+            </div>
+          </Section>
+
           <Section
             id="positionen"
             title="Positionen"
@@ -1217,14 +1269,51 @@ export function InvoiceBuilder() {
 
         {/* Blatt */}
         <div className="lg:sticky lg:top-32 lg:self-start">
-          <div ref={stageRef} className="sheet-stage">
-            <div className="sheet-frame">
-              <InvoiceSheet invoice={invoice} profile={profile} totals={totals} />
+          <div className="inv-editor mb-3 flex items-center justify-between gap-3">
+            <span className="text-[0.8125rem] text-ink-soft">
+              {pageCount === 1 ? "1 Blatt" : `${pageCount} Blätter`} · A4 ·
+              DIN 5008 Form B
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))}
+                disabled={zoom <= 0.5}
+                className="h-8 w-8 rounded-full border border-line text-ink-strong disabled:opacity-35 hover:border-line-strong"
+                aria-label="Verkleinern"
+              >
+                −
+              </button>
+              <span className="w-14 text-center font-mono text-[0.75rem] tabular-nums text-ink-soft">
+                {Math.round(zoom * 100)} %
+              </span>
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.min(2, +(z + 0.25).toFixed(2)))}
+                disabled={zoom >= 2}
+                className="h-8 w-8 rounded-full border border-line text-ink-strong disabled:opacity-35 hover:border-line-strong"
+                aria-label="Vergrößern"
+              >
+                +
+              </button>
             </div>
           </div>
-          <p className="inv-editor mt-4 text-center text-[0.75rem] text-ink-faint">
-            DIN 5008 Form B · Anschrift im Fenster eines DIN-lang-Umschlags ·
-            Drucken erzeugt exakt dieses Blatt
+
+          <div className="sheet-desk">
+            <div
+              ref={stageRef}
+              className="sheet-stage"
+              style={{ ["--sheet-pages" as string]: pageCount }}
+            >
+              <div className="sheet-frame">
+                <InvoiceSheet invoice={invoice} profile={profile} totals={totals} />
+              </div>
+            </div>
+          </div>
+
+          <p className="inv-editor mt-3 text-center text-[0.75rem] text-ink-faint">
+            Anschrift im Fenster eines DIN-lang-Umschlags · Mikroschriftlinie
+            und Guillochenrosette drucken ab 600 dpi
           </p>
         </div>
       </div>

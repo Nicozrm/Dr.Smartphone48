@@ -1,4 +1,5 @@
 import { site } from "@/lib/site";
+import { docTypeMeta, type DocType } from "./doctype";
 import { today } from "./calc";
 import type { CompanyProfile, Invoice, Party } from "./types";
 
@@ -87,9 +88,22 @@ export function saveProfile(profile: CompanyProfile): void {
   write(KEY_PROFILE, profile);
 }
 
-/** Nächste Rechnungsnummer, ohne den Zähler zu erhöhen. */
-export function peekNumber(profile: CompanyProfile): string {
-  return `${profile.numberPrefix}${String(profile.nextNumber).padStart(4, "0")}`;
+/**
+ * Nächste Belegnummer, ohne den Zähler zu erhöhen.
+ *
+ * Ein gemeinsamer Zähler für alle Belegarten, aber ein eigenes Kürzel je Art:
+ * `RE-2026-0042`, `KV-2026-0043`. Das hält den Nummernkreis lückenlos – was
+ * die Betriebsprüfung sehen will – und lässt trotzdem auf einen Blick
+ * erkennen, was man in der Hand hält. Getrennte Zähler je Art wären hübscher
+ * und wären genau die Konstruktion, bei der irgendwann zwei Belege dieselbe
+ * Nummer tragen.
+ */
+export function peekNumber(profile: CompanyProfile, docType: DocType = "rechnung"): string {
+  const prefix = profile.numberPrefix.replace(
+    /^[A-Z]{2}-/,
+    docTypeMeta(docType).prefix,
+  );
+  return `${prefix}${String(profile.nextNumber).padStart(4, "0")}`;
 }
 
 /**
@@ -173,10 +187,14 @@ export function pushHistory(entry: HistoryEntry): void {
 
 /* ---- Neue Rechnung ------------------------------------------------------- */
 
-export function newInvoice(profile: CompanyProfile): Invoice {
+export function newInvoice(
+  profile: CompanyProfile,
+  docType: DocType = "rechnung",
+): Invoice {
   const date = today();
   return {
-    number: peekNumber(profile),
+    docType,
+    number: peekNumber(profile, docType),
     date,
     serviceDate: date,
     dueDays: profile.defaultDueDays,
@@ -189,6 +207,8 @@ export function newInvoice(profile: CompanyProfile): Invoice {
     closing: "",
     paymentMethod: "ueberweisung",
     paid: false,
+    copy: false,
+    reference: "",
   };
 }
 

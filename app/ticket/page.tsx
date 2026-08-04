@@ -3,14 +3,14 @@ import { Reveal } from "@/components/ui/Reveal";
 import { RepairTicket } from "@/components/ticket/RepairTicket";
 import { pageMeta } from "@/lib/seo";
 
-// Ein Ticket ohne Parameter ist eine leere Hülle – nichts, was in einem
-// Suchergebnis stehen sollte. `noindex` setzt `index: false, follow: true`:
-// den Links auf der Seite darf ein Crawler weiter folgen.
 export const metadata = pageMeta({
   path: "/ticket",
   title: "Reparatur-Ticket & Übergabeprotokoll",
   description:
     "Ihr Kostenvoranschlag als Dokument: Vorgangsnummer, QR-Code zum Vorzeigen, Schadenskarte und druckbares Übergabeprotokoll. Ohne Konto, ohne gespeicherte Daten.",
+  // Ein Ticket ohne Parameter ist eine leere Hülle – nichts, was in einem
+  // Suchergebnis stehen sollte. `noindex` setzt `index: false, follow: true`:
+  // den Links auf der Seite darf ein Crawler weiter folgen.
   noindex: true,
 });
 

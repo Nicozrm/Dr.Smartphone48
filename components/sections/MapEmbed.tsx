@@ -88,7 +88,7 @@ export function MapEmbed() {
       </svg>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
-        <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-accent text-white shadow-raised">
+        <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-accent text-accent-contrast shadow-raised">
           <Icon name="pin" size={21} />
         </span>
         <p className="mt-4 font-mono text-[0.8125rem] text-ink-strong">

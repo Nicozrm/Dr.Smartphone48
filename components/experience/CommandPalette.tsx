@@ -36,6 +36,7 @@ const commands: Command[] = [
   { id: "check", label: "Geräte-Check", hint: "Live-Diagnose", icon: "cpu", group: "Navigation", keywords: "diagnose test pixel touch sensor akku", run: (r) => r.push("/check") },
   { id: "ankauf", label: "Ankauf – Restwert", hint: "Was Ihr Gerät noch wert ist", icon: "leaf", group: "Navigation", keywords: "verkaufen ankauf wert restwert geld gebraucht abgeben", run: (r) => r.push("/ankauf") },
   { id: "zwilling", label: "Digitaler Zwilling", hint: "Zustand, Akku-Coach & Lebensdauer", icon: "sparkle", group: "Navigation", keywords: "twin zustand akku prognose lebensdauer laden ladeverhalten coach", run: (r) => r.push("/zwilling") },
+  { id: "vorbereitung", label: "Vor der Abgabe", hint: "Backup, Sperren, Sperrcode", icon: "shield", group: "Navigation", keywords: "backup sichern datensicherung sperrcode pin aktivierungssperre wo ist find my google konto sim vorbereiten daten datenschutz", run: (r) => r.push("/vorbereitung") },
   { id: "ticket", label: "Reparatur-Ticket", hint: "Voranschlag & Übergabeprotokoll", icon: "calendar", group: "Navigation", keywords: "ticket auftrag protokoll qr imei drucken vorgang", run: (r) => r.push("/ticket") },
   { id: "refurbished", label: "Refurbished-Geräte", icon: "shield", group: "Navigation", keywords: "gebraucht kaufen", run: (r) => r.push("/refurbished") },
   { id: "ersatzteile", label: "Ersatzteile", icon: "cpu", group: "Navigation", keywords: "teile", run: (r) => r.push("/ersatzteile") },
@@ -45,6 +46,7 @@ const commands: Command[] = [
   { id: "act-notfall", label: "Wasserschaden – was jetzt zu tun ist", icon: "waveform", group: "Aktionen", keywords: "wasser nass spüle toilette regen notfall", run: (r) => r.push("/notfall#wasser") },
   { id: "act-preis", label: "Sofortpreis berechnen", icon: "arrow-right", group: "Aktionen", keywords: "reparatur preis", run: (r) => r.push("/reparatur") },
   { id: "act-check", label: "Geräte-Check starten", icon: "waveform", group: "Aktionen", keywords: "diagnose test", run: (r) => r.push("/check") },
+  { id: "act-backup", label: "Was muss ich vor der Abgabe erledigen?", icon: "shield", group: "Aktionen", keywords: "backup sichern sperrcode daten löschen vorbereiten", run: (r) => r.push("/vorbereitung") },
   { id: "act-wert", label: "Restwert schätzen", icon: "leaf", group: "Aktionen", keywords: "verkaufen wert ankauf", run: (r) => r.push("/ankauf") },
   { id: "act-theme", label: "Design wechseln", hint: "Hell / Dunkel", icon: "moon", group: "Aktionen", keywords: "dark light dunkel hell theme", keepOpen: true, run: () => toggleTheme() },
   { id: "act-call", label: "Anrufen", hint: site.phone, icon: "phone", group: "Aktionen", keywords: "telefon", run: () => { window.location.href = site.phoneHref; } },
@@ -87,6 +89,7 @@ export function CommandPalette() {
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const restoreRef = useRef<HTMLElement | null>(null);
 
   const results = useMemo(() => {
@@ -156,7 +159,27 @@ export function CommandPalette() {
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
+    if (e.key === "Tab") {
+      // Fokus im Dialog halten. Ohne diese Klammer wandert die Tabulatortaste
+      // aus der Palette heraus in die Seite dahinter, die durch den Scrim
+      // verdeckt ist – der Kommentar oben versprach die Falle, der Code hatte
+      // sie nicht. Ein Modal, das den Fokus verliert, ist für Tastatur- und
+      // Screenreader-Nutzung nicht bedienbar.
+      const focusables = panelRef.current?.querySelectorAll<HTMLElement>(
+        'input, button:not([tabindex="-1"]), a[href]',
+      );
+      if (!focusables || focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const activeEl = document.activeElement;
+      if (e.shiftKey && (activeEl === first || !panelRef.current?.contains(activeEl))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && activeEl === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    } else if (e.key === "Escape") {
       e.preventDefault();
       close();
     } else if (e.key === "ArrowDown") {
@@ -190,7 +213,10 @@ export function CommandPalette() {
         onClick={close}
         className="cmdk-scrim absolute inset-0 bg-ink-strong/25 backdrop-blur-sm"
       />
-      <div className="cmdk-panel relative w-full max-w-xl overflow-hidden rounded-[var(--radius-l)] border border-line bg-raised shadow-floating">
+      <div
+        ref={panelRef}
+        className="cmdk-panel relative w-full max-w-xl overflow-hidden rounded-[var(--radius-l)] border border-line bg-raised shadow-floating"
+      >
         <div className="flex items-center gap-3 border-b border-line px-4">
           <Icon name="search" size={19} className="shrink-0 text-ink-faint" />
           <input

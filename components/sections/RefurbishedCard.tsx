@@ -14,7 +14,7 @@ export function RefurbishedCard({ device }: { device: RefurbishedDevice }) {
   );
 
   return (
-    <article className="group flex h-full flex-col rounded-[var(--radius-l)] border border-line bg-raised p-6 shadow-raised transition-[box-shadow,transform] duration-[var(--duration-base)] ease-[var(--ease-out)] hover:-translate-y-0.5 hover:shadow-floating">
+    <article className="lift group flex h-full flex-col rounded-[var(--radius-xl)] border border-line bg-raised p-7 shadow-raised">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.14em] text-ink-faint">

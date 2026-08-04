@@ -1,3 +1,5 @@
+import type { DocType } from "./doctype";
+
 /**
  * Datenmodell der Rechnung.
  *
@@ -65,6 +67,8 @@ export interface Party {
 }
 
 export interface Invoice {
+  /** Belegart – steuert Sprache, Nummernkreis und Zahlungsabschnitt. */
+  docType: DocType;
   /** Fortlaufende Rechnungsnummer – § 14 Abs. 4 Nr. 4 UStG. */
   number: string;
   /** Ausstellungsdatum, ISO `YYYY-MM-DD`. */
@@ -92,6 +96,10 @@ export interface Invoice {
   paymentMethod: PaymentMethod;
   /** Bereits bezahlt – unterdrückt die Zahlungsaufforderung. */
   paid: boolean;
+  /** Zweitausfertigung – setzt den Stempel „Kopie". */
+  copy: boolean;
+  /** Bezug bei Storno und Gutschrift: die Ursprungsrechnung. */
+  reference: string;
 }
 
 /** Absender- und Bankdaten. Einmal hinterlegt, danach nie wieder angefasst. */

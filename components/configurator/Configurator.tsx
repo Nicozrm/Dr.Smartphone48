@@ -12,6 +12,7 @@ import {
   brands,
   findModel,
   repairsForModel,
+  type Brand,
   type DiagramPart,
   type RepairKind,
 } from "@/lib/data/devices";
@@ -19,9 +20,22 @@ import { formatEuro, formatMinutes } from "@/lib/format";
 import { site } from "@/lib/site";
 import { detectDevice, type DetectResult } from "@/lib/detect";
 import { ticketQuery } from "@/lib/ticket";
+import { useCountUp } from "@/lib/useCountUp";
 import { Icon } from "@/components/ui/Icon";
 import Link from "next/link";
 import { DeviceDiagram } from "./DeviceDiagram";
+import { BrandMark } from "./BrandMark";
+
+/**
+ * Günstigster Displaypreis einer Marke – die Zahl auf der Markenkachel.
+ * Kommt aus denselben Stammdaten wie der Rechner selbst, damit „ab" auch
+ * dann noch stimmt, wenn jemand einen Preis in devices.ts ändert.
+ */
+function cheapestDisplay(brand: Brand): number {
+  return Math.min(
+    ...brand.models.map((m) => m.prices.display ?? Number.POSITIVE_INFINITY),
+  );
+}
 
 /*
   Der Geräte-Vorschlag entsteht erst im Browser – der Server kennt die
@@ -73,6 +87,10 @@ export function Configurator() {
   const chosen = repairs.filter((r) => selected.includes(r.kind));
   const total = chosen.reduce((sum, r) => sum + r.price, 0);
   const minutes = chosen.reduce((sum, r) => sum + r.minutes, 0);
+  /* Der angezeigte Betrag läuft auf den gerechneten zu. `total` bleibt die
+     Wahrheit – in die E-Mail, ins Ticket und in die Zusammenfassung geht nie
+     der laufende Wert, sondern immer der endgültige. */
+  const shownTotal = useCountUp(total);
 
   const scrollTo = (ref: React.RefObject<HTMLDivElement | null>) => {
     requestAnimationFrame(() => {
@@ -143,10 +161,18 @@ export function Configurator() {
     setSubmitted(true);
   };
 
+  /*
+    Der Ruhezustand trägt bewusst keinen Schatten und der Hover einen weichen:
+    Wenn schon die unberührte Kachel schwebt, bleibt für die Reaktion nichts
+    übrig. Bewegung gibt es keine – bei einem Raster aus zehn Kacheln würde
+    jede angehobene Kachel die Reihe darunter optisch verziehen.
+  */
   const optionBase =
-    "cursor-pointer rounded-[var(--radius-m)] border text-left transition-[border-color,background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out)]";
-  const optionIdle = "border-line bg-raised hover:border-ink-faint";
-  const optionActive = "border-accent bg-accent-subtle shadow-[inset_0_0_0_1px_var(--accent)]";
+    "cursor-pointer rounded-[var(--radius-m)] border text-left transition-[border-color,background-color,box-shadow,scale] duration-[var(--duration-base)] ease-[var(--ease-out)]";
+  const optionIdle =
+    "border-line bg-raised hover:border-ink-faint hover:shadow-raised";
+  const optionActive =
+    "border-accent bg-accent-subtle shadow-[inset_0_0_0_1px_var(--accent)]";
 
   return (
     <div className="grid gap-10 lg:grid-cols-[1fr_420px] lg:gap-16">
@@ -155,7 +181,18 @@ export function Configurator() {
         {/* Schritt 1: Marke */}
         <section className="scroll-mt-24">
           <StepLabel number="01">Welche Marke?</StepLabel>
-          <div className="mt-5 grid grid-cols-3 gap-3">
+          {/*
+            Große Kacheln statt einer Reihe von Textknöpfen. Die Marke ist der
+            erste Schritt von vieren – wenn schon der erste wie ein Formular
+            aussieht, sind es die anderen drei auch.
+
+            Auf jeder Kachel steht der niedrigste Displaypreis der Baureihe.
+            Das ist die Zahl, wegen der die meisten hier sind, und sie steht
+            damit eine Interaktion früher als bisher. „Ab" ist wörtlich
+            gemeint: Sie kommt aus lib/data/devices.ts und ist der tatsächlich
+            günstigste Wert der Marke, keine Lockzahl.
+          */}
+          <div className="mt-5 grid grid-cols-3 gap-3 md:gap-4">
             {brands.map((b) => {
               // Die Erkennung markiert die passende Marke, statt einen Kasten
               // einzuschieben: absolut positioniert, damit die Schaltfläche
@@ -165,26 +202,41 @@ export function Configurator() {
                 !modelId &&
                 !detectDismissed &&
                 detected?.candidates.some((c) => c.brand.id === b.id) === true;
+              const activeBrand = brandId === b.id;
               return (
                 <button
                   key={b.id}
                   type="button"
                   onClick={() => chooseBrand(b.id)}
-                  aria-pressed={brandId === b.id}
-                  className={`${optionBase} ${
-                    brandId === b.id ? optionActive : optionIdle
-                  } relative px-4 py-5 text-center`}
+                  aria-pressed={activeBrand}
+                  data-ripple="ink"
+                  className={`${optionBase} press ${
+                    activeBrand ? optionActive : optionIdle
+                  } group relative flex flex-col items-center px-3 py-5 text-center md:px-4 md:py-6`}
                 >
                   {suggested ? (
                     <span className="absolute inset-x-0 -top-2.5 flex justify-center">
-                      <span className="inline-flex h-5 items-center rounded-full bg-accent px-2 font-mono text-[0.625rem] uppercase tracking-[0.08em] text-white">
+                      <span className="inline-flex h-5 items-center rounded-full bg-accent px-2 font-mono text-[0.625rem] uppercase tracking-[0.08em] text-accent-contrast">
                         erkannt
                       </span>
                     </span>
                   ) : null}
-                  <span className="block font-medium text-ink-strong">{b.name}</span>
-                  <span className="mt-1 block text-[0.8125rem] text-ink-soft">
+                  <BrandMark
+                    brand={b.id}
+                    className={`h-14 w-auto transition-[color,translate] duration-[var(--duration-base)] ease-[var(--ease-out)] md:h-16 ${
+                      activeBrand
+                        ? "text-accent"
+                        : "text-ink-faint group-hover:-translate-y-0.5 group-hover:text-ink-soft"
+                    }`}
+                  />
+                  <span className="mt-3.5 block font-medium text-ink-strong">
+                    {b.name}
+                  </span>
+                  <span className="mt-1 block text-[0.75rem] leading-snug text-ink-soft">
                     {b.models.length} Modelle
+                  </span>
+                  <span className="mt-2 block font-mono text-[0.75rem] text-ink-faint">
+                    Display ab {formatEuro(cheapestDisplay(b))}
                   </span>
                 </button>
               );
@@ -192,31 +244,53 @@ export function Configurator() {
           </div>
         </section>
 
-        {/* Schritt 2: Modell */}
+        {/* Schritt 2: Modell.
+            `inert` statt `aria-hidden` + `pointer-events-none`: Ein
+            aria-hidden-Bereich, dessen Schaltflächen weiter fokussierbar
+            bleiben, ist laut WCAG unzulässig. Die Tabulatortaste landete in
+            einem Feld, das die Vorlesehilfe nicht ankündigt und die Maus nicht
+            bedienen kann. `inert` nimmt den Teilbaum aus Fokusreihenfolge,
+            Zeigerereignissen und Barrierefreiheitsbaum zugleich. */}
         <section
           ref={modelRef}
           className={`scroll-mt-24 transition-opacity duration-[var(--duration-base)] ${
-            brand ? "opacity-100" : "pointer-events-none opacity-30"
+            brand ? "opacity-100" : "opacity-30"
           }`}
-          aria-hidden={!brand}
+          inert={!brand}
         >
           <StepLabel number="02">Welches Modell?</StepLabel>
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {(brand?.models ?? []).map((m) => (
+          <div
+            key={brand?.id ?? "keine"}
+            className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3"
+          >
+            {(brand?.models ?? []).map((m, i) => (
               <button
                 key={m.id}
                 type="button"
                 onClick={() => chooseModel(m.id)}
                 aria-pressed={modelId === m.id}
-                className={`${optionBase} ${
+                data-ripple="ink"
+                className={`${optionBase} press ${
                   modelId === m.id ? optionActive : optionIdle
-                } px-4 py-4`}
+                } model-card flex flex-col px-4 py-3.5`}
+                /* Gestaffelter Einlauf: Die Liste wechselt beim Markenwechsel
+                   komplett, und 8 bis 10 Kacheln, die gleichzeitig erscheinen,
+                   liest niemand – sie blinken nur. Der Versatz von 24 ms je
+                   Kachel führt den Blick von links oben nach rechts unten.
+                   `key` am Markenwechsel sorgt dafür, dass die Animation bei
+                   jedem Wechsel neu startet. */
+                style={{ animationDelay: `${Math.min(i, 11) * 24}ms` }}
               >
                 <span className="block text-[0.9375rem] font-medium text-ink-strong">
                   {m.name}
                 </span>
-                <span className="mt-0.5 block font-mono text-xs text-ink-faint">
-                  {m.year}
+                <span className="mt-1 flex items-baseline justify-between gap-2">
+                  <span className="font-mono text-xs text-ink-faint">{m.year}</span>
+                  {m.prices.display ? (
+                    <span className="font-mono text-xs text-ink-soft">
+                      ab {formatEuro(m.prices.display)}
+                    </span>
+                  ) : null}
                 </span>
               </button>
             ))}
@@ -227,9 +301,9 @@ export function Configurator() {
         <section
           ref={damageRef}
           className={`scroll-mt-24 transition-opacity duration-[var(--duration-base)] ${
-            entry ? "opacity-100" : "pointer-events-none opacity-30"
+            entry ? "opacity-100" : "opacity-30"
           }`}
-          aria-hidden={!entry}
+          inert={!entry}
         >
           <StepLabel number="03">Was ist defekt?</StepLabel>
           <p className="mt-2 pl-10 text-[0.9375rem] text-ink-soft">
@@ -250,7 +324,8 @@ export function Configurator() {
                       )
                     }
                     aria-pressed={active}
-                    className={`${optionBase} ${
+                    data-ripple="ink"
+                    className={`${optionBase} press ${
                       active ? optionActive : optionIdle
                     } flex w-full items-center justify-between gap-4 px-5 py-4`}
                   >
@@ -279,9 +354,9 @@ export function Configurator() {
         <section
           ref={formRef}
           className={`scroll-mt-24 transition-opacity duration-[var(--duration-base)] ${
-            chosen.length > 0 ? "opacity-100" : "pointer-events-none opacity-30"
+            chosen.length > 0 ? "opacity-100" : "opacity-30"
           }`}
-          aria-hidden={chosen.length === 0}
+          inert={chosen.length === 0}
         >
           <StepLabel number="04">Termin anfragen</StepLabel>
           <p className="mt-2 pl-10 text-[0.9375rem] text-ink-soft">
@@ -327,10 +402,14 @@ export function Configurator() {
             </label>
             <button
               type="submit"
-              className="inline-flex h-13 w-full items-center justify-center gap-2 rounded-full bg-accent px-7 text-base font-medium text-white transition-colors duration-[var(--duration-fast)] hover:bg-accent-hover sm:w-auto"
+              data-magnetic=""
+              data-ripple=""
+              className="press inline-flex h-13 w-full items-center justify-center rounded-full bg-accent px-7 text-base font-medium text-accent-contrast shadow-button transition-[background-color,box-shadow,scale] duration-[var(--duration-base)] hover:bg-accent-hover hover:shadow-[var(--shadow-button-hover)] sm:w-auto"
             >
-              Anfrage per E-Mail senden
-              <Icon name="arrow-right" size={18} />
+              <span className="relative z-[1] inline-flex items-center gap-2">
+                Anfrage per E-Mail senden
+                <Icon name="arrow-right" size={18} />
+              </span>
             </button>
             {submitted ? (
               <p className="flex items-center gap-2 text-[0.9375rem] text-positive">
@@ -344,7 +423,10 @@ export function Configurator() {
 
       {/* Rechte Spalte: Diagramm + Preis */}
       <aside className="lg:sticky lg:top-24 lg:self-start">
-        <div className="rounded-[var(--radius-l)] border border-line bg-raised p-6 shadow-raised">
+        {/* Glas statt Vollweiß und ein Lichtabfall von oben: Die Vorschau ist
+            das Schaufenster des Rechners, sie darf sich vom Formular daneben
+            unterscheiden. */}
+        <div className="glass-micro lightfall overflow-hidden rounded-[var(--radius-xl)] p-6 shadow-floating">
           <DeviceDiagram highlight={highlight} className="mx-auto w-full max-w-[300px]" />
 
           <div className="mt-2 border-t border-line pt-5">
@@ -398,7 +480,7 @@ export function Configurator() {
                         setSubmitted(false);
                         scrollTo(damageRef);
                       }}
-                      className="inline-flex h-9 items-center gap-1.5 rounded-full bg-accent px-3.5 text-[0.8125rem] font-medium text-white transition-colors hover:bg-accent-hover"
+                      className="inline-flex h-9 items-center gap-1.5 rounded-full bg-accent px-3.5 text-[0.8125rem] font-medium text-accent-contrast transition-colors hover:bg-accent-hover"
                     >
                       {c.brand.name} {c.model.name}
                       <Icon name="arrow-right" size={13} />
@@ -435,11 +517,26 @@ export function Configurator() {
 
             <div className="mt-4 flex items-baseline justify-between border-t border-line pt-4">
               <span className="text-[0.9375rem] font-medium text-ink-strong">Festpreis</span>
-              <span
-                key={total}
-                className="price-swap font-mono text-3xl font-semibold tracking-tight text-ink-strong"
-              >
-                {formatEuro(total)}
+              {/*
+                tabular-nums ist hier kein Detail, sondern die Bedingung dafür,
+                dass das Hochzählen erträglich ist: Mit proportionalen Ziffern
+                ändert sich bei jedem Zwischenwert die Breite, und der Betrag
+                zappelt während des Laufs seitlich hin und her.
+
+                aria-live meldet den Endbetrag, nicht jeden Zwischenschritt –
+                deshalb steht der gerechnete Wert im Text der Vorlesehilfe und
+                der laufende nur im sichtbaren Feld.
+              */}
+              <span className="relative">
+                <span
+                  aria-hidden="true"
+                  className="font-mono text-3xl font-semibold tabular-nums tracking-tight text-ink-strong"
+                >
+                  {formatEuro(shownTotal)}
+                </span>
+                <span className="sr-only" aria-live="polite">
+                  Festpreis {formatEuro(total)}
+                </span>
               </span>
             </div>
 

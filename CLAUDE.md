@@ -20,6 +20,7 @@ npm run dev           # Entwicklungsserver
 npm run build         # Server-Build (Vercel, Cloudflare Workers)
 npm run build:static  # Statischer Export nach ./out (ohne /api)
 npm run lint          # ESLint
+npm run verify        # Prüfstand: die Regeln dieser Datei, ausgeführt
 npm run verify:qr     # QR-Encoder gegen ISO/IEC 18004 prüfen
 
 npm run cf:build      # Cloudflare-Worker bauen (OpenNext)
@@ -30,10 +31,41 @@ node scripts/generate-icons.mjs   # PWA-Icons neu rendern (headless Chromium)
 node scripts/generate-og.mjs      # public/og.png neu rendern (Link-Vorschaubild)
 ```
 
-Es gibt keine Test-Suite. Verifikation = `npm run build` + `npm run lint`.
-Einzige Ausnahme: `scripts/verify-qr.mjs` prüft den QR-Encoder gegen die
-Norm – er ist der einzige Code hier, bei dem ein stiller Fehler zu einem
-unlesbaren Ausdruck führt, ohne dass es jemandem auffällt.
+Es gibt keine Test-Suite. Verifikation = `npm run build` + `npm run lint`
++ **`npm run verify`**.
+
+### Der Prüfstand (`scripts/verify.mjs`)
+
+Die Regeln in dieser Datei sind ausführbar. Der Grund steht in der
+Fehlergeschichte des Projekts: Nacheinander sind ein Kontrastwert unter dem
+Schwellenwert, jede Unterseite mit der Startseite als kanonischer URL,
+Markdown-Sternchen in gerendertem Text, zweimal ein Backtick im GLSL-Literal
+und ein reserviertes Wort als Shader-Variable durchgerutscht. Keiner dieser
+Fehler war schwer zu finden. Alle waren schwer zu **bemerken**.
+
+Geprüft wird:
+
+| Prüfung | Worauf |
+|---|---|
+| Kontrast | alle Ink×Flächen-Paare in beiden Themes ≥ 4.5:1, Statusfarben, `--accent-contrast` auf `--accent`, kein `text-white` auf `bg-accent` |
+| Redaktion | keine Markdown-Betonung in `lib/data/`-Textwerten, keine feste Garantiedauer außerhalb `site.ts` |
+| Shader | kein Backtick im GLSL-Literal, keine GLSL-Schlüsselwörter als Bezeichner |
+| Metadaten | jede Route nutzt `pageMeta()` |
+| Export | eigener Canonical je Seite, `og:image` überall, nichts zugleich in Sitemap und auf `noindex` |
+
+Die Export-Prüfungen laufen nur, wenn `./out` vorliegt – also nach
+`npm run build:static`. In CI läuft der Prüfstand zweimal: vor dem Build für
+den Quelltext, danach für den Export.
+
+**Wer eine Regel ergänzt, ergänzt die Prüfung.** Und wer eine Prüfung
+schreibt, baut den Fehler einmal absichtlich ein und sieht nach, ob sie
+anschlägt – die `text-white`-Prüfung sah beim ersten Selbsttest nur in
+`className`-Attribute und übersah damit genau die Stelle, an der der Fehler
+tatsächlich saß.
+
+`scripts/verify-qr.mjs` bleibt eigenständig: Es prüft den QR-Encoder gegen
+ISO/IEC 18004, weil dort ein stiller Fehler zu einem unlesbaren Ausdruck
+führt, ohne dass es jemandem auffällt.
 
 ## Deployment (Cloudflare Workers – empfohlen)
 
@@ -101,6 +133,7 @@ app/                     App-Router-Seiten (alle statisch prerendert)
   reparatur/             Sofortpreis-Rechner (Signature-Feature) + FAQ
   notfall/               Notfall-Protokolle (ohne JS lesbar, offline im Cache)
   check/                 Geräte-Check: Sensor-Diagnose im Browser
+  vorbereitung/          Übergabe-Assistent: was vor der Abgabe zu tun ist
   ankauf/                Restwert-Rechner mit offengelegter Rechnung
   zwilling/              Digitaler Zwilling, Akku-Coach, Reparieren-oder-neu
   ticket/                Reparatur-Ticket + Übergabeprotokoll (noindex)
@@ -121,6 +154,7 @@ components/
   experience/            Bootloader, CommandPalette (⌘K), ShaderField (WebGL-Hero),
                          DeviceExploded, XRay, MagneticField, ScrollProgress
   check/                 DeviceCheck (Display-, Sensor-, Audio-, Akku-Tests)
+  handover/              HandoverAssistant (Vorbereitung zur Abgabe)
   twin/                  DigitalTwin, RepairOrReplace
   battery/               BatteryCoach (3-Jahres-Prognose)
   resale/                ResaleCalculator (Ankauf)
@@ -139,7 +173,7 @@ lib/
   battery.ts             Alterungsmodell (kalendarisch + zyklisch)
   format.ts detect.ts theme.ts
   data/                  devices.ts (Modelle, Preise, Ankaufswerte), refurbished.ts,
-                         faq.ts, reviews.ts, emergency.ts
+                         faq.ts, reviews.ts, emergency.ts, handover.ts
   invoice/               types.ts calc.ts (Cent-Arithmetik) catalog.ts validate.ts
                          (§ 14 UStG) store.ts (localStorage) girocode.ts qr.ts
                          einvoice.ts + cii.ts (E-Rechnung nach EN 16931)
@@ -158,6 +192,20 @@ scripts/
 - **Design-Tokens** ausschließlich über die CSS-Variablen in `app/globals.css`
   (Farben `--ink-*`/`--surface-*`, Radius `--radius-*`, Motion `--ease-*`,
   `--duration-*`). Keine Ad-hoc-Farben oder -Timings.
+- **Der Akzent atmet – aber nur als Fläche.** `--accent-a` und `--accent-b`
+  sind die Endpunkte; die Klasse `.breathe` (an der primären Schaltfläche)
+  wandert über zwölf Sekunden zwischen ihnen. `--accent` selbst steht still
+  und gilt für Linien, Schrift und Ränder. Wer den Ton ändert, ändert alle
+  drei Werte gemeinsam.
+
+  **Nicht auf Custom Properties umbauen.** Der naheliegende Weg – eine per
+  `@property` registrierte Zahl animieren und `--accent` daraus mischen –
+  kostet auf einem vierfach gedrosselten Telefon 1282 ms zusätzliche
+  Stil-Neuberechnung, mehr als alles andere auf der Seite zusammen: Chromium
+  rechnet bei animierten Custom Properties je Bild den Stil neu, weitgehend
+  unabhängig davon, ob sie vererbt werden (672 ms selbst an nur drei
+  Elementen). Die direkte Animation von `background-color` kostet 83 ms.
+  Gemessen mit `Tracing` über `UpdateLayoutTree`, Median aus drei Läufen.
 - **Animationen**: dezent und zweckgebunden (siehe `Task`). Scroll-Reveals über
   die `Reveal`-Komponente (IntersectionObserver setzt `data-revealed`, Bewegung
   lebt in CSS). `prefers-reduced-motion` wird überall respektiert; ohne JS
@@ -168,6 +216,32 @@ scripts/
   die Werkzeuge unter check/, twin/, battery/, resale/, ticket/, parts/).
 - Alle Firmendaten (Adresse, Telefon, Reparatur- und Ankaufspreise,
   Impressum) sind **Platzhalter** und vor dem Livegang zu ersetzen.
+
+### Kontrast: die Tonleiter ist gemessen, nicht geschätzt
+
+Alle vier Textstufen (`--ink-strong`, `--ink`, `--ink-soft`, `--ink-faint`)
+erreichen in beiden Themes mindestens **4.5:1** gegen die dunkelste Fläche, auf
+der sie stehen (`--surface-sunken`). Das ist kein Zufallsergebnis: Zuvor lag
+`--ink-soft` bei 4.31:1 und `--ink-faint` bei 2.25:1 – an ihnen hängt der
+gesamte Fließtext bzw. die Vertrauenszeile im Hero.
+
+Wer eine dieser Farben anfasst, rechnet nach. Ebenso bei neuen Status- oder
+Flächenfarben.
+
+Auf gefüllten Akzentflächen gilt **`text-accent-contrast`**, nie `text-white`.
+Grund: `--accent` muss im Dunkelmodus aufgehellt sein, um als Textfarbe auf
+Schwarz zu bestehen – Weiß darauf käme dann nur noch auf 3.33:1. Das eigene
+Token löst hell zu Weiß und dunkel zu `#101114` auf.
+
+### Gesperrte Bereiche: `inert`, nicht `aria-hidden`
+
+Ausgegraute Abschnitte (etwa die noch nicht freigeschalteten Schritte im
+Konfigurator) bekommen `inert`. `aria-hidden` mit weiterhin fokussierbaren
+Schaltflächen darin ist laut WCAG unzulässig und erzeugt eine tote Zone: Die
+Tabulatortaste landet in einem Feld, das die Vorlesehilfe nicht ankündigt und
+die Maus nicht bedienen kann. `inert` nimmt Fokusreihenfolge,
+Zeigerereignisse und Barrierefreiheitsbaum in einem Zug – ein zusätzliches
+`pointer-events-none` erübrigt sich damit.
 
 ### Metadaten: jede Seite setzt ihre eigenen
 
@@ -213,11 +287,21 @@ per Seiten-Metadaten, `Disallow: /intern/` in `robots.ts`.
   Rechnung und Sofortpreis-Rechner nicht auseinanderlaufen.
 - **Das Blatt ist ein Blatt:** 210 × 297 mm, `overflow: hidden`, alle Maße in
   Millimetern, Anschriftfeld nach DIN 5008 Form B. Was nicht draufpasst, wird
-  abgeschnitten – deshalb misst `InvoiceBuilder` die Unterkante des Inhalts
-  gegen die Fußzeile (`data-sheet-body` / `data-sheet-foot`) und meldet einen
-  Überlauf als Pflichtfehler. Ohne diese Messung druckt das Werkzeug
-  wortlos Rechnungen ohne Rechnungsbetrag. Etwa sechs Positionen mit Zusatzzeile
-  passen; mehr braucht echte Mehrseitigkeit, die es noch nicht gibt.
+  abgeschnitten.
+- **Mehrseitigkeit** rechnet `lib/invoice/paginate.ts`: Es verteilt die
+  Positionen auf Blätter, setzt auf jedes Folgeblatt einen Fortsetzungskopf
+  („Rechnung … · Seite 2 von 2") und führt den **Übertrag** als erste Zeile
+  mit. Der Übertrag ist der Bruttobetrag der vorangegangenen Blätter – wer
+  hier etwas ändert, prüft, dass Übertrag plus Folgepositionen wieder die
+  Endsumme ergeben.
+- **Belegarten** (`lib/invoice/doctype.ts`): Rechnung, Kostenvoranschlag,
+  Angebot, Gutschrift, Storno. Dieselben Positionen und dieselbe Rechenlogik,
+  anderes Kürzel im Nummernkreis und andere Sprache im Blatt.
+- **Der Briefkopf** (`components/invoice/Letterhead.tsx`) borgt sich drei
+  Techniken aus dem Wertpapierdruck: Mikroschrift statt Haarlinie,
+  Guillochenrosette als Wasserzeichen, Millimeterskala am Rand. Alle drei
+  sind reines CSS/SVG – kein Bildmaterial, keine Schriftdatei, null Byte
+  Ladelast.
 - **Der Druck-Block in `globals.css` blendet `body > header` / `body > footer`
   aus, nicht `header` / `footer`.** Der Fuß des Rechnungsblatts trägt
   Steuernummer, USt-IdNr. und Bankverbindung; ein Selektor auf das nackte
@@ -305,6 +389,29 @@ Netz und auf jedem Gerät funktionieren. Deshalb stehen dort alle vier
 Protokolle vollständig im HTML statt hinter einem Umschalter, und deshalb
 steht die Seite an erster Stelle im Precache des Service Workers. Wer daran
 etwas ändert, prüft beides.
+
+### Übergabe-Assistent (`/vorbereitung`)
+
+Beantwortet, was vor einer Abgabe zu erledigen ist – und grenzt sich damit
+bewusst von `/ticket` ab: Das Ticket **protokolliert** am Tresen, dass Backup
+und Gerätesuche erledigt sind, diese Seite erklärt zu Hause das **Wie**.
+
+- **Jeder Schritt nennt seine Folge** (`ifSkipped` in `lib/data/handover.ts`).
+  Nicht „bitte erledigen", sondern was konkret entfällt. Neue Schritte ohne
+  diese Angabe sind unvollständig.
+- **Menüpfade sind Beispiele, keine Zusicherung.** Apple und die
+  Android-Hersteller benennen Menüs um; wo ein Pfad veralten kann, steht das
+  dabei, statt eine Genauigkeit zu behaupten, die niemand pflegt.
+- **Der Sperrcode ist eine Abwägung, keine Aufforderung.** Für alle drei Wege
+  steht, welche Prüfungen möglich bleiben (`covered`) und welche entfallen
+  (`notCovered`). Die Werkstatt hat ein Interesse am bequemsten Weg – das ist
+  kein Grund, die anderen schlechtzureden. Wer hier etwas ändert, prüft, dass
+  `notCovered` weiterhin vollständig ist.
+- **Keine Markdown-Syntax in den Textwerten.** Die Strings werden direkt
+  gerendert; `**fett**` erscheint wörtlich auf der Seite. Betonung gehört in
+  die Formulierung.
+- Der Fortschritt steht in der Adresse (`?p=ios&ok=backup.lock&c=muendlich`) –
+  nichts Persönliches, kein Speicher, teilbar wie das Ticket.
 
 ### Personenbezogene Daten
 

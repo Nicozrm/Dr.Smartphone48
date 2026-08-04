@@ -11,12 +11,27 @@ import { Icon } from "@/components/ui/Icon";
   auseinander; der Zeiger kippt die Szene, jede Schicht ist ein
   Reparaturweg mit Preis.
 
+  Das Auffächern hängt am Scrollstand: Das Gerät öffnet sich, während die
+  Sektion ins Bild läuft, steht in der Bildmitte vollständig zerlegt und
+  schließt sich wieder, während sie hinausläuft. Kein Scroll-Hijacking – die
+  Seite scrollt normal weiter, nur der Abstand der Schichten folgt der
+  Position. Wer nicht scrollt, sieht nichts passieren.
+
+  Zwei Bewegungen laufen gleichzeitig und dürfen sich nicht ins Gehege
+  kommen, deshalb liegen sie auf getrennten CSS-Eigenschaften:
+
+    translate  →  der Scrollstand, ohne Transition (er ist die Bewegung)
+    transform  →  Hover und Befund, mit Transition (sie sind Reaktionen)
+
+  In einer gemeinsamen transform-Kette müsste eine der beiden die Transition
+  der anderen erben: Entweder der Scroll schleppt um eine halbe Sekunde nach,
+  oder die Bauteilkarte springt statt zu gleiten.
+
   Bewusst ohne Bibliothek: pure CSS-3D-Transforms (transform-style:
-  preserve-3d, translateZ). Die Parallaxe läuft GPU-nah per rAF, das
-  Auffächern lebt als CSS-Transition. prefers-reduced-motion schaltet die
-  Bewegung ab (statische, gefächerte Ansicht); ohne Zeiger bleibt alles
-  bedien- und lesbar. Eine unsichtbare Liste trägt denselben Inhalt
-  barrierefrei nach.
+  preserve-3d, translateZ). Die Parallaxe läuft GPU-nah per rAF.
+  prefers-reduced-motion schaltet die Bewegung ab (statische, gefächerte
+  Ansicht); ohne Zeiger bleibt alles bedien- und lesbar. Eine unsichtbare
+  Liste trägt denselben Inhalt barrierefrei nach.
 */
 
 interface Layer {
@@ -215,16 +230,43 @@ const layers: Layer[] = [
   },
 ];
 
+/*
+  Die Ruhelage der Szene.
+
+  Ohne Gierwinkel steht die Explosionszeichnung frontal – und frontal sieht
+  eine Auffächerung entlang der Tiefenachse aus wie ein Stapel Papier von
+  oben: Die Schichten liegen exakt hintereinander, die Trennung ist nur an
+  den Größenunterschieden der Perspektive ablesbar. Erst die Vierteldrehung
+  macht aus dem Stapel eine Reihe.
+
+  Sie ist der Grundzustand, nicht der Effekt: Auf Touch-Geräten und ohne
+  Zeigerbewegung bleibt es dabei, und genau dort muss die Zeichnung ohne
+  jede Interaktion lesbar sein.
+*/
+const REST_X = 16;
+const REST_Y = -19;
+
+/** Abstand der Schichten im Ruhezustand und am Umkehrpunkt (in px). */
+const GAP_CLOSED = 6;
+const GAP_OPEN = 72;
+/** Abstand, solange ein Befund offen ist – weit genug zum Zielen, ruhig genug
+    zum Lesen. */
+const GAP_PINNED = 44;
+
 export function DeviceExploded() {
   const stageRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(false);
-  const [exploded, setExploded] = useState(true);
   const [hovered, setHovered] = useState<string | null>(null);
   /** Isolierte Schicht („MRT-Schnitt"): tritt nach vorn, Rest weicht zurück. */
   const [focused, setFocused] = useState<Layer | null>(null);
 
-  // In-View: Szene fächert auf.
+  /** Solange ein Befund offen ist, darf der Scrollstand nichts mehr bewegen. */
+  const pinnedRef = useRef(false);
+  /** Neuberechnung von außen anstoßen (beim Schließen des Befunds). */
+  const syncRef = useRef<() => void>(() => {});
+
+  // In-View: Schichten blenden ein.
   useEffect(() => {
     const el = stageRef.current;
     if (!el) return;
@@ -241,6 +283,74 @@ export function DeviceExploded() {
     return () => io.disconnect();
   }, []);
 
+  /*
+    Der Scrollantrieb.
+
+    Der Fortschritt misst, wie weit die Bühne das Sichtfeld durchquert hat:
+    0, wenn ihre Oberkante gerade unten hereinkommt, 1, wenn ihre Unterkante
+    oben verschwindet. Der Sinus macht daraus eine Hin- und Rückbewegung mit
+    dem Maximum genau in der Mitte – und weil ein Sinus an seinen Enden flach
+    ausläuft, beginnt und endet das Zerlegen von selbst sanft, ohne
+    zusätzliche Kurve.
+
+    Geschrieben wird eine einzige CSS-Variable auf der Szene. Die fünf
+    Schichten multiplizieren sie in CSS mit ihrem festen Faktor – kein
+    React-Rendering je Bild, ein Style-Recalc statt fünf.
+  */
+  useEffect(() => {
+    const stage = stageRef.current;
+    const scene = sceneRef.current;
+    if (!stage || !scene) return;
+
+    // Ohne Bewegungswunsch bleibt die Szene stehen – dann aber aufgefächert,
+    // denn eine zusammengeklappte Explosionszeichnung zeigt nichts.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      scene.style.setProperty("--gap", `${GAP_OPEN}px`);
+      return;
+    }
+
+    let raf = 0;
+    const compute = () => {
+      raf = 0;
+      if (pinnedRef.current) return;
+      const r = stage.getBoundingClientRect();
+      const vh = window.innerHeight || 1;
+      const span = vh + r.height;
+      const p = Math.min(1, Math.max(0, (vh - r.top) / span));
+      const open = Math.sin(Math.PI * p);
+      scene.style.setProperty(
+        "--gap",
+        `${(GAP_CLOSED + (GAP_OPEN - GAP_CLOSED) * open).toFixed(1)}px`,
+      );
+    };
+    syncRef.current = compute;
+
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(compute);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    compute();
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+
+  // Befund offen: Abstand einfrieren. Befund zu: Scrollstand übernimmt wieder.
+  useEffect(() => {
+    pinnedRef.current = focused !== null;
+    const scene = sceneRef.current;
+    if (!scene) return;
+    if (focused) {
+      scene.style.setProperty("--gap", `${GAP_PINNED}px`);
+    } else {
+      syncRef.current();
+    }
+  }, [focused]);
+
   // Zeiger-Parallaxe (rAF, eigenständig von den CSS-Transitions der Schichten).
   useEffect(() => {
     const stage = stageRef.current;
@@ -256,7 +366,7 @@ export function DeviceExploded() {
     const tick = () => {
       cur.rx += (cur.tx - cur.rx) * 0.08;
       cur.ry += (cur.ty - cur.ry) * 0.08;
-      scene.style.transform = `rotateX(${(18 + cur.ry).toFixed(2)}deg) rotateY(${cur.rx.toFixed(2)}deg)`;
+      scene.style.transform = `rotateX(${(REST_X + cur.ry).toFixed(2)}deg) rotateY(${(REST_Y + cur.rx).toFixed(2)}deg)`;
       if (inside || Math.abs(cur.tx - cur.rx) > 0.05 || Math.abs(cur.ty - cur.ry) > 0.05) {
         raf = requestAnimationFrame(tick);
       } else {
@@ -290,7 +400,6 @@ export function DeviceExploded() {
     };
   }, []);
 
-  const gap = exploded && active ? 62 : 8;
   const mid = (layers.length - 1) / 2;
 
   return (
@@ -309,7 +418,7 @@ export function DeviceExploded() {
             width: W,
             height: H,
             transformStyle: "preserve-3d",
-            transform: "rotateX(18deg) rotateY(0deg)",
+            transform: `rotateX(${REST_X}deg) rotateY(${REST_Y}deg)`,
             scale: "0.82",
           }}
         >
@@ -319,11 +428,13 @@ export function DeviceExploded() {
             // Im MRT-Schnitt tritt die gewählte Schicht heraus, alle anderen
             // weichen zurück und verlieren an Präsenz.
             const dim = focused ? !isFocus : hovered !== null && !isHover;
-            const z = focused
-              ? isFocus
-                ? 150
-                : (mid - l.depth) * gap - 70
-              : (mid - l.depth) * gap + (isHover ? 34 : 0);
+            /* Fester Faktor je Schicht: 2, 1, 0, -1, -2. Multipliziert wird
+               er erst in CSS mit dem laufenden --gap. */
+            const coef = (mid - l.depth).toFixed(2);
+            /* Der Zuschlag oben drauf ist eine Reaktion, keine Position:
+               Hover hebt an, der Befund holt die Schicht ganz nach vorn und
+               schiebt die übrigen hinter die Bildebene. */
+            const lift = focused ? (isFocus ? 150 : -70) : isHover ? 34 : 0;
             return (
               <button
                 key={l.id}
@@ -337,17 +448,20 @@ export function DeviceExploded() {
                 aria-label={`${l.name} – Bauteilbefund öffnen`}
                 className="group absolute inset-0 rounded-[34px] outline-none"
                 style={{
-                  transform: `translateZ(${z}px)`,
+                  // Scrollstand: ohne Transition, er ist selbst die Bewegung.
+                  translate: `0 0 calc(var(--gap, ${GAP_CLOSED}px) * ${coef})`,
+                  // Reaktionen: mit Transition.
+                  transform: `translateZ(${lift}px)`,
                   // Ohne explizite Stapelordnung gewinnt die DOM-Reihenfolge das
                   // Hit-Testing: die hinterste Schicht fängt dann die Klicks der
                   // vordersten ab. z-index folgt daher der sichtbaren Tiefe.
                   zIndex: focused ? (isFocus ? layers.length + 1 : 0) : layers.length - l.depth,
                   transition:
-                    "transform 720ms var(--ease-out), opacity 360ms var(--ease-out), filter 360ms var(--ease-out)",
+                    "transform var(--duration-area) var(--ease-glide), opacity 360ms var(--ease-out), filter 360ms var(--ease-out)",
                   transitionDelay: active && !focused ? `${l.depth * 55}ms` : "0ms",
                   opacity: active ? (dim ? 0.22 : 1) : 0,
                   filter: dim ? "saturate(0.5) blur(1.5px)" : "none",
-                  boxShadow: isHover ? "var(--shadow-floating)" : "var(--shadow-raised)",
+                  boxShadow: isHover ? "var(--shadow-lifted)" : "var(--shadow-raised)",
                   transformStyle: "preserve-3d",
                   // Zurückgetretene Schichten dürfen keine Klicks mehr abfangen.
                   pointerEvents: dim ? "none" : "auto",
@@ -440,29 +554,26 @@ export function DeviceExploded() {
             <Link
               href="/reparatur"
               data-magnetic=""
-              className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-accent px-5 text-[0.9375rem] font-medium text-white shadow-button transition-colors hover:bg-accent-hover"
-              style={{ transitionProperty: "background-color" }}
+              data-ripple=""
+              className="press mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-accent px-5 text-[0.9375rem] font-medium text-accent-contrast shadow-button transition-[background-color,box-shadow,scale] duration-[var(--duration-base)] hover:bg-accent-hover hover:shadow-[var(--shadow-button-hover)]"
             >
-              Preis für mein Modell
-              <Icon name="arrow-right" size={16} />
+              <span className="relative z-[1] inline-flex items-center gap-2">
+                Preis für mein Modell
+                <Icon name="arrow-right" size={16} />
+              </span>
             </Link>
           </div>
         ) : (
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setExploded((v) => !v)}
-            data-magnetic=""
-            className="inline-flex h-11 items-center gap-2 rounded-full border border-line-strong px-5 text-[0.9375rem] font-medium text-ink-strong transition-colors duration-[var(--duration-fast)] hover:border-ink-strong"
-            style={{ transitionProperty: "border-color, color" }}
-          >
-            {exploded ? "Zusammenklappen" : "Auffächern"}
-            <Icon name={exploded ? "close" : "sparkle"} size={16} />
-          </button>
+          /*
+            Kein Auffächern-Knopf mehr: Diese Aufgabe hat jetzt der
+            Scrollstand. Was bleibt, ist der Hinweis darauf – und die Liste
+            darunter, über die jeder Befund auch ohne Zeiger, ohne Scrollen
+            und mit der Tastatur erreichbar ist.
+          */
           <p className="text-[0.875rem] text-ink-faint">
-            Zeiger bewegen zum Kippen · Bauteil anklicken für den Befund
+            Scrollen zerlegt das Gerät · Zeiger bewegen zum Kippen · Bauteil
+            anklicken für den Befund
           </p>
-        </div>
         )}
 
         <ul className="mt-6 divide-y divide-line border-y border-line">

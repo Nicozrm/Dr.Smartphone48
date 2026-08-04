@@ -6,6 +6,14 @@
   Alles andere ist Ton-in-Ton.
 */
 
+/*
+  Registrierte Eigenschaft für den Atem des Akzents. Nicht registrierte
+  Custom Properties gelten dem Browser als Zeichenketten – er schaltet sie
+  hart um, statt zu interpolieren. Erst @property macht aus 0% → 100% eine
+  Bewegung.
+*/
+
+
 :root {
   /* Flächen */
   --surface-page: #f7f7f5;
@@ -14,11 +22,16 @@
   --surface-inverse: #101114;
   --surface-inverse-raised: #1a1c20;
 
-  /* Text */
+  /* Text – vier Stufen, alle mindestens 4.5:1 auf der dunkelsten Fläche
+     (--surface-sunken). Die Werte sind gemessen, nicht geschätzt:
+     ink-soft trug zuvor #71757c (4.31:1) und ink-faint #a4a7ad (2.25:1) –
+     beide unter dem AA-Schwellenwert, obwohl an ihnen der gesamte Fließtext
+     bzw. die Vertrauenszeile im Hero hängt. Die Leiter ist neu verteilt,
+     damit die Abstufung sichtbar bleibt und trotzdem jede Stufe lesbar ist. */
   --ink-strong: #141517;
   --ink: #3d4045;
-  --ink-soft: #71757c;
-  --ink-faint: #a4a7ad;
+  --ink-soft: #5b5f64;
+  --ink-faint: #696b6f;
   --ink-inverse: #f5f5f3;
   --ink-inverse-soft: #9d9fa6;
 
@@ -27,16 +40,37 @@
   --line-strong: rgba(20, 21, 23, 0.18);
   --line-inverse: rgba(245, 245, 243, 0.14);
 
-  /* Akzent – ein einziges, präzises Blau */
-  --accent: #2456e6;
+  /*
+    Akzent – ein einziges, präzises Blau, das atmet.
+
+    --accent-a und --accent-b sind die beiden Endpunkte, zwischen denen die
+    Klasse `.breathe` über zwölf Sekunden hin und her wandert (siehe unten).
+    Der Abstand ist absichtlich kleiner als das, was man bewusst bemerkt:
+    Wer hinsieht, sieht nichts; wer eine Weile bleibt, empfindet die Seite
+    als lebendig statt als Bild.
+
+    --accent selbst steht still. Es ist der Ton für Linien, Schrift und
+    Ränder – Flächen, bei denen eine Bewegung entweder unsichtbar wäre oder
+    störte. Wer den Akzent ändert, ändert alle drei Werte gemeinsam.
+  */
+  --accent-a: #2456e6;
+  --accent-b: #2f63f2;
+  --accent: var(--accent-a);
   --accent-hover: #1c47c4;
   --accent-subtle: rgba(36, 86, 230, 0.08);
   --accent-inverse: #6b93ff;
+  /* Schriftfarbe auf gefüllter Akzentfläche. Eigenes Token, weil --accent im
+     Dunkelmodus aufgehellt werden muss, um als Textfarbe auf Schwarz zu
+     bestehen – Weiß darauf käme dann nur noch auf 3.33:1. */
+  --accent-contrast: #ffffff;
 
-  /* Status (sparsam eingesetzt) */
-  --positive: #1a7f4b;
+  /* Status (sparsam eingesetzt) – ebenfalls auf 4.5:1 gegen sunken geprüft. */
+  --positive: #197c4a;
   --positive-subtle: rgba(26, 127, 75, 0.1);
-  --warn: #9a6b00;
+  /* 4.70:1 auf sunken. Der Vorgängerwert #916500 lag bei 4.48:1 – rechnerisch
+     auf die Schwelle gezielt und von der Rundung darunter gekippt. Der
+     Prüfstand hat es gefunden, nicht das Auge. */
+  --warn: #8d6200;
   --warn-subtle: rgba(154, 107, 0, 0.1);
   --danger: #c0362c;
   --danger-subtle: rgba(192, 54, 44, 0.1);
@@ -45,25 +79,83 @@
   --radius-s: 8px;
   --radius-m: 14px;
   --radius-l: 22px;
+  --radius-xl: 30px;
   --radius-full: 999px;
 
-  /* Schatten – weich, mehrstufig, nur wo funktional */
+  /*
+    Schatten – vier bis fünf Ebenen statt einer.
+
+    Ein einzelner Schatten sieht immer aus wie ein Aufkleber: eine Fläche, ein
+    Abstand, fertig. Echtes Licht fällt anders. Nah am Objekt sitzt ein harter,
+    fast schwarzer Kontaktschatten; darüber liegen zunehmend größere, weichere
+    und blassere Ebenen. Jede Stufe verdoppelt ungefähr Weite und Versatz und
+    halbiert die Deckkraft – dieselbe Progression, die auch ein Fotograf im
+    Studio aufbaut. Zusammen ergibt das eine Kante, die man nicht mehr als
+    Effekt liest, sondern als Gewicht.
+  */
   --shadow-raised:
-    0 1px 2px rgba(20, 21, 23, 0.04),
-    0 4px 12px rgba(20, 21, 23, 0.05);
+    0 0.5px 1px rgba(20, 21, 23, 0.035),
+    0 2px 4px rgba(20, 21, 23, 0.03),
+    0 6px 14px rgba(20, 21, 23, 0.035);
   --shadow-floating:
-    0 1px 2px rgba(20, 21, 23, 0.05),
-    0 8px 24px rgba(20, 21, 23, 0.08),
-    0 24px 64px rgba(20, 21, 23, 0.07);
+    0 0.5px 1px rgba(20, 21, 23, 0.04),
+    0 3px 6px rgba(20, 21, 23, 0.035),
+    0 10px 22px rgba(20, 21, 23, 0.05),
+    0 26px 56px rgba(20, 21, 23, 0.055);
+  /* Angehoben: der Hover-Zustand von Karten. Dieselbe Lichtquelle, nur weiter
+     von der Fläche entfernt – deshalb weicher und ausgedehnter, nicht dunkler. */
+  --shadow-lifted:
+    0 0.5px 1px rgba(20, 21, 23, 0.04),
+    0 4px 8px rgba(20, 21, 23, 0.04),
+    0 14px 30px rgba(20, 21, 23, 0.055),
+    0 36px 76px rgba(20, 21, 23, 0.07);
   --shadow-button:
     0 1px 2px rgba(20, 21, 23, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    0 4px 10px -2px rgba(36, 86, 230, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  --shadow-button-hover:
+    0 1px 2px rgba(20, 21, 23, 0.18),
+    0 8px 22px -4px rgba(36, 86, 230, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+
+  /*
+    Licht statt Farbe.
+
+    Ein Farbverlauf mischt zwei Töne. Ein Lichtverlauf simuliert eine Quelle:
+    hell und gesättigt im Kern, schnell abfallend, mit einem langen, fast
+    unsichtbaren Ausläufer. Deshalb stehen hier drei Stopps mit ungleichen
+    Abständen statt zweier gleichmäßiger – nur so bleibt der Ausläufer weich
+    genug, dass die Kante nicht als Ring sichtbar wird.
+  */
+  --light-ambient: radial-gradient(
+    120% 78% at 50% -12%,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 255, 255, 0.42) 34%,
+    rgba(255, 255, 255, 0) 72%
+  );
+  --light-accent: radial-gradient(
+    62% 52% at 50% 0%,
+    rgba(36, 86, 230, 0.09) 0%,
+    rgba(36, 86, 230, 0.028) 42%,
+    rgba(36, 86, 230, 0) 76%
+  );
+  /* Specular: der wandernde Glanz auf Glas. Folgt dem Zeiger über --gx/--gy. */
+  --light-specular: radial-gradient(
+    38% 34% at var(--gx, 50%) var(--gy, 32%),
+    rgba(255, 255, 255, 0.7) 0%,
+    rgba(255, 255, 255, 0.16) 38%,
+    rgba(255, 255, 255, 0) 72%
+  );
 
   /* Liquid Glass – echte Tiefe statt billigem Glassmorphism.
      Drei Stufen: Header (subtil), Panel (Karten), Dialog (schwebend).
      Jede Stufe kombiniert Sättigung + Unschärfe + eine Lichtkante. */
   --glass-bg: rgba(255, 255, 255, 0.62);
   --glass-bg-strong: rgba(255, 255, 255, 0.78);
+  /* Mikro-Glas: die schwächste Stufe. Kein Milchfilter, nur eine Ahnung von
+     Tiefe – dafür überall dort einsetzbar, wo Vollweiß bisher flach wirkte. */
+  --glass-bg-micro: rgba(255, 255, 255, 0.5);
+  --glass-blur-micro: 10px;
   --glass-blur: 20px;
   --glass-blur-strong: 40px;
   --glass-saturate: 180%;
@@ -72,10 +164,33 @@
   --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.7),
     inset 0 -1px 0 rgba(20, 21, 23, 0.04);
 
+  /*
+    Korn.
+
+    Eine einzige, sehr feine Textur über der ganzen Seite. Sie erfüllt zwei
+    Zwecke: Sie bricht das Banding in den großen, kontrastarmen Verläufen –
+    und sie nimmt reinem Weiß die Bildschirmhärte. Papier, Aluminium und
+    mattes Glas haben alle eine Oberfläche; nur Vollweiß hat keine, und
+    genau daran erkennt das Auge einen Bildschirm.
+
+    Erzeugt per SVG-Turbulenz, damit kein Bild geladen werden muss. Die
+    Deckkraft liegt bewusst im Bereich, in dem man die Textur nicht sieht,
+    sondern nur ihr Fehlen bemerken würde.
+  */
+  --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  --noise-opacity: 0.028;
+
   /* Motion – Signaturkurve + vier Dauern (Motion-System v1.0).
      120 Mikro / 240 Element / 480 Fläche / 900 Szene. Nie dazwischen. */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
+  /* Feder für Druckpunkte: minimaler Überschwinger (~4 %), damit eine
+     Schaltfläche beim Loslassen zurückschnellt statt zurückzugleiten. Mehr
+     Überschwinger wirkt sofort verspielt – hier ist er gerade so dosiert,
+     dass man ihn spürt und nicht sieht. */
+  --ease-spring: cubic-bezier(0.2, 1.24, 0.36, 1);
+  /* Lange Wege, ruhiges Ende: für Flächen und Szenen. */
+  --ease-glide: cubic-bezier(0.16, 1, 0.3, 1);
   --duration-micro: 120ms;
   --duration-fast: 120ms;
   --duration-base: 240ms;
@@ -104,7 +219,8 @@
   --ink-strong: #f4f4f2;
   --ink: #bcc0c7;
   --ink-soft: #8b8f98;
-  --ink-faint: #676b73;
+  /* Zuvor #676b73 – auf --surface-sunken nur 3.50:1. */
+  --ink-faint: #797d84;
   --ink-inverse: #f5f5f3;
   --ink-inverse-soft: #a6a9b1;
 
@@ -112,10 +228,16 @@
   --line-strong: rgba(245, 245, 243, 0.2);
   --line-inverse: rgba(245, 245, 243, 0.12);
 
-  --accent: #5c86ff;
+  /* Im Dunkeln atmet dasselbe Blau eine Spur heller – auf Schwarz trägt
+     der Ton mehr Helligkeit, ohne aufdringlich zu werden. */
+  --accent-a: #4e7cff;
+  --accent-b: #5a86ff;
   --accent-hover: #7ba0ff;
   --accent-subtle: rgba(92, 134, 255, 0.14);
   --accent-inverse: #7ba0ff;
+  /* Dunkles Ink auf dem hellen Blau: 5.67:1. Weiß läge bei 3.33:1 und wäre
+     auf einer Schaltfläche nicht zulässig. */
+  --accent-contrast: #101114;
 
   --positive: #34c17d;
   --positive-subtle: rgba(52, 193, 125, 0.14);
@@ -124,23 +246,63 @@
   --danger: #f0685c;
   --danger-subtle: rgba(240, 104, 92, 0.16);
 
+  /* Auf schwarzem Grund trägt ein Schatten nichts mehr – dort übernimmt die
+     Lichtkante die Trennung. Die Ebenen bleiben trotzdem gestaffelt, sonst
+     verliert die Fläche beim Anheben ihr Gewicht. */
   --shadow-raised:
-    0 1px 2px rgba(0, 0, 0, 0.4),
-    0 6px 18px rgba(0, 0, 0, 0.36);
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 4px 10px rgba(0, 0, 0, 0.34),
+    0 12px 28px rgba(0, 0, 0, 0.3);
   --shadow-floating:
-    0 1px 2px rgba(0, 0, 0, 0.45),
-    0 10px 30px rgba(0, 0, 0, 0.45),
-    0 30px 70px rgba(0, 0, 0, 0.4);
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 6px 14px rgba(0, 0, 0, 0.4),
+    0 18px 40px rgba(0, 0, 0, 0.42),
+    0 44px 90px rgba(0, 0, 0, 0.4);
+  --shadow-lifted:
+    0 1px 2px rgba(0, 0, 0, 0.55),
+    0 8px 18px rgba(0, 0, 0, 0.45),
+    0 24px 52px rgba(0, 0, 0, 0.48),
+    0 56px 110px rgba(0, 0, 0, 0.45);
   --shadow-button:
     0 1px 2px rgba(0, 0, 0, 0.5),
+    0 4px 14px -2px rgba(92, 134, 255, 0.34),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  --shadow-button-hover:
+    0 1px 2px rgba(0, 0, 0, 0.55),
+    0 10px 28px -4px rgba(92, 134, 255, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+
+  /* Licht auf OLED: das Ambiente wird kühl und schwach, sonst entsteht der
+     graue Schleier, den man auf schwarzen Flächen sofort sieht. */
+  --light-ambient: radial-gradient(
+    120% 78% at 50% -12%,
+    rgba(150, 170, 220, 0.13) 0%,
+    rgba(150, 170, 220, 0.05) 34%,
+    rgba(150, 170, 220, 0) 72%
+  );
+  --light-accent: radial-gradient(
+    62% 52% at 50% 0%,
+    rgba(92, 134, 255, 0.16) 0%,
+    rgba(92, 134, 255, 0.05) 42%,
+    rgba(92, 134, 255, 0) 76%
+  );
+  --light-specular: radial-gradient(
+    38% 34% at var(--gx, 50%) var(--gy, 32%),
+    rgba(255, 255, 255, 0.22) 0%,
+    rgba(255, 255, 255, 0.05) 38%,
+    rgba(255, 255, 255, 0) 72%
+  );
 
   /* Glas auf OLED: dunkel getönt, Lichtkante oben statt Weißschleier. */
   --glass-bg: rgba(16, 16, 19, 0.55);
   --glass-bg-strong: rgba(12, 12, 15, 0.75);
+  --glass-bg-micro: rgba(20, 20, 24, 0.45);
   --glass-border: rgba(245, 245, 243, 0.1);
   --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.09),
     inset 0 -1px 0 rgba(0, 0, 0, 0.5);
+
+  /* Korn auf Schwarz muss kräftiger sein: Dunkelheit schluckt Textur. */
+  --noise-opacity: 0.045;
 
   color-scheme: dark;
 }
@@ -167,6 +329,7 @@
   --color-accent-hover: var(--accent-hover);
   --color-accent-subtle: var(--accent-subtle);
   --color-accent-inverse: var(--accent-inverse);
+  --color-accent-contrast: var(--accent-contrast);
 
   --color-positive: var(--positive);
   --color-positive-subtle: var(--positive-subtle);
@@ -175,8 +338,11 @@
   --radius-m: var(--radius-m);
   --radius-l: var(--radius-l);
 
+  --radius-xl: var(--radius-xl);
+
   --shadow-raised: var(--shadow-raised);
   --shadow-floating: var(--shadow-floating);
+  --shadow-lifted: var(--shadow-lifted);
   --shadow-button: var(--shadow-button);
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
@@ -184,6 +350,8 @@
 
   --ease-out: var(--ease-out);
   --ease-inout: var(--ease-inout);
+  --ease-spring: var(--ease-spring);
+  --ease-glide: var(--ease-glide);
 }
 
 html {
@@ -201,6 +369,34 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   font-feature-settings: "ss01", "cv11";
+  /* Geist ist eine Variable Font. Optische Größen lässt der Browser damit
+     selbst nachziehen: große Grade werden enger und feiner geschnitten,
+     kleine offener. Ohne diese Zeile bekommt eine 130-px-Zeile denselben
+     Schnitt wie eine Fußnote – und sieht dann plump aus statt souverän. */
+  font-optical-sizing: auto;
+  font-synthesis-weight: none;
+}
+
+/*
+  Das Korn liegt über allem und unter nichts.
+
+  Eine feste Ebene statt einer wiederholten Kachel pro Sektion: So bewegt
+  sich die Textur beim Scrollen nicht mit dem Inhalt, sondern bleibt wie
+  eine Oberfläche vor dem Bild stehen – genau der Eindruck, den mattes Glas
+  macht. Als reine Composite-Ebene ohne Ereignisse kostet sie beim Scrollen
+  nichts: Sie wird einmal gezeichnet und danach nur noch zusammengesetzt.
+
+  Der z-index liegt unter dem Bootloader (9999) und über allem anderen.
+*/
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  pointer-events: none;
+  background-image: var(--noise);
+  background-repeat: repeat;
+  opacity: var(--noise-opacity);
 }
 
 ::selection {
@@ -222,20 +418,53 @@ body {
 /* Typografische Klassen – im components-Layer, damit Utilities
    (z. B. text-ink-inverse) sie gezielt überschreiben können */
 @layer components {
-  .text-display {
-    font-size: clamp(2.5rem, 1.4rem + 4.6vw, 4.75rem);
-    line-height: 1.04;
-    letter-spacing: -0.035em;
+  /*
+    Die Hero-Zeile. Bewusst eine eigene Klasse und nicht die größte Stufe von
+    .text-display: Sie kommt genau einmal je Seite vor und darf deshalb Regeln
+    haben, die für Fließtext falsch wären.
+
+    Drei davon gehören zusammen und ergeben erst gemeinsam eine Zeile, die
+    nach Plakat aussieht statt nach großem Text:
+
+    1. Laufweite. Große Grade brauchen weniger Weiße zwischen den Zeichen,
+       nicht dieselbe. Bei 130 px sind -0.045em kaum wahrnehmbar eng; dieselbe
+       Zeile mit der Standard-Laufweite fällt sofort auseinander.
+    2. Zeilenabstand unter 1. Bei zwei bis drei Wörtern je Zeile ist der
+       Weißraum zwischen den Zeilen sonst größer als der Buchstabenkörper –
+       der Block liest sich dann als Liste, nicht als Aussage.
+    3. text-wrap: balance. Der Browser verteilt die Wörter gleichmäßig auf die
+       Zeilen, statt die letzte als Waise stehen zu lassen.
+  */
+  .text-hero {
+    /* Obergrenze 7.5rem = 120 px. Bewusst am unteren Rand des Bereichs, in dem
+       eine Schlagzeile „mutig" wirkt: Bei drei Zeilen kostet jedes weitere
+       Zehntel Bauhöhe, die dem Handlungsaufruf fehlt – und ein Hero, dessen
+       Schaltfläche man erst erscrollen muss, ist keine mutige Gestaltung
+       mehr, sondern eine teure. */
+    font-size: clamp(2.75rem, 0.5rem + 8vw, 7.5rem);
+    line-height: 0.95;
+    letter-spacing: -0.045em;
     font-weight: 600;
     color: var(--ink-strong);
+    text-wrap: balance;
+  }
+
+  .text-display {
+    font-size: clamp(2.5rem, 1.1rem + 5.4vw, 5.5rem);
+    line-height: 1.02;
+    letter-spacing: -0.038em;
+    font-weight: 600;
+    color: var(--ink-strong);
+    text-wrap: balance;
   }
 
   .text-headline {
-    font-size: clamp(1.75rem, 1.2rem + 2.2vw, 2.75rem);
-    line-height: 1.1;
-    letter-spacing: -0.028em;
+    font-size: clamp(1.875rem, 1.15rem + 2.8vw, 3.25rem);
+    line-height: 1.06;
+    letter-spacing: -0.032em;
     font-weight: 600;
     color: var(--ink-strong);
+    text-wrap: balance;
   }
 
   .text-title {
@@ -260,16 +489,34 @@ body {
    Nur aktiv, wenn JS läuft (html[data-js]) – ohne JS bleibt alles sichtbar. */
 html[data-js] .reveal {
   opacity: 0;
-  transform: translateY(20px);
+  transform: translateY(24px);
+  /* --ease-glide statt --ease-out: dieselbe Familie, aber ein längerer,
+     ruhigerer Auslauf. Bei einem Weg von 24 px ist das der Unterschied
+     zwischen „etwas erscheint" und „etwas kommt zur Ruhe". */
   transition:
-    opacity var(--duration-slow) var(--ease-out),
-    transform var(--duration-slow) var(--ease-out);
+    opacity var(--duration-slow) var(--ease-glide),
+    transform var(--duration-slow) var(--ease-glide);
   transition-delay: var(--reveal-delay, 0ms);
 }
 
 html[data-js] .reveal[data-revealed="true"] {
   opacity: 1;
   transform: none;
+}
+
+/* Dasselbe Gate für Werkzeuge, die ohne JavaScript nichts anzeigen würden:
+   Der Übergabe-Assistent (/vorbereitung) ist ein Client-Werkzeug. Ohne JS
+   steht stattdessen der vollständige Text beider Plattformen im Dokument –
+   sonst bliebe von einer Seite, deren ganzer Wert im Text liegt, nur die
+   Überschrift. Sichtbar ist immer genau eine der beiden Fassungen. */
+.js-only {
+  display: none;
+}
+html[data-js] .js-only {
+  display: block;
+}
+html[data-js] .nojs-only {
+  display: none;
 }
 
 /* Sanfter Theme-Wechsel: kurzzeitige Transition, nur während des Umschaltens.
@@ -294,6 +541,38 @@ html[data-js] .reveal[data-revealed="true"] {
   opacity: 0;
   animation: shader-in 1200ms var(--ease-out) 120ms forwards;
 }
+/* Die Gerätebühne: ohne WebGL bleibt ein ruhiger Lichtkegel statt eines
+   schwarzen Rechtecks. Der Abschnitt trägt seine Aussage im Text, das
+   Gerät ist die Zugabe.
+
+   Bewusst feste dunkle Werte statt der Flächen-Tokens: Die Bühne ist in
+   beiden Themes dunkel, und der Text darauf ist immer invers. Ein Verlauf
+   aus --surface-page wäre im Hellmodus fast weiß – weiße Schrift darauf
+   wäre unlesbar. */
+.device-stage[data-stage="unsupported"] canvas {
+  display: none;
+}
+/* „Bewegen Sie den Zeiger" ist eine Behauptung – sie gilt nur, wo es einen
+   Zeiger gibt, das Bild sich bewegen darf und überhaupt etwas gerendert wird. */
+.stage-hint {
+  display: none;
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .stage-hint {
+    display: block;
+  }
+}
+.device-stage[data-stage="unsupported"] ~ * .stage-hint {
+  display: none;
+}
+
+.device-stage[data-stage="unsupported"] {
+  background:
+    radial-gradient(58% 62% at 26% 50%, rgba(36, 86, 230, 0.22), transparent 70%),
+    radial-gradient(80% 90% at 30% 50%, #16181d, transparent 75%),
+    linear-gradient(to bottom, #0d0f13, #08090c);
+}
+
 .shader-field[data-shader="unsupported"] {
   background:
     radial-gradient(120% 90% at 50% 0%, var(--accent-subtle), transparent 60%),
@@ -309,6 +588,177 @@ html[data-js] .reveal[data-revealed="true"] {
     animation: none;
     opacity: 1;
   }
+
+  /* Der Atem des Akzents steht still. Er ist zwar kaum wahrnehmbar, aber
+     „kaum wahrnehmbar" ist nicht dasselbe wie „nicht vorhanden" – wer
+     Bewegung abbestellt hat, bekommt keine. */
+  html {
+    animation: none;
+  }
+}
+
+/* ---- Hero-Gerät ---------------------------------------------------------
+   Das Objekt im Hero. Alle Maße hängen an --dev-w, damit die Proportionen
+   beim Verkleinern erhalten bleiben; JS liefert nur --rx/--ry (Neigung),
+   --gx/--gy (Glanzpunkt) und --sy (Kamerafahrt). Siehe HeroDevice.tsx. */
+.hero-stage {
+  --dev-w: clamp(180px, 21vw, 268px);
+  position: relative;
+  display: grid;
+  place-items: center;
+  perspective: 1400px;
+  translate: 0 var(--sy, 0px);
+}
+
+.hero-device {
+  position: relative;
+  width: var(--dev-w);
+  /* 1 : 2.06 – die Proportion aktueller Geräte, nicht gerundet. */
+  height: calc(var(--dev-w) * 2.06);
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+}
+
+/*
+  Die Gehäusekante.
+
+  Der Verlauf läuft nicht von hell nach dunkel, sondern hell – dunkel – hell:
+  Eine gefaste Metallkante fängt das Licht an beiden Rändern und ist in der
+  Mitte am dunkelsten. Genau daran erkennt das Auge Metall statt Kunststoff.
+*/
+.hero-frame {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--dev-w) * 0.175);
+  padding: calc(var(--dev-w) * 0.014);
+  background: linear-gradient(
+    145deg,
+    #6f7378 0%,
+    #2a2c30 18%,
+    #17181b 50%,
+    #303338 82%,
+    #7a7e84 100%
+  );
+  box-shadow:
+    var(--shadow-floating),
+    inset 0 1px 1px rgba(255, 255, 255, 0.32),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.5);
+}
+
+/* Die Glasfläche. Fast schwarz, aber nie #000: Ein ausgeschaltetes OLED
+   unter Raumlicht ist dunkelgrau mit einem Blaustich, und dieser Stich ist
+   der Unterschied zwischen „Bildschirm" und „Loch". */
+.hero-glass {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  border-radius: calc(var(--dev-w) * 0.163);
+  background:
+    linear-gradient(160deg, #16181d 0%, #0b0c0f 42%, #101319 100%);
+}
+
+/* Der Glanzpunkt folgt dem Zeiger (--gx/--gy) und ist bewusst weich:
+   Eine harte Spiegelung gehört auf poliertes Metall, nicht auf entspiegeltes
+   Deckglas. */
+.hero-specular {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    58% 42% at var(--gx, 50%) var(--gy, 30%),
+    rgba(190, 212, 255, 0.22) 0%,
+    rgba(150, 180, 255, 0.07) 38%,
+    rgba(255, 255, 255, 0) 72%
+  );
+}
+
+/* Das wandernde Lichtband: ein schräger, sehr breiter Streifen, der die
+   Fläche in 18 Sekunden einmal überquert. Nur `translate` – kein Layout,
+   kein Neuzeichnen, reine Compositor-Arbeit. */
+.hero-sweep {
+  position: absolute;
+  top: -25%;
+  left: -60%;
+  width: 60%;
+  height: 150%;
+  rotate: 14deg;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.055) 45%,
+    rgba(255, 255, 255, 0.085) 55%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: hero-sweep 18s var(--ease-inout) infinite;
+}
+@keyframes hero-sweep {
+  0%,
+  12% {
+    translate: 0 0;
+  }
+  /* Die Pause am Ende ist wichtiger als die Bewegung: Ohne sie zieht ständig
+     etwas über die Fläche, und aus Ruhe wird Unruhe. */
+  70%,
+  100% {
+    translate: 300% 0;
+  }
+}
+
+.hero-island {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--dev-w) * 0.052);
+  translate: -50% 0;
+  width: calc(var(--dev-w) * 0.33);
+  height: calc(var(--dev-w) * 0.095);
+  border-radius: var(--radius-full);
+  background: #000;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+/* Bodenschatten: breiter und blasser als das Gerät, damit es schwebt statt
+   zu stehen. Er neigt sich nicht mit – Schatten kippen nicht, sie verzerren. */
+.hero-floor {
+  position: absolute;
+  bottom: calc(var(--dev-w) * -0.1);
+  width: calc(var(--dev-w) * 1.15);
+  height: calc(var(--dev-w) * 0.2);
+  border-radius: 50%;
+  background: rgba(20, 21, 23, 0.28);
+  filter: blur(calc(var(--dev-w) * 0.09));
+  z-index: -1;
+}
+:root[data-theme="dark"] .hero-floor {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-sweep {
+    animation: none;
+    opacity: 0.5;
+    translate: 150% 0;
+  }
+}
+
+/*
+  Der Anschnitt.
+
+  Die feste Höhe schneidet das Gerät unten ab; die Maske lässt die Kante
+  ausblenden, statt sie zu kappen. Ohne die Maske entstünde genau die harte
+  Linie, an der man einem Bild ansieht, dass es in einen zu kleinen Rahmen
+  gezwungen wurde – mit ihr sieht es aus, als läge dahinter noch mehr.
+
+  align-items: start setzt das Gerät oben an: Beschnitten wird der Fuß, nicht
+  der Kopf mit der Reflexion.
+*/
+.hero-crop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  height: clamp(210px, 27vw, 340px);
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
 }
 
 /* ---- Liquid Glass -------------------------------------------------------
@@ -318,7 +768,8 @@ html[data-js] .reveal[data-revealed="true"] {
    auf eine deckende Fläche zurück, damit Text immer lesbar bleibt. */
 @layer components {
   .glass,
-  .glass-strong {
+  .glass-strong,
+  .glass-micro {
     background: var(--surface-raised);
     border: 1px solid var(--glass-border);
     box-shadow: var(--glass-edge);
@@ -335,6 +786,194 @@ html[data-js] .reveal[data-revealed="true"] {
       -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturate));
       backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturate));
     }
+    /* Mikro-Glas ersetzt Vollweiß auf Karten. Die Unschärfe ist so gering,
+       dass sie niemand als Glas erkennt – sie nimmt der Fläche nur das
+       Sterile, weil der Untergrund noch minimal durchscheint. */
+    .glass-micro {
+      background: var(--glass-bg-micro);
+      -webkit-backdrop-filter: blur(var(--glass-blur-micro)) saturate(140%);
+      backdrop-filter: blur(var(--glass-blur-micro)) saturate(140%);
+    }
+  }
+}
+
+/* ---- Licht ---------------------------------------------------------------
+   Eine Lichtquelle über der Sektion statt einer Farbfläche dahinter. Liegt
+   als eigene Ebene unter dem Inhalt (isolation + z-index: -1), damit sie
+   weder Text einfärbt noch Klicks abfängt. */
+@layer components {
+  .lightfall {
+    position: relative;
+    isolation: isolate;
+  }
+  .lightfall::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: var(--light-accent), var(--light-ambient);
+  }
+}
+
+/* ---- Druckpunkt ----------------------------------------------------------
+   Was beim Antippen passiert, entscheidet mehr über den Eindruck „teuer" als
+   jede Farbe: Eine Fläche, die auf Druck nicht reagiert, fühlt sich tot an.
+
+   Drei Dinge geschehen gleichzeitig und alle innerhalb von 120 ms – das ist
+   die Grenze, unterhalb derer eine Reaktion als unmittelbar wahrgenommen
+   wird und nicht als Animation:
+
+   – Maßstab auf 0.985. Zwei Prozent sind zu viel (der Text wird unscharf),
+     ein halbes zu wenig (man sieht es nicht).
+   – Der Schatten fährt zusammen: Das Element rückt näher an die Fläche,
+     also verkürzt sich der Wurf. Ohne diesen Teil sieht es aus, als würde
+     das Element schrumpfen, statt gedrückt zu werden.
+   – Zurück federt es über --ease-spring, nicht über --ease-out. Der
+     Überschwinger ist der Unterschied zwischen „loslassen" und „ausblenden".
+*/
+@layer components {
+  /*
+    Bewusst `scale` und `translate` statt `transform`.
+
+    Drei Dinge bewegen dieselben Elemente, und jedes braucht ein anderes
+    Timing: Die magnetische Anziehung (MagneticField) folgt dem Zeiger Bild
+    für Bild und verträgt überhaupt keine Transition; der Druckpunkt federt
+    zurück; das Anheben einer Karte gleitet. In einer gemeinsamen
+    `transform`-Kette überschreibt jeder Schreiber die anderen und eine
+    einzige Transition träfe alle drei. Als eigenständige Eigenschaften
+    komponiert der Browser sie – jede mit ihrer eigenen Kurve.
+
+    Die Transition steht **einmal** für beide Klassen. Zwei getrennte
+    `transition`-Kurzschreibweisen wären nicht additiv: Auf einer Karte mit
+    `press lift` gewänne schlicht die später notierte, und die andere
+    Bewegung spränge ohne Übergang.
+  */
+  .press,
+  .lift {
+    transition:
+      scale var(--duration-base) var(--ease-spring),
+      translate var(--duration-base) var(--ease-out),
+      box-shadow var(--duration-base) var(--ease-out),
+      border-color var(--duration-base) var(--ease-out);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .press:active {
+      scale: 0.985;
+      /* Hin schnell, zurück mit Feder: Ein Druckpunkt gibt sofort nach und
+         kommt gemächlich zurück – wie eine Taste. */
+      transition-duration: var(--duration-micro);
+      transition-timing-function: var(--ease-out);
+    }
+  }
+}
+
+/* Bewusst außerhalb jedes @layer: Die magnetische Verschiebung muss jede
+   Utility schlagen, die sonst `translate` setzen könnte. */
+[data-magnetic] {
+  translate: var(--mag-x, 0px) var(--mag-y, 0px);
+}
+
+/* ---- Karten-Hover --------------------------------------------------------
+   Drei Pixel nach oben und ein weiterer Schatten – mehr nicht. Der Weg ist
+   absichtlich kürzer als der Schattenzuwachs: Was eine Karte anhebt, ist
+   nicht die Bewegung, sondern das Licht darunter. Wer den Weg verlängert,
+   bekommt einen springenden Kachelteppich statt einer ruhigen Fläche.
+
+   Wie beim Druckpunkt läuft es über `translate`, damit `.press` und `.lift`
+   auf derselben Karte nebeneinander bestehen können. */
+@layer components {
+  .lift:hover,
+  .lift:focus-visible,
+  .lift:focus-within {
+    box-shadow: var(--shadow-lifted);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .lift:hover,
+    .lift:focus-visible,
+    .lift:focus-within {
+      translate: 0 -3px;
+    }
+  }
+}
+
+/* Ripple – ein Lichtkreis aus dem Druckpunkt, keine Materialwelle.
+   Der Kern ist bereits transparent, der Rand ganz weg: Es soll aussehen, als
+   liefe Licht unter Glas auseinander, nicht als klatsche Farbe auf. Die
+   Elemente erzeugt Ripple.tsx und räumt sie selbst wieder ab. */
+[data-ripple] {
+  position: relative;
+  overflow: hidden;
+}
+.ripple {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  background: radial-gradient(
+    circle,
+    var(--ripple-tint, rgba(255, 255, 255, 0.42)) 0%,
+    var(--ripple-tint, rgba(255, 255, 255, 0.42)) 32%,
+    transparent 70%
+  );
+  animation: ripple var(--duration-area) var(--ease-out) forwards;
+}
+/* Auf hellen Flächen ist ein weißer Ripple unsichtbar – dort läuft Graphit. */
+[data-ripple="ink"] {
+  --ripple-tint: rgba(20, 21, 23, 0.07);
+}
+:root[data-theme="dark"] [data-ripple="ink"] {
+  --ripple-tint: rgba(245, 245, 243, 0.09);
+}
+@keyframes ripple {
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ripple {
+    display: none;
+  }
+}
+
+/* ---- Variable Schriftstärke ----------------------------------------------
+   Geist ist eine Variable Font, die Stärke ist also stufenlos animierbar –
+   und genau daran scheitern die meisten Umsetzungen: Wird ein Wort fetter,
+   wird es breiter, und alles daneben rutscht. Bei einer Navigationsleiste
+   sieht man dann bei jedem Überfahren die ganze Zeile zucken.
+
+   Deshalb reserviert ein unsichtbares Doppel des Textes (::after, Höhe 0)
+   von vornherein die Breite der fetten Variante. Das Element ist immer so
+   breit wie sein breitester Zustand; die Stärke kann sich frei bewegen,
+   ohne dass sich irgendeine Kante verschiebt. Der Text steht dafür im
+   Attribut data-label – daher die Pflicht, ihn dort zu wiederholen. */
+@layer components {
+  .weight-hover {
+    display: inline-block;
+    font-weight: 400;
+    transition:
+      font-weight var(--duration-base) var(--ease-out),
+      color var(--duration-fast) var(--ease-out);
+  }
+  .weight-hover::after {
+    content: attr(data-label);
+    display: block;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    font-weight: 600;
+    pointer-events: none;
+  }
+  /* Ausgelöst wird über den umgebenden Link ([data-weight-host]), nicht über
+     den Textknoten selbst: Der Link trägt die Polsterung, und wer den Rand
+     eines Navigationspunkts anfährt, hat ihn erreicht – dort muss die
+     Reaktion einsetzen und nicht erst über dem Buchstaben. */
+  [data-weight-host]:hover .weight-hover,
+  [data-weight-host]:focus-visible .weight-hover,
+  .weight-hover[data-active="true"] {
+    font-weight: 600;
   }
 }
 
@@ -507,11 +1146,19 @@ html[data-js] .reveal[data-revealed="true"] {
      stillschweigend mitgenommen. */
   body > header,
   body > footer,
+  body::after,
   .boot,
   .shader-field,
   .cmdk-panel,
   .cmdk-scrim,
   [data-print="hide"] {
+    display: none !important;
+  }
+
+  /* Das Korn ist eine Bildschirm-Oberfläche. Auf Papier wäre es ein
+     Graustich über dem ganzen Blatt – und bei Laserdruckern ein Raster,
+     das den Text schlechter lesbar macht. */
+  .lightfall::before {
     display: none !important;
   }
 
@@ -648,7 +1295,9 @@ html[data-js] .reveal[data-revealed="true"] {
   }
 }
 
-/* Preis-Ziffernwechsel im Konfigurator */
+/* Ziffernwechsel, wo ein Wert ausgetauscht statt hochgezählt wird
+   (DiagramShowcase). Der Konfigurator selbst zählt inzwischen – siehe
+   lib/useCountUp.ts. */
 .price-swap {
   animation: price-swap var(--duration-base) var(--ease-out);
 }
@@ -661,6 +1310,23 @@ html[data-js] .reveal[data-revealed="true"] {
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* Modellkacheln im Konfigurator: gestaffelter Einlauf beim Markenwechsel.
+   Die Verzögerung setzt die Komponente je Kachel (animation-delay). */
+.model-card {
+  animation: model-in var(--duration-base) var(--ease-out) backwards;
+}
+@keyframes model-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .model-card {
+    animation: none;
   }
 }
 
@@ -689,8 +1355,12 @@ html[data-js] .reveal[data-revealed="true"] {
    Rechnungswerkzeug – /intern/rechnung
    ==========================================================================
    Zwei Welten in einer Ansicht: links der Editor in der Farbwelt der Marke,
-   rechts ein Blatt Papier. Das Blatt lebt konsequent in Millimetern und
-   ignoriert das Theme – Papier ist weiß, auch nachts um halb zwölf.
+   rechts Papier. Das Blatt lebt konsequent in Millimetern und ignoriert das
+   Theme – Papier ist weiß, auch nachts um halb zwölf.
+
+   Der Briefkopf borgt sich drei Techniken aus dem Wertpapierdruck:
+   Mikroschrift statt Haarlinie, Guillochenrosette als Wasserzeichen,
+   Millimeterskala am Rand. Alle drei kosten null Byte Bildmaterial.
    ========================================================================== */
 
 /* ---- Bühne und Skalierung ------------------------------------------------ */
@@ -701,15 +1371,36 @@ html[data-js] .reveal[data-revealed="true"] {
   --sheet-w: 793.7px;
   --sheet-h: 1122.5px;
   --sheet-scale: 1;
+  --sheet-gap: 28px;
+  --sheet-pages: 1;
   width: calc(var(--sheet-w) * var(--sheet-scale));
-  height: calc(var(--sheet-h) * var(--sheet-scale));
+  height: calc(
+    (var(--sheet-h) * var(--sheet-pages) + var(--sheet-gap) * (var(--sheet-pages) - 1)) *
+      var(--sheet-scale)
+  );
 }
 
 .sheet-frame {
   width: var(--sheet-w);
-  height: var(--sheet-h);
   transform: scale(var(--sheet-scale));
   transform-origin: top left;
+}
+
+/* Der Schreibtisch: ein sehr dunkles Feld mit weichem Lichtabfall, damit das
+   Papier darauf liegt statt zu schweben. */
+.sheet-desk {
+  border-radius: var(--radius-l);
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%),
+    var(--surface-sunken);
+  border: 1px solid var(--line);
+  padding: 22px;
+  overflow: hidden;
+}
+
+.sheet-doc {
+  display: grid;
+  gap: var(--sheet-gap);
 }
 
 /* ---- Das Blatt ----------------------------------------------------------- */
@@ -726,9 +1417,9 @@ html[data-js] .reveal[data-revealed="true"] {
   line-height: 1.45;
   font-feature-settings: "ss01", "cv11", "tnum";
   box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.18),
-    0 18px 50px rgba(0, 0, 0, 0.22),
-    0 60px 120px rgba(0, 0, 0, 0.16);
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    0 18px 50px rgba(0, 0, 0, 0.26),
+    0 60px 120px rgba(0, 0, 0, 0.18);
 }
 
 /* Falz- und Lochmarken: im Druck vorhanden, auf dem Schirm kaum zu sehen. */
@@ -744,23 +1435,71 @@ html[data-js] .reveal[data-revealed="true"] {
   border-top-color: #6b7075;
 }
 
+/* ---- Briefkopf ----------------------------------------------------------- */
+
+.sheet-mark-logo {
+  color: #0b0c0e;
+  margin-top: 0.6mm;
+}
+
 .sheet-wordmark {
-  font-size: 5.2mm;
+  font-size: 5.4mm;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
   color: #0b0c0e;
 }
 
-.sheet-fine {
+.sheet-tagline {
+  margin-top: 0.8mm;
+  font-size: 2.3mm;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8a9096;
+}
+
+.sheet-contact {
+  text-align: right;
+}
+.sheet-contact p {
   font-size: 2.5mm;
-  line-height: 1.45;
+  line-height: 1.5;
   color: #5f6469;
 }
 
-.sheet-strong {
-  font-weight: 600;
-  color: #16171a;
+/* Mikroschrift: sieht aus wie eine Linie, ist aber Text in 1,1 pt. Ein
+   Kopierer macht daraus grauen Matsch – genau das ist der Zweck. */
+.sheet-micro {
+  display: block;
+  overflow: hidden;
 }
+.sheet-micro-text {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.95px;
+  letter-spacing: 0.06px;
+  fill: #7d8288;
+}
+
+/* Guillochenrosette – Wasserzeichen hinter der Summe. */
+.sheet-guilloche {
+  color: #0b0c0e;
+  opacity: 0.055;
+}
+
+/* Millimeterskala im rechten Rand. */
+.sheet-scale {
+  position: absolute;
+  right: 8mm;
+  color: #b9bec3;
+}
+.sheet-scale-text {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 1.5px;
+  letter-spacing: 0.02em;
+  fill: #b9bec3;
+}
+
+/* ---- Anschrift und Infoblock --------------------------------------------- */
 
 /* Rücksendeangabe über dem Anschriftfeld – klein und unterstrichen, damit sie
    im Kuvertfenster nicht mit der Empfängeranschrift verwechselt wird. */
@@ -794,29 +1533,91 @@ html[data-js] .reveal[data-revealed="true"] {
   font-variant-numeric: tabular-nums;
 }
 
-.sheet-subject {
-  font-size: 4.6mm;
+/* ---- Betreff ------------------------------------------------------------- */
+
+/* Die Belegart gesperrt und in Versalien: Auf einen Meter Entfernung erkennt
+   man, ob man eine Rechnung oder einen Kostenvoranschlag in der Hand hält. */
+.sheet-doctype {
+  font-size: 6.2mm;
   font-weight: 600;
-  letter-spacing: -0.015em;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  line-height: 1;
   color: #0b0c0e;
 }
 
-.sheet-device {
-  margin-top: 1.5mm;
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 2.5mm;
+.sheet-docnumber {
+  font-size: 3.4mm;
+  letter-spacing: 0.04em;
   color: #5f6469;
 }
 
+.sheet-rule {
+  height: 0;
+  border-top: 0.5mm solid #16171a;
+}
+.sheet-hairline {
+  height: 0;
+  border-top: 0.2mm solid #e2e5e8;
+}
+
+/* ---- Geräteblock --------------------------------------------------------- */
+
+/* Drei Felder wie auf einem Messgerät. Der Rahmen macht aus einer Fußnote
+   eine Angabe, die im Garantiefall zählt. */
+.sheet-device-strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  border: 0.2mm solid #d6dade;
+  border-radius: 0.8mm;
+  background: #f7f8f9;
+  overflow: hidden;
+}
+.sheet-device-cell {
+  padding: 2mm 3mm;
+  border-left: 0.2mm solid #e2e5e8;
+}
+.sheet-device-cell:first-child {
+  border-left: 0;
+}
+.sheet-device-label {
+  display: block;
+  font-size: 2.1mm;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8a9096;
+}
+.sheet-device-value {
+  display: block;
+  margin-top: 0.6mm;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 2.7mm;
+  color: #16171a;
+}
+
+/* ---- Text ---------------------------------------------------------------- */
+
+.sheet-fine {
+  font-size: 2.5mm;
+  line-height: 1.45;
+  color: #5f6469;
+}
+.sheet-strong {
+  font-weight: 600;
+  color: #16171a;
+}
 .sheet-text {
   font-size: 3.1mm;
   line-height: 1.5;
   color: #33373b;
 }
-
 .sheet-num {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
+}
+.sheet-page {
+  margin-top: 1.5mm;
+  color: #8a9096;
 }
 
 /* ---- Positionstabelle ---------------------------------------------------- */
@@ -861,7 +1662,55 @@ html[data-js] .reveal[data-revealed="true"] {
   font-size: 2.9mm;
 }
 
+/* Übertrag – die klassische Anschlusszeile mehrseitiger Belege. */
+.sheet-carry {
+  display: flex;
+  justify-content: space-between;
+  gap: 6mm;
+  padding: 1.6mm 2mm;
+  font-size: 2.8mm;
+  background: #f2f4f5;
+  border-radius: 0.8mm;
+  color: #33373b;
+}
+.sheet-carry-in {
+  margin-bottom: 3mm;
+}
+.sheet-carry-out {
+  border-top: 0.35mm solid #16171a;
+  border-radius: 0 0 0.8mm 0.8mm;
+}
+
 /* ---- Summen -------------------------------------------------------------- */
+
+/* Abschluss: Text links, Summe rechts, gemeinsame Oberkante. */
+.sheet-final {
+  display: grid;
+  grid-template-columns: 1fr 78mm;
+  gap: 6mm;
+  margin-top: 6mm;
+  padding-top: 3.5mm;
+  border-top: 0.2mm solid #e2e5e8;
+}
+.sheet-final-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2mm;
+  align-items: flex-start;
+}
+.sheet-final-sum {
+  position: relative;
+}
+.sheet-summary-inner {
+  position: relative;
+  z-index: 1;
+}
+.sheet-summary-seal {
+  position: absolute;
+  right: 52mm;
+  top: -4mm;
+  z-index: 0;
+}
 
 .sheet-sum-row {
   display: flex;
@@ -875,27 +1724,128 @@ html[data-js] .reveal[data-revealed="true"] {
   display: flex;
   justify-content: space-between;
   gap: 6mm;
-  margin-top: 1.4mm;
-  padding: 2.2mm 3mm;
-  background: #16171a;
+  margin-top: 1.6mm;
+  padding: 2.6mm 3.5mm;
+  background: #0b0c0e;
   color: #ffffff;
-  font-size: 3.6mm;
+  font-size: 3.8mm;
   font-weight: 600;
   border-radius: 1mm;
 }
 
-.sheet-payment {
-  display: flex;
-  align-items: flex-start;
-  gap: 6mm;
-  margin-top: 6mm;
-  padding-top: 4mm;
-  border-top: 0.2mm solid #e2e5e8;
+/* ---- Stempel ------------------------------------------------------------- */
+
+/* Vier Grad Schräge. Ein exakt achsparalleler Stempel sieht nach Word aus. */
+.sheet-stamp {
+  display: inline-block;
+  transform: rotate(-4.5deg);
+  padding: 1.6mm 4mm;
+  border: 0.7mm solid currentColor;
+  border-radius: 1mm;
+  box-shadow: inset 0 0 0 0.2mm currentColor;
+  font-size: 4.6mm;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+.sheet-stamp-dark {
+  color: #1f6b3a;
+}
+.sheet-stamp-muted {
+  color: #9aa0a6;
 }
 
-.sheet-footer-rule {
+/* ---- Zahlungsabschnitt --------------------------------------------------- */
+
+.sheet-perforation {
+  position: relative;
   height: 0;
-  border-top: 0.2mm solid #e2e5e8;
+  border-top: 0.25mm dashed #b9bec3;
+  margin-bottom: 3mm;
+}
+.sheet-scissors {
+  position: absolute;
+  left: 2mm;
+  top: -2.2mm;
+  font-size: 3.2mm;
+  line-height: 1;
+  background: #ffffff;
+  padding: 0 1mm;
+  color: #9aa0a6;
+}
+
+.sheet-slip {
+  display: flex;
+  align-items: stretch;
+  gap: 5mm;
+}
+.sheet-slip-fields {
+  flex: 1;
+  min-width: 0;
+}
+.sheet-slip-title {
+  font-size: 2.2mm;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8a9096;
+  margin-bottom: 1.4mm;
+}
+.sheet-slip-grid {
+  display: grid;
+  grid-template-columns: 26mm 1fr;
+  row-gap: 0.8mm;
+  column-gap: 3mm;
+}
+.sheet-slip-label {
+  font-size: 2.4mm;
+  color: #8a9096;
+}
+.sheet-slip-value {
+  font-size: 2.7mm;
+  color: #16171a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sheet-slip-amount {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+  padding-bottom: 1mm;
+  border-right: 0.2mm solid #e2e5e8;
+  padding-right: 5mm;
+}
+.sheet-slip-sum {
+  font-size: 5mm;
+  font-weight: 600;
+  color: #0b0c0e;
+  line-height: 1.1;
+}
+.sheet-slip-qr {
+  display: flex;
+  align-items: center;
+  gap: 2.5mm;
+}
+.sheet-slip-qr-note {
+  font-size: 2.2mm;
+  line-height: 1.35;
+  color: #8a9096;
+}
+
+/* ---- Folgeseiten --------------------------------------------------------- */
+
+.sheet-cont-brand {
+  font-size: 3.4mm;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #0b0c0e;
+}
+.sheet-cont-meta {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 2.5mm;
+  color: #6b7075;
 }
 
 /* ---- Editor -------------------------------------------------------------- */
@@ -1009,30 +1959,27 @@ html[data-js] .reveal[data-revealed="true"] {
 
 @media print {
   /* Im Druck existiert nur das Blatt. Alles andere – Editor, Kopfzeile,
-     Schatten, Skalierung – verschwindet restlos. */
+     Schreibtisch, Schatten, Skalierung – verschwindet restlos. */
   .inv-editor,
   .inv-toolbar {
     display: none !important;
   }
 
-  /* Die Bühne selbst darf im Druck nichts beitragen: Der Seitenrand kommt aus
-     @page, nicht aus Tailwind-Padding. Bliebe das Padding stehen, passte das
-     210 mm breite Blatt nicht mehr auf die 210 mm breite Seite und rutschte
-     mit einem Streifen auf ein zweites Blatt. */
-  .inv-page,
-  .inv-app {
-    display: block !important;
-    max-width: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    gap: 0 !important;
-  }
-
   .sheet-stage,
-  .sheet-frame {
+  .sheet-frame,
+  .sheet-desk {
     width: auto !important;
     height: auto !important;
     transform: none !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: none !important;
+    overflow: visible !important;
+  }
+
+  .sheet-doc {
+    display: block !important;
+    gap: 0 !important;
   }
 
   .sheet {
@@ -1040,20 +1987,159 @@ html[data-js] .reveal[data-revealed="true"] {
     height: 297mm !important;
     box-shadow: none !important;
     break-inside: avoid;
-    page-break-after: avoid;
+    break-after: page;
+  }
+  .sheet:last-child {
+    break-after: auto;
   }
 
   /* Das Blatt bringt seine eigenen Farben mit – die Druck-Overrides der
      Seite dürfen es nicht entfärben. */
-  .sheet .sheet-sum-total {
-    background: #16171a !important;
-    color: #ffffff !important;
+  .sheet,
+  .sheet * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+  .sheet .sheet-sum-total {
+    background: #0b0c0e !important;
+    color: #ffffff !important;
   }
 }
 
 @page {
   size: A4;
   margin: 0;
+}
+
+/* ==========================================================================
+   Glasring am Zeiger
+   ==========================================================================
+   Läuft dem Zeiger mit leichter Trägheit nach und filtert, was unter ihm
+   liegt – eine Linse, kein Aufkleber. Er ersetzt den Systemcursor nicht:
+   Gezielt wird weiterhin mit der echten Spitze, der Ring begleitet nur.
+   Erzeugt von components/experience/CursorGlass.tsx, das ihn bei grobem
+   Zeiger und bei prefers-reduced-motion gar nicht erst anlegt.
+   ========================================================================== */
+
+.cursor-glass {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 90;
+  width: var(--cursor-size, 34px);
+  height: var(--cursor-size, 34px);
+  margin: calc(var(--cursor-size, 34px) / -2) 0 0 calc(var(--cursor-size, 34px) / -2);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: color-mix(in oklab, var(--glass-bg) 22%, transparent);
+  box-shadow: var(--glass-edge);
+  pointer-events: none;
+  opacity: 0;
+  /* Die Position schreibt JS über `translate`; Größe und Deckkraft laufen
+     in CSS, damit beide Ebenen ihr eigenes Timing behalten. */
+  transition:
+    width var(--duration-base) var(--ease-spring),
+    height var(--duration-base) var(--ease-spring),
+    margin var(--duration-base) var(--ease-spring),
+    opacity var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    scale var(--duration-fast) var(--ease-out);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .cursor-glass {
+    -webkit-backdrop-filter: blur(var(--glass-blur-micro)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur-micro)) saturate(var(--glass-saturate));
+    background: transparent;
+  }
+}
+
+.cursor-glass[data-on] {
+  opacity: 1;
+}
+
+.cursor-glass[data-hidden] {
+  opacity: 0;
+}
+
+/* Über Bedienbarem: weiter und eine Spur deutlicher umrandet. */
+.cursor-glass[data-active="true"] {
+  --cursor-size: 52px;
+  border-color: color-mix(in oklab, var(--accent) 45%, transparent);
+}
+
+.cursor-glass[data-press] {
+  scale: 0.86;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor-glass {
+    display: none;
+  }
+}
+
+@media print {
+  .cursor-glass {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   Atmender Akzent
+   ==========================================================================
+   Der Akzent wandert über 24 Sekunden zwischen zwei eng benachbarten Tönen
+   hin und zurück. Der Abstand liegt unter der Schwelle bewusster
+   Wahrnehmung: Wer hinsieht, sieht nichts; wer eine Weile bleibt, empfindet
+   die Seite als lebendig statt als Bild.
+
+   Bewusst **nicht** global auf --accent, sondern nur dort, wo der Akzent als
+   Fläche erscheint – im Wesentlichen die primären Schaltflächen. Auf der
+   Wurzel angewandt kostete derselbe Effekt gemessene 1282 ms
+   Stil-Neuberechnung auf einem gedrosselten Telefon, weil eine vererbte
+   Eigenschaft bei jeder Änderung das ganze Dokument invalidiert. Hier sind
+   es eine Handvoll Elemente, und die Rechnung geht in der Messung unter.
+   ========================================================================== */
+
+@keyframes op-breath {
+  from {
+    background-color: var(--accent-a);
+  }
+  to {
+    background-color: var(--accent-b);
+  }
+}
+
+/*
+  Animiert wird `background-color` unmittelbar – nicht eine Custom Property,
+  aus der die Farbe gemischt wird.
+
+  Der Unterschied ist gemessen und groß: Eine animierte Custom Property lässt
+  Chromium je Bild den Stil neu berechnen, und zwar weitgehend unabhängig
+  davon, ob sie vererbt wird oder an drei Knöpfen hängt – 1282 ms am
+  Wurzelelement, 672 ms an drei Elementen, auf einem vierfach gedrosselten
+  Telefon. Eine gewöhnliche Farbeigenschaft interpoliert der Browser dagegen
+  auf dem eingefahrenen Weg, ohne Stil-Neuberechnung.
+
+  Beim Überfahren hält der Atem an, sonst überschriebe die Animation die
+  Hover-Farbe – Animationen gewinnen gegen normale Deklarationen.
+*/
+.breathe {
+  animation: op-breath 12s steps(48, jump-none) infinite alternate;
+}
+
+.breathe:hover,
+.breathe:focus-visible {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .breathe {
+    animation: none;
+  }
+}
+
+@media print {
+  .breathe {
+    animation: none;
+  }
 }
