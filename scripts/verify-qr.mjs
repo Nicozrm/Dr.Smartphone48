@@ -269,8 +269,8 @@ function readBack(qr) {
 
 const samples = [
   "HELLO WORLD",
-  "https://drsmartphone48.de/",
-  "https://drsmartphone48.de/ticket?t=U2FsdGVkX1-abc123_XYZ",
+  "https://www.drsmartphone48.repair/",
+  "https://www.drsmartphone48.repair/ticket?t=U2FsdGVkX1-abc123_XYZ",
   "Straße & Größe – Umlaute ÄÖÜ, Anführung „so“",
   "tel:+491775196018",
   "x".repeat(1),

@@ -58,7 +58,40 @@ etwas merkt.
   Realtime-Kanäle und die Zusage, dass es auf den Vorgangstabellen keine
   Policy für `anon` gibt.
 
-## Deployment (Cloudflare Workers – empfohlen)
+## Deployment (Vercel – hier läuft die Seite)
+
+Produktion: **https://www.drsmartphone48.repair**, gebaut aus `main`. Kein
+Adapter, keine Sonderkonfiguration – Next.js auf seiner Heimatplattform.
+
+Alle Umgebungsvariablen sind **optional**; ohne sie läuft die Website
+vollständig, nur die betreffende Funktion fehlt und sagt das auch. Einzutragen
+unter *Project Settings → Environment Variables*, Namen und Zweck stehen in
+`.env.example`:
+
+| Variable | Ohne sie |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | keine Anmeldung, keine Statusverfolgung |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | dito – beide gehören zusammen |
+| `SUPABASE_SERVICE_ROLE_KEY` | Anmeldung und Statusseite antworten mit 503 |
+| `RESEND_API_KEY`, `CONTACT_FROM` | Kontaktformular weicht auf einen E-Mail-Entwurf aus; Statusmeldungen gehen nicht raus |
+| `NEXT_PUBLIC_SITE_URL` | es gilt `site.url` aus `lib/site.ts` |
+
+**Zwei Fallstricke, die Zeit kosten, wenn man sie nicht kennt:**
+
+- **`NEXT_PUBLIC_*` wird beim Bauen eingesetzt, nicht zur Laufzeit.** Eine
+  neue Variable im Hoster ändert gar nichts, bis neu deployt wurde. Wer die
+  Anmeldung einschaltet und sie danach nicht sieht, hat meistens genau das
+  vergessen.
+- **Der Rate-Limiter ist prozesslokal** (`lib/api/rate-limit.ts`). Auf
+  Serverless verteilt sich der Verkehr über Instanzen; die Bremse wirkt als
+  grobe Bremse, nicht als harte Grenze. Für harte Grenzen einen gemeinsamen
+  Zustand nachrüsten.
+
+Die Domain trägt `www.` – nur dieser Name hat ein Zertifikat. Soll auch die
+Adresse ohne `www.` funktionieren, muss sie in Vercel unter *Domains* ergänzt
+werden; sonst bricht der Aufruf an der TLS-Prüfung ab.
+
+## Deployment (Cloudflare Workers – Alternative)
 
 Voller Next.js-Server über den OpenNext-Adapter, damit `/api/kontakt`
 serverseitig läuft.
@@ -99,8 +132,8 @@ Serverfunktion öffnet das Formular einen fertigen E-Mail-Entwurf – gesteuert
 - Der Workflow setzt `GITHUB_PAGES=true`; `next.config.ts` aktiviert dann
   `basePath: "/Koko"` (Repository-Name) und setzt `NEXT_PUBLIC_SITE_URL` auf die
   Projektseite, damit Canonical, Sitemap, robots.txt und JSON-LD dorthin zeigen
-  statt auf `https://drsmartphone48.de`. Lokal (ohne die Variable) gibt es
-  weder basePath noch URL-Umschaltung.
+  statt auf die Live-Domain. Lokal (ohne die Variable) gibt es weder basePath
+  noch URL-Umschaltung.
 - Eigene Domain später: `repoName`/`gitHubPagesUrl` in `next.config.ts` anpassen
   bzw. bei Root-Domain `basePath` leer lassen und eine `CNAME`-Datei
   (via `public/CNAME`) ergänzen.

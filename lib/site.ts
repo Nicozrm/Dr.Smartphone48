@@ -8,11 +8,28 @@
  */
 
 /**
- * Öffentliche Basis-URL ohne Schrägstrich am Ende. Der GitHub-Pages-Build
- * setzt `NEXT_PUBLIC_SITE_URL` (siehe next.config.ts) auf die Projektseite;
- * überall sonst gilt die Wunschdomain.
+ * Öffentliche Basis-URL ohne Schrägstrich am Ende.
+ *
+ * Das ist die Adresse, unter der die Seite **tatsächlich erreichbar ist** –
+ * nicht die, unter der sie einmal erreichbar sein soll. Hier stand zuvor
+ * `https://drsmartphone48.de`, eine Domain, die nicht existiert; damit meldete
+ * jede Seite eine kanonische URL ins Leere. Für Google heißt das: Die echte
+ * Fassung dieser Seite steht woanders – also nicht indexieren. Betroffen waren
+ * außerdem Sitemap, JSON-LD, Vorschaubilder und der QR-Code auf dem
+ * Reparatur-Ticket, solange die Seite noch nicht im Browser übernommen hat.
+ *
+ * Wer die Domain wechselt, ändert sie hier – oder setzt beim Deploy
+ * `NEXT_PUBLIC_SITE_URL`. Der GitHub-Pages-Build tut genau das (siehe
+ * next.config.ts) und zeigt auf die Projektseite.
+ *
+ * Zwei Fallstricke:
+ * – Die Adresse trägt `www.`, weil nur dieser Name ein gültiges Zertifikat
+ *   hat. Ohne `www.` scheitert der Aufruf an der TLS-Prüfung.
+ * – `NEXT_PUBLIC_*` wird beim **Bauen** eingesetzt. Eine Änderung im Hoster
+ *   wirkt erst nach einem neuen Deployment.
  */
-const publicUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://drsmartphone48.de";
+const publicUrl =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://www.drsmartphone48.repair";
 
 export const site = {
   name: "Dr Smartphone48",
