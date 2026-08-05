@@ -24,6 +24,8 @@ import { detectDevice, type DetectResult } from "@/lib/detect";
 import { ticketQuery } from "@/lib/ticket";
 import { useCountUp } from "@/lib/useCountUp";
 import { Icon } from "@/components/ui/Icon";
+import { SelectionPill, type PillContent } from "@/components/ui/SelectionPill";
+import { comboFor } from "@/lib/data/combos";
 import { ConsentGate, useConsentGate } from "@/components/ui/ConsentGate";
 import Link from "next/link";
 import { DeviceDiagram } from "./DeviceDiagram";
@@ -120,15 +122,53 @@ export function Configurator() {
     scrollTo(damageRef);
   };
 
+  /*
+    Die Auswahl-Bestätigung. Sie meldet nur das Hinzufügen: Wer etwas
+    abwählt, sieht die Kachel erlöschen – das ist Bestätigung genug. Eine
+    Meldung „entfernt" wäre eine Mitteilung über eine Absicht, die der
+    Besucher gerade selbst ausgeführt hat.
+  */
+  const [pill, setPill] = useState<PillContent | null>(null);
+
   const toggleRepair = (kind: RepairKind, part: DiagramPart) => {
     setSelected((prev) => {
       const active = prev.includes(kind);
       const next = active ? prev.filter((k) => k !== kind) : [...prev, kind];
       setHighlight(active ? null : part);
+
+      if (!active) {
+        const added = repairs.find((r) => r.kind === kind);
+        if (added) {
+          const summe = repairs
+            .filter((r) => next.includes(r.kind))
+            .reduce((s, r) => s + r.price, 0);
+          setPill({
+            key: `${kind}-${next.length}`,
+            icon: "check",
+            label: `${added.label} hinzugefügt`,
+            detail: formatEuro(summe),
+            spoken: `Neuer Festpreis ${formatEuro(summe)}.`,
+          });
+        }
+      }
       return next;
     });
     setSubmitted(false);
   };
+
+  /*
+    Höchstens ein Vorschlag, und nur zu dem, was das Modell auch anbietet.
+
+    Der Merker hängt an den Reparatur-Kennungen als Zeichenkette, nicht am
+    `repairs`-Array: Das entsteht bei jedem Render neu und würde die
+    Berechnung damit jedes Mal auslösen – der Merker wäre wirkungslos.
+  */
+  const availableKinds = repairs.map((r) => r.kind).join(",");
+  const combo = useMemo(
+    () => comboFor(selected, availableKinds.split(",").filter(Boolean) as RepairKind[]),
+    [selected, availableKinds],
+  );
+  const comboRepair = combo ? repairs.find((r) => r.kind === combo.suggest) : undefined;
 
   const summaryText = useMemo(() => {
     if (!entry || chosen.length === 0) return "";
@@ -358,6 +398,41 @@ export function Configurator() {
               );
             })}
           </ul>
+
+          {/*
+            Der Hinweis auf eine sinnvolle Kombination.
+
+            Er nennt nie, was andere getan haben – er nennt den technischen
+            Umstand, der die Kombination sinnvoll macht (siehe
+            lib/data/combos.ts). Und er ist ein Vorschlag, kein Vorgriff:
+            Nichts ist vorausgewählt, die Schaltfläche fügt hinzu, wenn der
+            Besucher es will.
+          */}
+          {combo ? (
+            <aside
+              key={combo.suggest}
+              className="combo-hint mt-5 rounded-[var(--radius-m)] border border-line bg-raised p-5"
+            >
+              <p className="flex items-center gap-2 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-ink-faint">
+                <Icon name="sparkle" size={14} />
+                Wenn das Gerät ohnehin offen ist
+              </p>
+              <p className="mt-2.5 leading-relaxed text-ink">{combo.reason}</p>
+              {comboRepair ? (
+                <button
+                  type="button"
+                  onClick={() => toggleRepair(comboRepair.kind, comboRepair.part)}
+                  data-ripple="ink"
+                  className="press mt-4 inline-flex h-11 items-center gap-2 rounded-full border border-line-strong px-5 text-[0.9375rem] font-medium text-ink-strong transition-colors duration-[var(--duration-fast)] hover:border-ink-strong"
+                >
+                  {comboRepair.label} dazunehmen
+                  <span className="font-mono text-ink-soft">
+                    +{formatEuro(comboRepair.price)}
+                  </span>
+                </button>
+              ) : null}
+            </aside>
+          ) : null}
         </section>
 
         {/* Schritt 4: Termin */}
@@ -610,6 +685,8 @@ export function Configurator() {
           Festpreis. Keine versteckten Kosten. Zahlung erst nach der Reparatur.
         </p>
       </aside>
+
+      <SelectionPill content={pill} />
     </div>
   );
 }

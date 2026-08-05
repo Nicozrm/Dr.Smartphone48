@@ -1513,6 +1513,33 @@ html[data-js] .nojs-only {
 /* Ziffernwechsel, wo ein Wert ausgetauscht statt hochgezählt wird
    (DiagramShowcase). Der Konfigurator selbst zählt inzwischen – siehe
    lib/useCountUp.ts. */
+/* Auswahl-Bestätigung: steigt auf, geht von selbst.
+   Die Insel liegt fix am unteren Rand und ist `pointer-events-none` – sie
+   bestätigt, sie bedient nicht. Deshalb darf sie über allem liegen, ohne
+   je im Weg zu sein. */
+.selection-pill {
+  animation: pill-in var(--duration-base) var(--ease-out);
+}
+@keyframes pill-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.9rem) scale(0.97);
+  }
+}
+
+/* Der Kombinationshinweis blendet auf, statt zu erscheinen: Er entsteht als
+   Folge einer Auswahl, und ein Element, das ohne Übergang dasteht, liest
+   sich wie ein Fehler in der Seite. */
+.combo-hint {
+  animation: combo-in var(--duration-base) var(--ease-out);
+}
+@keyframes combo-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.35rem);
+  }
+}
+
 .price-swap {
   animation: price-swap var(--duration-base) var(--ease-out);
 }
@@ -1553,6 +1580,10 @@ html[data-js] .nojs-only {
     opacity: 1;
     transform: none;
     transition: none;
+  }
+  .selection-pill,
+  .combo-hint {
+    animation: none;
   }
   .price-swap {
     animation: none;
