@@ -58,11 +58,26 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Die Regeln aus CLAUDE.md, ausgeführt: Kontrastwerte, Redaktionsregeln,
+      # Shader-Fallstricke, pageMeta-Pflicht. Läuft vor dem Build, damit ein
+      # Verstoß nicht erst nach zwei Minuten Bauzeit auffällt.
+      - name: Prüfstand (Quelltext)
+        run: npm run verify
+
+      - name: QR-Encoder gegen die Norm prüfen
+        run: npm run verify:qr
+
       - name: Statischen Export bauen
         run: npm run build:static
         env:
           # Aktiviert basePath /Koko in next.config.ts
           GITHUB_PAGES: "true"
+
+      # Zweiter Lauf: Jetzt liegt ./out vor, also greifen zusätzlich die
+      # Prüfungen am fertigen Export – eigener Canonical je Seite, og:image
+      # überall, keine Seite zugleich in der Sitemap und auf noindex.
+      - name: Prüfstand (Export)
+        run: npm run verify
 
       - name: Jekyll-Verarbeitung abschalten
         run: touch ./out/.nojekyll

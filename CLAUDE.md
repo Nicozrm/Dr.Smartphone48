@@ -16,30 +16,63 @@ Der Paketname in `package.json` lautet aus historischen Gründen noch
 
 ```bash
 npm install
-npm run dev           # Entwicklungsserver
-npm run build         # Server-Build (Vercel, Cloudflare Workers)
-npm run build:static  # Statischer Export nach ./out (ohne /api)
-npm run lint          # ESLint
+npm run dev               # Entwicklungsserver
+npm run build             # Server-Build (Vercel, Cloudflare Workers)
+npm run build:static      # Statischer Export nach ./out (ohne /api)
+npm run lint              # ESLint
+npm run verify            # Prüfstand: die Regeln dieser Datei, ausgeführt
 npm run verify:qr         # QR-Encoder gegen ISO/IEC 18004 prüfen
 npm run verify:procedure  # Werkstattabläufe gegen die zugesagten Zeiten
 npm run verify:inspection # Prüfprotokoll + Bestand gegen die eigenen Zusagen
 npm run verify:support    # Update-Horizont gegen den Gerätekatalog
 npm run verify:status     # Werkstattablauf gegen das Datenbankschema
 
-npm run cf:build      # Cloudflare-Worker bauen (OpenNext)
-npm run cf:preview    # Worker lokal in workerd testen
-npm run cf:deploy     # Auf Cloudflare Workers deployen
+npm run cf:build          # Cloudflare-Worker bauen (OpenNext)
+npm run cf:preview        # Worker lokal in workerd testen
+npm run cf:deploy         # Auf Cloudflare Workers deployen
 
 node scripts/generate-icons.mjs   # PWA-Icons neu rendern (headless Chromium)
 node scripts/generate-og.mjs      # public/og.png neu rendern (Link-Vorschaubild)
 ```
 
-Es gibt keine Test-Suite. Verifikation = `npm run build` + `npm run lint`.
+Es gibt keine Test-Suite. Verifikation = `npm run build` + `npm run lint`
++ **`npm run verify`** + die fachlichen Prüfskripte.
 
-Dazu vier Prüfskripte, und alle vier prüfen dasselbe: dass eine Zusage der
-Seite noch stimmt. Sie sind kein Ersatz für Tests, sondern die Stellen, an
-denen ein stiller Fehler die Website zur Lügnerin macht, ohne dass jemand
-etwas merkt.
+### Der Prüfstand (`scripts/verify.mjs`)
+
+Die Regeln in dieser Datei sind ausführbar. Der Grund steht in der
+Fehlergeschichte des Projekts: Nacheinander sind ein Kontrastwert unter dem
+Schwellenwert, jede Unterseite mit der Startseite als kanonischer URL,
+Markdown-Sternchen in gerendertem Text, zweimal ein Backtick im GLSL-Literal
+und ein reserviertes Wort als Shader-Variable durchgerutscht. Keiner dieser
+Fehler war schwer zu finden. Alle waren schwer zu **bemerken**.
+
+Geprüft wird:
+
+| Prüfung | Worauf |
+|---|---|
+| Kontrast | alle Ink×Flächen-Paare in beiden Themes ≥ 4.5:1, Statusfarben, `--accent-contrast` auf `--accent`, kein `text-white` auf `bg-accent` |
+| Redaktion | keine Markdown-Betonung in `lib/data/`-Textwerten, keine feste Garantiedauer außerhalb `site.ts` |
+| Shader | kein Backtick im GLSL-Literal, keine GLSL-Schlüsselwörter als Bezeichner |
+| Metadaten | jede Route nutzt `pageMeta()` |
+| Export | eigener Canonical je Seite, `og:image` überall, nichts zugleich in Sitemap und auf `noindex` |
+
+Die Export-Prüfungen laufen nur, wenn `./out` vorliegt – also nach
+`npm run build:static`. In CI läuft der Prüfstand zweimal: vor dem Build für
+den Quelltext, danach für den Export.
+
+**Wer eine Regel ergänzt, ergänzt die Prüfung.** Und wer eine Prüfung
+schreibt, baut den Fehler einmal absichtlich ein und sieht nach, ob sie
+anschlägt – die `text-white`-Prüfung sah beim ersten Selbsttest nur in
+`className`-Attribute und übersah damit genau die Stelle, an der der Fehler
+tatsächlich saß.
+
+### Die fachlichen Prüfskripte
+
+Der Prüfstand deckt die Regeln dieser Datei ab. Daneben stehen fünf Skripte,
+die alle dasselbe prüfen: dass eine Zusage der Seite noch stimmt. Sie sind
+kein Ersatz für Tests, sondern genau die Stellen, an denen ein stiller Fehler
+die Website zur Lügnerin macht, ohne dass jemand etwas merkt.
 
 - `verify:qr` – der QR-Encoder gegen ISO/IEC 18004. Ein Fehler hier ergibt
   einen Ausdruck, den kein Telefon liest.
@@ -124,6 +157,7 @@ app/                     App-Router-Seiten (alle statisch prerendert)
   reparatur/             Sofortpreis-Rechner (Signature-Feature) + Werkstattablauf + FAQ
   notfall/               Notfall-Protokolle (ohne JS lesbar, offline im Cache)
   check/                 Geräte-Check: Sensor-Diagnose im Browser
+  vorbereitung/          Übergabe-Assistent: was vor der Abgabe zu tun ist
   ankauf/                Restwert-Rechner mit offengelegter Rechnung
   zwilling/              Digitaler Zwilling, Akku-Coach, Reparieren-oder-neu
   versorgung/            Update-Horizont: bis wann jedes Modell noch
@@ -157,6 +191,7 @@ components/
   experience/            Bootloader, CommandPalette (⌘K), ShaderField (WebGL-Hero),
                          DeviceExploded, XRay, MagneticField, ScrollProgress
   check/                 DeviceCheck (Display-, Sensor-, Audio-, Akku-Tests)
+  handover/              HandoverAssistant (Vorbereitung zur Abgabe)
   twin/                  DigitalTwin, RepairOrReplace
   battery/               BatteryCoach (3-Jahres-Prognose)
   resale/                ResaleCalculator (Ankauf)
@@ -186,9 +221,10 @@ lib/
                          (Bestand inkl. Zyklen, Prüfdatum, ersetzte Teile, Befund),
                          inspection.ts (die 40 Prüfpositionen), procedure.ts
                          (Werkstattschritte), support.ts (Update-Horizont je
-                         Modell), faq.ts, reviews.ts, emergency.ts
+                         Modell), faq.ts, reviews.ts, emergency.ts, handover.ts
   invoice/               types.ts calc.ts (Cent-Arithmetik) catalog.ts validate.ts
-                         (§ 14 UStG) store.ts (localStorage) girocode.ts qr.ts
+                         (§ 14 UStG) store.ts (localStorage) girocode.ts
+                         einvoice.ts + cii.ts (E-Rechnung nach EN 16931)
   tickets/               status.ts (die acht Zustände), code.ts (Vorgangscode),
                          types.ts, validate.ts, public-view.ts (Redaktion),
                          repository.ts (einzige Datenzugriffsschicht),
@@ -388,10 +424,73 @@ per Seiten-Metadaten, `Disallow: /intern/` in `robots.ts`.
   aus, nicht `header` / `footer`.** Der Fuß des Rechnungsblatts trägt
   Steuernummer, USt-IdNr. und Bankverbindung; ein Selektor auf das nackte
   Element nähme genau die Pflichtangaben mit.
-- Der GiroCode (EPC069-12) wird ohne Bibliothek erzeugt (`lib/invoice/qr.ts`,
-  Byte-Modus, Fehlerkorrektur M, Versionen 1–13). Die längstmögliche
-  EPC-Nutzlast liegt bei ~278 Zeichen und passt damit sicher hinein.
+- Der GiroCode (EPC069-12) nutzt denselben Encoder wie der Rest der Seite
+  (`lib/qr.ts`) und ist damit von `npm run verify:qr` erfasst. Es gab hier
+  einmal eine zweite, eigene Umsetzung derselben Norm – ausgerechnet der Code,
+  der zum Bezahlen auffordert, war dadurch der einzige ungeprüfte. Die
+  längstmögliche EPC-Nutzlast liegt bei ~278 Zeichen und passt sicher hinein.
 
+### E-Rechnung nach EN 16931 (`lib/invoice/einvoice.ts`, `cii.ts`)
+
+Rechtlicher Hintergrund: Seit dem 1.1.2025 muss jedes deutsche Unternehmen
+strukturierte E-Rechnungen **empfangen** können. Ausstellen muss sie ab dem
+1.1.2027, wer über 800.000 € Vorjahresumsatz liegt – ab dem **1.1.2028 jeder**
+im B2B-Geschäft. Eine Werkstatt, die einer GmbH ein Display tauscht, fällt
+darunter.
+
+Erzeugt werden zwei Ausprägungen derselben CII-Syntax (UN/CEFACT):
+**ZUGFeRD 2.3 / Factur-X** (`urn:cen.eu:en16931:2017`) für Unternehmen und
+**XRechnung 3.0** für Behörden. Beide entstehen im Browser, ohne Server.
+
+- **Die Kennung der XRechnung lautet `urn:xeinkauf.de:kosit:xrechnung_3.0`**,
+  nicht mehr `urn:xoev-de:kosit:standard:...`. Die KoSIT hat den Namensraum mit
+  Version 3.0 gewechselt; die alte Kennung sieht fast gleich aus, gilt der
+  Prüfung der Verwaltung aber als „keine XRechnung“.
+- **CII ist ein sequenzielles Schema.** Die Reihenfolge der Elemente ist
+  bindend – in `ram:ApplicableTradeTax` etwa CalculatedAmount → TypeCode →
+  ExemptionReason → BasisAmount → CategoryCode → RateApplicablePercent. Wer
+  umsortiert, produziert ein Dokument, das automatisch abgelehnt wird.
+- **§ 19 und § 25a werden als Kategorie `E` mit Befreiungsgrund abgebildet.**
+  Für die Differenzbesteuerung ist das gängige Praxis, aber keine reine Lehre –
+  die Norm kennt dafür keine eigene Kategorie. Einmal vom Steuerbüro
+  bestätigen lassen.
+- Für die XRechnung sind Leitweg-ID (BT-10) und elektronische Adresse des
+  Empfängers (BT-49) Pflicht. Beide stehen im Abschnitt „Empfänger“.
+
+Prüfen mit dem Validator der Referenzimplementierung (Java erforderlich):
+
+```bash
+curl -sSLo validator.jar \
+  https://repo1.maven.org/maven2/org/mustangproject/validator/2.24.0/validator-2.24.0-shaded.jar
+# Wrapper, weil das Jar keine Main-Klasse mitbringt:
+cat > Val.java <<'EOF'
+import org.mustangproject.validator.ZUGFeRDValidator;
+public class Val { public static void main(String[] a) throws Exception {
+  System.out.println(new ZUGFeRDValidator().validate(a[0])); } }
+EOF
+javac -cp validator.jar -d . Val.java && java -cp .:validator.jar Val rechnung.xml
+```
+
+Erwartung: XRechnung `failed = 0`. Für ZUGFeRD bleibt genau eine Meldung
+(BR-DE-21) – der Validator prüft immer gegen XRechnung, und ein ZUGFeRD-Beleg
+trägt zu Recht die neutrale EN-16931-Kennung.
+
+### Warum `calc.ts` gruppenweise rechnet
+
+Die Steuer wird **je Steuersatz aus der Bemessungsgrundlage** abgeleitet, nicht
+aus der Summe gerundeter Einzelsteuern. Das ist keine Feinheit: EN 16931
+verlangt es in BR-CO-17, und beide Wege lagen im Test regelmäßig einen Cent
+auseinander. Das gedruckte Blatt sah dabei weiterhin plausibel aus, während die
+E-Rechnung automatisch zurückgewiesen wurde.
+
+Damit trotzdem kein Kunde „2 × 19,90 = 39,79“ liest, gilt: **Der eingegebene
+Wert bleibt unangetastet, verteilt wird nur der abgeleitete.** Bei
+Bruttoeingabe stehen die Bruttobeträge der Positionen fest; die Nettobeträge
+werden mit der Methode der größten Reste so verteilt, dass ihre Summe die
+Bemessungsgrundlage trifft (`largestRemainder`). `netFromGross` sucht zusätzlich
+den Nettowert, der die Bruttosumme **exakt** reproduziert – das gelingt in rund
+83 % der Fälle. Sonst gewinnt die Norm und ein Cent wandert auf die größte
+Position.
 
 ### Vorgangsverwaltung (`/status`, `/intern/werkstatt`)
 
@@ -495,6 +594,29 @@ Netz und auf jedem Gerät funktionieren. Deshalb stehen dort alle vier
 Protokolle vollständig im HTML statt hinter einem Umschalter, und deshalb
 steht die Seite an erster Stelle im Precache des Service Workers. Wer daran
 etwas ändert, prüft beides.
+
+### Übergabe-Assistent (`/vorbereitung`)
+
+Beantwortet, was vor einer Abgabe zu erledigen ist – und grenzt sich damit
+bewusst von `/ticket` ab: Das Ticket **protokolliert** am Tresen, dass Backup
+und Gerätesuche erledigt sind, diese Seite erklärt zu Hause das **Wie**.
+
+- **Jeder Schritt nennt seine Folge** (`ifSkipped` in `lib/data/handover.ts`).
+  Nicht „bitte erledigen", sondern was konkret entfällt. Neue Schritte ohne
+  diese Angabe sind unvollständig.
+- **Menüpfade sind Beispiele, keine Zusicherung.** Apple und die
+  Android-Hersteller benennen Menüs um; wo ein Pfad veralten kann, steht das
+  dabei, statt eine Genauigkeit zu behaupten, die niemand pflegt.
+- **Der Sperrcode ist eine Abwägung, keine Aufforderung.** Für alle drei Wege
+  steht, welche Prüfungen möglich bleiben (`covered`) und welche entfallen
+  (`notCovered`). Die Werkstatt hat ein Interesse am bequemsten Weg – das ist
+  kein Grund, die anderen schlechtzureden. Wer hier etwas ändert, prüft, dass
+  `notCovered` weiterhin vollständig ist.
+- **Keine Markdown-Syntax in den Textwerten.** Die Strings werden direkt
+  gerendert; `**fett**` erscheint wörtlich auf der Seite. Betonung gehört in
+  die Formulierung.
+- Der Fortschritt steht in der Adresse (`?p=ios&ok=backup.lock&c=muendlich`) –
+  nichts Persönliches, kein Speicher, teilbar wie das Ticket.
 
 ### Personenbezogene Daten
 

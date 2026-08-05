@@ -31,6 +31,7 @@ const entries: Entry[] = [
   { path: "/notfall", priority: 0.9, changeFrequency: "monthly" },
   { path: "/reparatur", priority: 0.9, changeFrequency: "monthly" },
   { path: "/check", priority: 0.9, changeFrequency: "monthly" },
+  { path: "/vorbereitung", priority: 0.8, changeFrequency: "monthly" },
   { path: "/ankauf", priority: 0.9, changeFrequency: "weekly" },
   { path: "/zwilling", priority: 0.9, changeFrequency: "monthly" },
   { path: "/versorgung", priority: 0.85, changeFrequency: "monthly" },

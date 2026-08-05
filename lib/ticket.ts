@@ -145,8 +145,30 @@ export function ticketIcs(options: {
   const next = new Date(date);
   next.setDate(next.getDate() + 1);
 
-  const stamp = `${day(new Date())}T000000Z`;
+  // DTSTAMP ist der Zeitpunkt der Erzeugung in UTC. Zuvor stand hier das
+  // **lokale** Datum mit angehängtem „Z“ – auf einem Rechner östlich von
+  // Greenwich war der Stempel damit kurz nach Mitternacht einen Tag voraus.
+  const stamp = `${new Date().toISOString().slice(0, 19).replace(/[-:]/g, "")}Z`;
 
+  /*
+    Escaping nach RFC 5545 § 3.3.11.
+
+    Komma und Semikolon trennen in iCalendar Werte voneinander. Ein Text, der
+    sie unmaskiert enthält, ist deshalb kein Text mehr, sondern eine Liste –
+    strenge Programme zerlegen ihn, andere zeigen den Rest gar nicht.
+    Der Backslash muss zuerst ersetzt werden, sonst verdoppelt der nächste
+    Durchgang die gerade erzeugten Maskierungen.
+  */
+  const escape = (value: string) =>
+    value
+      .replace(/\\/g, "\\\\")
+      .replace(/;/g, "\\;")
+      .replace(/,/g, "\\,")
+      .replace(/\r?\n/g, "\\n");
+
+  // Jede Zeile einzeln maskieren, dann mit der Zeilenumbruch-Folge verbinden.
+  // Vorher lief der Text ungeprüft durch – schon „Datensicherung anlegen,
+  // Gerätesuche deaktivieren“ enthält zwei trennende Kommas.
   const description = [
     `Vorgang ${ticket.reference}`,
     `Gerät: ${ticket.brand.name} ${ticket.model.name}`,
@@ -157,20 +179,40 @@ export function ticketIcs(options: {
     "SIM- und Speicherkarte entnehmen.",
     "",
     url,
-  ].join("\\n");
+  ]
+    .map(escape)
+    .join("\\n");
 
-  // Zeilen über 75 Oktetts müssen laut RFC 5545 umbrochen werden.
+  /*
+    Faltung nach RFC 5545 § 3.1: Eine Zeile darf 75 **Oktetts** tragen, nicht
+    75 Zeichen. Der Unterschied ist in einem deutschen Text keine Feinheit –
+    „Gerät“ belegt sechs Oktetts bei fünf Zeichen, und schon eine Handvoll
+    Umlaute schob die Zeile über die Grenze.
+
+    Gezählt wird deshalb in UTF-8-Oktetts, und zerlegt wird nach Codepoints,
+    damit kein Zeichen mitten in seiner Bytefolge zerschnitten wird. Die
+    Fortsetzungszeile beginnt mit einem Leerzeichen, das mitzählt.
+  */
   const fold = (line: string) => {
-    if (line.length <= 74) return line;
-    const parts: string[] = [line.slice(0, 74)];
-    for (let i = 74; i < line.length; i += 73) {
-      parts.push(` ${line.slice(i, i + 73)}`);
+    const encoder = new TextEncoder();
+    const parts: string[] = [];
+    let current = "";
+    let bytes = 0;
+    let limit = 75;
+    for (const char of line) {
+      const size = encoder.encode(char).length;
+      if (bytes + size > limit) {
+        parts.push(current);
+        current = "";
+        bytes = 0;
+        limit = 74; // das führende Leerzeichen der Fortsetzung
+      }
+      current += char;
+      bytes += size;
     }
-    return parts.join("\r\n");
+    parts.push(current);
+    return parts.join("\r\n ");
   };
-
-  const escape = (value: string) =>
-    value.replace(/([,;])/g, "\\$1").replace(/\n/g, "\\n");
 
   return [
     "BEGIN:VCALENDAR",
@@ -190,9 +232,13 @@ export function ticketIcs(options: {
     "BEGIN:VALARM",
     "TRIGGER:-PT2H",
     "ACTION:DISPLAY",
-    "DESCRIPTION:Gerät und Zubehör bereitlegen",
+    fold(`DESCRIPTION:${escape("Gerät und Zubehör bereitlegen")}`),
     "END:VALARM",
     "END:VEVENT",
     "END:VCALENDAR",
+    // Auch die letzte Zeile endet mit CRLF – RFC 5545 kennt keine Datei ohne
+    // abschließenden Zeilenumbruch, und manche Programme verschlucken sonst
+    // das letzte END.
+    "",
   ].join("\r\n");
 }

@@ -8,6 +8,7 @@ import { ShaderField } from "@/components/experience/ShaderField";
 import { HeroDevice } from "@/components/experience/HeroDevice";
 import { DeviceExploded } from "@/components/experience/DeviceExploded";
 import { XRay } from "@/components/experience/XRay";
+import { DeviceStage } from "@/components/experience/DeviceStage";
 import { RefurbishedCard } from "@/components/sections/RefurbishedCard";
 import { Reviews } from "@/components/sections/Reviews";
 import { TrustBar } from "@/components/sections/TrustBar";
@@ -226,6 +227,44 @@ export default function HomePage() {
           <Reveal delay={100}>
             <DiagramShowcase />
           </Reveal>
+        </div>
+      </section>
+
+      {/*
+        Die Bühne – das Gerät in Echtzeit gerechnet.
+
+        Bewusst randlos und ohne Kasten: Der Körper schwebt in der Seite,
+        statt in einer Karte zu sitzen. Der Text steht daneben und trägt die
+        Aussage allein – wer kein WebGL hat oder Bewegung abbestellt, verliert
+        nichts als die Zugabe.
+      */}
+      <section className="relative min-h-[34rem] overflow-hidden bg-[#0a0b0e] md:min-h-[44rem]">
+        <DeviceStage className="absolute inset-0 h-full w-full" />
+        <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-5 py-24 md:px-8 md:py-36 lg:min-h-[44rem] lg:grid-cols-[1fr_minmax(0,25rem)]">
+          {/* Die Bühne ist in beiden Themes dunkel – der Text daher immer
+              invers, wie im Kennzahlen-Abschnitt. */}
+          <div className="lg:col-start-2">
+            <Reveal>
+              <p className="text-eyebrow !text-ink-inverse-soft">In Echtzeit</p>
+              <h2 className="text-headline mt-4 !text-ink-inverse">
+                Kein Foto.
+                <br />
+                Ihr Gerät, gerechnet.
+              </h2>
+              <p className="mt-5 leading-relaxed text-ink-inverse-soft">
+                Titan, Glas, drei Linsen – jedes Bild neu berechnet,
+                sechsunddreißig Mal in der Sekunde. Kein 3D-Modell, keine
+                Bibliothek, keine Bilddatei: nur Mathematik, die sich Ihrem
+                Zeiger zuwendet.
+              </p>
+              {/* Der Hinweis verschwindet, wo er nicht stimmt: ohne WebGL,
+                  ohne Zeigegerät und bei abbestellter Bewegung. Siehe
+                  .stage-hint in globals.css. */}
+              <p className="stage-hint mt-5 font-mono text-[0.8125rem] leading-relaxed text-ink-inverse-soft/70">
+                Bewegen Sie den Zeiger über die Fläche.
+              </p>
+            </Reveal>
+          </div>
         </div>
       </section>
 
