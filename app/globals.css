@@ -1572,6 +1572,36 @@ html[data-js] .nojs-only {
   }
 }
 
+/* Überführung der Gerätesignatur im Sofortpreis-Rechner.
+   Gesetzt wird der Name in lib/viewTransition.ts; hier steht nur, wie sich
+   das Ganze bewegen darf.
+
+   Die Seite selbst blendet nicht über. Die alte Aufnahme wird sofort
+   weggenommen, die neue ist eine lebende Darstellung – der gestaffelte
+   Einlauf der Modellkacheln läuft also darunter weiter, statt für eine
+   halbe Sekunde als Standbild zu warten. Übrig bleibt genau eine Bewegung:
+   die Signatur, die von der Kachel in die Zusammenfassung wandert. */
+::view-transition-old(root) {
+  display: none;
+}
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-group(marke) {
+  animation-duration: var(--duration-slow);
+  animation-timing-function: var(--ease-out);
+}
+::view-transition-old(marke),
+::view-transition-new(marke) {
+  animation-duration: var(--duration-slow);
+  animation-timing-function: var(--ease-out);
+  /* Beide Aufnahmen zeigen dieselbe Zeichnung im Seitenverhältnis 44:64.
+     Es gibt nichts zu verzerren, nur zu skalieren. */
+  height: 100%;
+  width: 100%;
+}
+
 /* PWM-Diagramm auf /ersatzteile: zehn Millisekunden Signalverlauf.
    Ein Kachelbild aus einer harten Hell-Dunkel-Kante, `--pwm-tile` breit;
    `--pwm-duty` ist der helle Anteil je Kachel. Beide Werte setzt die

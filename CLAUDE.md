@@ -218,6 +218,7 @@ lib/
   resale.ts              Ankauf-Bewertung als Liste begründeter Posten
   battery.ts             Alterungsmodell (kalendarisch + zyklisch)
   format.ts detect.ts theme.ts
+  viewTransition.ts      Überführung der Gerätesignatur (die einzige im Projekt)
   data/                  devices.ts (Modelle, Preise, Ankaufswerte), refurbished.ts
                          (Bestand inkl. Zyklen, Prüfdatum, ersetzte Teile, Befund),
                          inspection.ts (die 40 Prüfpositionen), procedure.ts
@@ -279,6 +280,23 @@ scripts/
   die `Reveal`-Komponente (IntersectionObserver setzt `data-revealed`, Bewegung
   lebt in CSS). `prefers-reduced-motion` wird überall respektiert; ohne JS
   bleibt alles sichtbar (`html[data-js]`-Gate).
+- **Überführungen (View Transitions) gibt es genau eine**, und sie hat vier
+  Ausschaltbedingungen: `lib/viewTransition.ts`. Die Gerätesignatur wandert im
+  Sofortpreis-Rechner von der Markenkachel in den Kopf der Vorschau.
+
+  Die Bedingung, an der die erste Fassung gescheitert ist: **Start und Ziel
+  müssen gleichzeitig im Bild sein.** Der Kopf der Vorschau stand zunächst
+  unter dem Diagramm – bei 1440 × 900 also unterhalb des sichtbaren Bereichs,
+  und die Signatur flog aus dem Fenster. Deshalb steht er jetzt darüber, auf
+  Höhe der Kacheln, und unter 1024 px Fensterbreite läuft die Überführung gar
+  nicht erst (dort liegt die Vorschau weit unter den Schritten).
+
+  Zwei Dinge, die man dabei falsch machen kann: Ein zweites Element mit
+  demselben `view-transition-name` in derselben Aufnahme bricht die
+  Überführung ab – der Name wird deshalb im Klick gesetzt und im selben
+  Rutsch wieder entfernt. Und `::view-transition-old(root)` bleibt auf
+  `display: none`: Eine überblendete Seitenaufnahme legte sich eine halbe
+  Sekunde über den gestaffelten Einlauf der Modellkacheln.
 - Server Components als Default; `"use client"` nur wo nötig
   (Reveal, Configurator, DiagramShowcase, ContactForm, ServiceWorkerRegister,
   Bootloader, CommandPalette, DeviceCheck, DigitalTwin, ShaderField,
