@@ -203,7 +203,8 @@ components/
                          StatusControl, WorkshopStats, WorkshopLogin,
                          ShortcutHelp
   emergency/             RescueClock
-  parts/                 DisplayCompare (echte Eingabeverzögerung)
+  parts/                 DisplayCompare (echte Eingabeverzögerung),
+                         PwmDemo (Flimmern als Zeitdiagramm)
   procedure/             RepairProcedure (Werkstattablauf im Zeitraffer)
   support/               SupportHorizon (Zeitachse), SupportTable (alle Modelle)
   invoice/               InvoiceBuilder (Editor) + InvoiceSheet (das Blatt, DIN 5008)
@@ -588,6 +589,16 @@ die Luhn-Rechnung. Wo etwas geschätzt ist, steht „Schätzung" dabei; wo etwas
 veranschaulicht ist (Farbdrift im Display-Vergleich), steht das ebenfalls
 dabei. Kein erfundener Countdown, keine erfundenen Marktpreise, keine
 Hersteller-Zuordnung aus einer IMEI. Lieber eine Lücke als eine Behauptung.
+
+Ein Sonderfall davon, weil er beim Weiterbauen so verlockend ist: **Die
+PWM-Darstellung auf `/ersatzteile` ist ein Zeitdiagramm und bleibt eines.**
+Der naheliegende „Verbesserung" wäre, beide Panels verlangsamt blinken zu
+lassen – und sie dreht die Aussage um. 3.000 Hz haben die kürzere Periode als
+240 Hz; in gleichmäßiger Zeitlupe blinkt also das gute Panel schneller und
+wirkt unruhiger. Der Betrachter lernte das Gegenteil der Wirklichkeit.
+Deshalb steht dort ein Ausschnitt von zehn Millisekunden auf einer Zeitachse,
+und die entscheidende Zahl – die Länge einer einzelnen Dunkelphase – steht als
+Zahl dabei, nicht als Effekt.
 
 **Der Notfall hat Vorrang vor allem.** `/notfall` muss ohne JavaScript, ohne
 Netz und auf jedem Gerät funktionieren. Deshalb stehen dort alle vier

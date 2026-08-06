@@ -3,6 +3,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { Reveal } from "@/components/ui/Reveal";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { DisplayCompare } from "@/components/parts/DisplayCompare";
+import { PwmDemo } from "@/components/parts/PwmDemo";
 import { site } from "@/lib/site";
 import { JsonLd, breadcrumbJsonLd, pageMeta } from "@/lib/seo";
 
@@ -130,11 +131,16 @@ export default function ErsatzteilePage() {
               Man spürt ihn.
             </>
           }
-          lede="Jede Werkstatt behauptet, gute Displays zu verbauen. Beweisen lässt sich das schwer – ein fremdes Panel kann Ihnen niemand auf Ihrem eigenen Bildschirm zeigen. Eine Eigenschaft aber schon, und ausgerechnet die, die im Alltag am meisten stört."
+          lede="Jede Werkstatt behauptet, gute Displays zu verbauen. Beweisen lässt sich das schwer – ein fremdes Panel kann Ihnen niemand auf Ihrem eigenen Bildschirm zeigen. Zwei Eigenschaften aber schon: die, die man am ersten Tag bemerkt, und die, die man erst nach zwei Wochen bemerkt."
         />
         <div className="mt-12">
           <DisplayCompare />
         </div>
+        <Reveal>
+          <div className="mt-6">
+            <PwmDemo />
+          </div>
+        </Reveal>
       </section>
 
       <section className="border-t border-line">

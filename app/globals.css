@@ -1572,6 +1572,46 @@ html[data-js] .nojs-only {
   }
 }
 
+/* PWM-Diagramm auf /ersatzteile: zehn Millisekunden Signalverlauf.
+   Ein Kachelbild aus einer harten Hell-Dunkel-Kante, `--pwm-tile` breit;
+   `--pwm-duty` ist der helle Anteil je Kachel. Beide Werte setzt die
+   Komponente. Zwei Farben stehen hier absichtlich fest verdrahtet statt als
+   Token: Das ist die Darstellung eines Bildschirms, kein Element der
+   Oberfläche – schwarz ist aus, hell ist an, in beiden Themes.
+   Text steht nie darauf, deshalb ist auch nichts zu kontrastieren. */
+.pwm-strip {
+  height: 4.5rem;
+  border-radius: var(--radius-s);
+  background-color: #08090a;
+  background-image: linear-gradient(
+    90deg,
+    #f2f5ff 0 var(--pwm-duty),
+    #08090a var(--pwm-duty) 100%
+  );
+  background-size: var(--pwm-tile) 100%;
+  background-repeat: repeat-x;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.07);
+}
+
+/* Hier stand einmal ein wandernder Zeitzeiger. Er ist wieder raus: Eine
+   dünne helle Linie über einem Streifen aus dünnen hellen Linien ist keine
+   Markierung, sondern ein weiterer Impuls. Im niederfrequenten Streifen
+   stand sie direkt neben einer echten Flanke und sah aus wie eine zweite.
+   Ein Diagramm, das seine eigene Legende nicht von seinen Daten trennen
+   kann, animiert man nicht – man lässt es stehen. */
+
+/* Der Mittelwert, den das Auge bildet – für beide Panels derselbe.
+   Gemischt wird in linearem Licht, denn addiert wird Leuchtdichte, nicht
+   Farbwert. */
+.pwm-average {
+  flex: none;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: var(--radius-s);
+  background: color-mix(in srgb-linear, #f2f5ff var(--pwm-duty), #08090a);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.07);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
