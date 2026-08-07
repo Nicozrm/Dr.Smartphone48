@@ -3193,3 +3193,125 @@ html[data-js] .nojs-only {
     break-inside: avoid;
   }
 }
+
+/* ==========================================================================
+   Fingerabdruck-Nachweis (/datenschutz)
+   ==========================================================================
+   Der Abschnitt sieht bewusst aus wie ein Messprotokoll und nicht wie eine
+   Warnung. Kein Rot, kein Ausrufezeichen: Die Aussage trägt der Inhalt, und
+   der ist schon unangenehm genug.
+   ========================================================================== */
+
+.print-badge {
+  padding: 1.5rem 1.75rem;
+  border: 1px solid color-mix(in oklab, var(--accent) 22%, transparent);
+  border-radius: var(--radius-l);
+  background: var(--accent-subtle);
+}
+
+.print-id {
+  margin-top: 0.5rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: clamp(1.75rem, 6vw, 2.5rem);
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  color: var(--ink-strong);
+}
+
+[data-stable="ja"] {
+  color: var(--ink-soft);
+}
+
+[data-stable="nein"] {
+  color: var(--warn);
+}
+
+.print-list {
+  border-top: 1px solid var(--line);
+}
+
+.print-list > div {
+  display: grid;
+  gap: 0.25rem 1.5rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+@media (min-width: 768px) {
+  .print-list > div {
+    grid-template-columns: 12rem minmax(0, 1fr);
+  }
+
+  .print-list dt {
+    grid-row: span 2;
+  }
+}
+
+.print-list dt {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ink-strong);
+}
+
+/* Der abgelesene Wert. Umbruch erlaubt – Grafikkartennamen sind lang und
+   dürfen die Spalte nicht sprengen. */
+.print-value {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--ink-strong);
+  overflow-wrap: anywhere;
+}
+
+.print-reason {
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.print-limits {
+  display: grid;
+  gap: 2rem;
+  padding: 2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--surface-raised);
+}
+
+@media (min-width: 768px) {
+  .print-limits {
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+  }
+}
+
+.print-limits ul {
+  list-style: none;
+}
+
+.print-limits li {
+  position: relative;
+  padding-left: 1.125rem;
+  font-size: 0.9375rem;
+}
+
+.print-limits li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.6875em;
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-full);
+  background: var(--line-strong);
+}
+
+/* Auf Papier ist ein leeres Messprotokoll sinnlos – gedruckt wird die
+   Erklärung, nicht das Werkzeug. */
+@media print {
+  .print-badge,
+  .print-list {
+    display: none;
+  }
+}

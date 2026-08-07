@@ -1,3 +1,4 @@
+import { Fingerprint } from "@/components/privacy/Fingerprint";
 import { site } from "@/lib/site";
 import { pageMeta } from "@/lib/seo";
 import { hasTicketBackend } from "@/lib/supabase/env";
@@ -26,6 +27,21 @@ export default function DatenschutzPage() {
             vollständig in Ihrem Browser. Ihre Eingaben verlassen Ihr Gerät
             erst, wenn Sie uns aktiv eine Anfrage senden.
           </p>
+        </section>
+
+        {/*
+          Der Nachweis vor der Erklärung.
+
+          Eine Datenschutzerklärung kann nur behaupten, und deshalb liest sie
+          niemand. Dieser Abschnitt zeigt stattdessen, was ohne jede Nachfrage
+          über einen Besucher ablesbar wäre – und lässt ihn selbst bewerten,
+          was der Satz „wir speichern das nicht" wert ist.
+
+          Er steht bewusst oben und nicht als Anhang: Wer nach dem dritten
+          Absatz aufhört zu lesen, soll wenigstens diesen gesehen haben.
+        */}
+        <section>
+          <Fingerprint />
         </section>
         <section>
           <h2 className="text-title">Verantwortliche Stelle</h2>
