@@ -3,22 +3,14 @@ import { Button } from "@/components/ui/Button";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Reveal } from "@/components/ui/Reveal";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { DiagramShowcase } from "@/components/sections/DiagramShowcase";
 import { ShaderField } from "@/components/experience/ShaderField";
 import { HeroDevice } from "@/components/experience/HeroDevice";
-/*
-  Hier stand kurzzeitig `next/dynamic` für `DeviceExploded` und `XRay`, um die
-  beiden größten Bauteile unter der Falz aus dem Startbündel zu lösen.
-  Zurückgenommen, weil die Messung dagegen sprach: Der App Router legt
-  Client-Komponenten ohnehin in eigene Bündel, `First Load JS` blieb bei
-  123 kB, und der Lade-Umweg kostete 0,5 kB obendrauf.
-
-  Eine Optimierung, die nur in der Theorie wirkt, ist auf dieser Website keine.
-  Wer es erneut versucht, misst vorher TBT und INP auf einem gedrosselten
-  Telefon – die Bündelgröße allein beantwortet die Frage nicht.
-*/
-import { DeviceExploded } from "@/components/experience/DeviceExploded";
-import { XRay } from "@/components/experience/XRay";
+import {
+  LazyDeviceExploded,
+  LazyDeviceStage,
+  LazyDiagramShowcase,
+  LazyXRay,
+} from "@/components/experience/LazyHomeExperience";
 import { RefurbishedCard } from "@/components/sections/RefurbishedCard";
 import { Reviews } from "@/components/sections/Reviews";
 import { TrustBar } from "@/components/sections/TrustBar";
@@ -235,8 +227,46 @@ export default function HomePage() {
             </Reveal>
           </div>
           <Reveal delay={100}>
-            <DiagramShowcase />
+            <LazyDiagramShowcase />
           </Reveal>
+        </div>
+      </section>
+
+      {/*
+        Die Bühne – das Gerät in Echtzeit gerechnet.
+
+        Bewusst randlos und ohne Kasten: Der Körper schwebt in der Seite,
+        statt in einer Karte zu sitzen. Der Text steht daneben und trägt die
+        Aussage allein – wer kein WebGL hat oder Bewegung abbestellt, verliert
+        nichts als die Zugabe.
+      */}
+      <section className="relative min-h-[34rem] overflow-hidden bg-[#0a0b0e] md:min-h-[44rem]">
+        <LazyDeviceStage className="absolute inset-0 h-full w-full" />
+        <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-5 py-24 md:px-8 md:py-36 lg:min-h-[44rem] lg:grid-cols-[1fr_minmax(0,25rem)]">
+          {/* Die Bühne ist in beiden Themes dunkel – der Text daher immer
+              invers, wie im Kennzahlen-Abschnitt. */}
+          <div className="lg:col-start-2">
+            <Reveal>
+              <p className="text-eyebrow !text-ink-inverse-soft">In Echtzeit</p>
+              <h2 className="text-headline mt-4 !text-ink-inverse">
+                Kein Foto.
+                <br />
+                Ihr Gerät, gerechnet.
+              </h2>
+              <p className="mt-5 leading-relaxed text-ink-inverse-soft">
+                Titan, Glas, drei Linsen – jedes Bild neu berechnet,
+                sechsunddreißig Mal in der Sekunde. Kein 3D-Modell, keine
+                Bibliothek, keine Bilddatei: nur Mathematik, die sich Ihrem
+                Zeiger zuwendet.
+              </p>
+              {/* Der Hinweis verschwindet, wo er nicht stimmt: ohne WebGL,
+                  ohne Zeigegerät und bei abbestellter Bewegung. Siehe
+                  .stage-hint in globals.css. */}
+              <p className="stage-hint mt-5 font-mono text-[0.8125rem] leading-relaxed text-ink-inverse-soft/70">
+                Bewegen Sie den Zeiger über die Fläche.
+              </p>
+            </Reveal>
+          </div>
         </div>
       </section>
 
@@ -255,7 +285,7 @@ export default function HomePage() {
             lede="Sehen Sie Ihr Gerät so, wie wir es sehen – Schicht für Schicht. Ein Klick auf ein Bauteil öffnet den Befund: was es tut, warum es ausfällt, was die Reparatur kostet und wie lange sie dauert."
           />
           <div className="mt-14">
-            <DeviceExploded />
+            <LazyDeviceExploded />
           </div>
         </div>
       </section>
@@ -275,7 +305,7 @@ export default function HomePage() {
             lede="Jede Diagnose beginnt mit dem Blick nach innen. Führen Sie die Linse über das Gehäuse – Board, Akku, Kamera und Antrieb liegen genau dort, wo wir sie ansteuern."
           />
           <div className="mt-14">
-            <XRay />
+            <LazyXRay />
           </div>
         </div>
       </section>

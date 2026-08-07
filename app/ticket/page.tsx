@@ -9,7 +9,8 @@ export const metadata = pageMeta({
   description:
     "Ihr Kostenvoranschlag als Dokument: Vorgangsnummer, QR-Code zum Vorzeigen, Schadenskarte und druckbares Übergabeprotokoll. Ohne Konto, ohne gespeicherte Daten.",
   // Ein Ticket ohne Parameter ist eine leere Hülle – nichts, was in einem
-  // Suchergebnis stehen sollte.
+  // Suchergebnis stehen sollte. `noindex` setzt `index: false, follow: true`:
+  // den Links auf der Seite darf ein Crawler weiter folgen.
   noindex: true,
 });
 

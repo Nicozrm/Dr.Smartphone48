@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-07T07:40:58.796Z",
+  "generatedAt": "2026-08-07T08:00:24.735Z",
   "ok": true,
   "checks": [
     {
@@ -8,7 +8,7 @@
       "title": "QR-Encoder",
       "description": "Der QR-Encoder für den Vorgangscode auf dem Reparatur-Ticket gegen ISO/IEC 18004. Ein Fehler hier ergibt einen Ausdruck, den kein Telefon liest.",
       "ok": true,
-      "durationMs": 222,
+      "durationMs": 215,
       "output": "QR-Encoder – Prüfung gegen ISO/IEC 18004\n\n  ok    Version  1 ·  11 Zeichen · 21×21\n  ok    Version  3 ·  34 Zeichen · 29×29\n  ok    Version  5 ·  64 Zeichen · 37×37\n  ok    Version  4 ·  44 Zeichen · 33×33\n  ok    Version  2 ·  17 Zeichen · 25×25\n  ok    Version  1 ·   1 Zeichen · 21×21\n  ok    Version  7 · 120 Zeichen · 45×45\n  ok    Version 13 · 300 Zeichen · 69×69\n  ok    Version 20 · 660 Zeichen · 97×97\n  ok    Version  6 ·  85 Zeichen · 41×41\n  ok    Kapazitätsgrenze meldet sich bei 670 Zeichen\n\nAlle Prüfungen bestanden."
     },
     {
@@ -17,7 +17,7 @@
       "title": "Werkstattablauf",
       "description": "Die Summe der Arbeitsschritte je Reparaturart gegen die zugesagte Dauer im Sofortpreis-Rechner. Auf /reparatur steht ausdrücklich, dass beides übereinstimmt.",
       "ok": true,
-      "durationMs": 85,
+      "durationMs": 89,
       "output": "Werkstattabläufe – Summe gegen zugesagte Dauer\n\n  ok     Display          45 min  (10 Schritte)\n  ok     Akku             30 min  (6 Schritte)\n  ok     Ladebuchse       45 min  (8 Schritte)\n  ok     Kamera           40 min  (6 Schritte)\n  ok     Lautsprecher     35 min  (7 Schritte)\n  ok     Rückglas         60 min  (7 Schritte)\n  ok     Diagnose         20 min  (5 Schritte)\n\nAlle Abläufe gehen exakt auf."
     },
     {
@@ -26,7 +26,7 @@
       "title": "Prüfprotokoll",
       "description": "Die Anzahl der Positionen im Prüfprotokoll gegen die zugesagten 40 Punkte, plus jedes Refurbished-Gerät im Bestand gegen seinen eigenen Zustandsgrad.",
       "ok": true,
-      "durationMs": 105,
+      "durationMs": 94,
       "output": "Prüfprotokoll – Positionen gegen site.checkpoints\n\n   7 Display\n   6 Akku und Laden\n   6 Kameras\n   5 Ton\n   6 Funk und Verbindungen\n   6 Sensoren und Biometrie\n   4 Gehäuse und Auslieferung\n\n  Summe: 40, zugesagt: 40\n\nBestand – Gerätedaten gegen den eigenen Zustandsgrad\n\n  ok     Apple iPhone 15 Pro      Wie neu    98 % /  12 Zyklen  PP-20260724-3763\n  ok     Apple iPhone 15          Sehr gut   93 % / 214 Zyklen  PP-20260721-3971\n  ok     Apple iPhone 14 Pro      Sehr gut   91 % / 287 Zyklen  PP-20260718-0242\n  ok     Apple iPhone 13          Gut        87 % / 412 Zyklen  PP-20260715-3969\n  ok     Samsung Galaxy S24       Wie neu    97 % /   9 Zyklen  PP-20260725-0369\n  ok     Samsung Galaxy S23 Ultra Sehr gut   92 % / 243 Zyklen  PP-20260722-0895\n  ok     Samsung Galaxy A54       Gut        88 % / 366 Zyklen  PP-20260716-3164\n  ok     Google Pixel 8 Pro       Wie neu    96 % /  18 Zyklen  PP-20260723-5080\n  ok     Google Pixel 8           Sehr gut   94 % / 176 Zyklen  PP-20260720-0248\n  ok     Google Pixel 7a          Gut        86 % / 438 Zyklen  PP-20260714-7754\n\n40 Positionen, 10 Geräte – alles stimmig."
     },
     {
@@ -35,7 +35,7 @@
       "title": "Update-Horizont",
       "description": "Jedes Modell im Katalog gegen seinen Update-Horizont: Beleg vorhanden, Daten in plausibler Reihenfolge, Prüfdatum nicht zu alt.",
       "ok": true,
-      "durationMs": 95,
+      "durationMs": 91,
       "output": "Update-Horizont – Einträge gegen den Gerätekatalog\n\n  ok     Apple iPhone 16 Pro Max  bis 2032-09   73 Mon  schaetzung\n  ok     Apple iPhone 16 Pro      bis 2032-09   73 Mon  schaetzung\n  ok     Apple iPhone 16          bis 2032-09   73 Mon  schaetzung\n  ok     Apple iPhone 15 Pro      bis 2031-09   61 Mon  schaetzung\n  ok     Apple iPhone 15          bis 2031-09   61 Mon  schaetzung\n  ok     Apple iPhone 14 Pro      bis 2030-09   49 Mon  schaetzung\n  ok     Apple iPhone 14          bis 2030-09   49 Mon  schaetzung\n  ok     Apple iPhone 13          bis 2029-09   37 Mon  schaetzung\n  ok     Apple iPhone 12          bis 2028-10   26 Mon  schaetzung\n  ok     Apple iPhone SE (2022)   bis 2030-03   43 Mon  schaetzung\n  ok     Samsung Galaxy S24 Ultra bis 2031-01   53 Mon  hersteller\n  ok     Samsung Galaxy S24       bis 2031-01   53 Mon  hersteller\n  ok     Samsung Galaxy S23 Ultra bis 2028-02   18 Mon  hersteller\n  ok     Samsung Galaxy S23       bis 2028-02   18 Mon  hersteller\n  ok     Samsung Galaxy S22       bis 2027-02    6 Mon  hersteller\n  ok     Samsung Galaxy Z Flip5   bis 2028-08   24 Mon  hersteller\n  ok     Samsung Galaxy A54       bis 2028-03   19 Mon  hersteller\n  ok     Samsung Galaxy A34       bis 2028-03   19 Mon  hersteller\n  ok     Google Pixel 9 Pro       bis 2031-08   60 Mon  hersteller\n  ok     Google Pixel 9           bis 2031-08   60 Mon  hersteller\n  ok     Google Pixel 8 Pro       bis 2030-10   50 Mon  hersteller\n  ok     Google Pixel 8           bis 2030-10   50 Mon  hersteller\n  ok     Google Pixel 7a          bis 2028-05   21 Mon  hersteller\n  ok     Google Pixel 7           bis 2027-10   14 Mon  hersteller\n  ok     Google Pixel 6a          bis 2027-07   11 Mon  hersteller\n\n  ok     10 Geräte im Bestand sind beiden Tabellen zugeordnet\n\n  Stand der Angaben: 2026-08-01 (vor 0 Monaten geprüft)\n\n25 Modelle, alle Angaben belegt und schlüssig."
     },
     {
@@ -55,6 +55,15 @@
       "ok": true,
       "durationMs": 87,
       "output": "ok     alle 22 Einträge haben ein Modell im Katalog\n  ok     kein Modell steht doppelt\n  ok     alle Werte liegen zwischen 20 und 150 kg CO₂e, jeder mit Beleg\n\n  Stand der Angaben: 2026-08 (vor 0 Monaten geprüft)\n\n22 Modelle mit Herstellungs-Fußabdruck, alle belegt und plausibel."
+    },
+    {
+      "id": "cert",
+      "npmScript": "verify:cert",
+      "title": "Reparaturzertifikat",
+      "description": "Das Reparaturzertifikat gegen die Zusage auf /pruefen: Jedes einzelne Bit des unterschriebenen Datensatzes bricht die Signatur, dazu Hin- und Rückweg des Binärformats, die QR-Version des schlimmsten Falls und die Stimmigkeit des Schlüsselrings.",
+      "ok": true,
+      "durationMs": 241,
+      "output": "Reparaturarten – eingefrorene Reihenfolge gegen den Katalog\n\n  ok    8 Arten, deckungsgleich mit repairMeta\n\nFormat – hin und zurück ohne Verlust\n\n  ok    voll belegt (121 Byte)\n  ok    leere Textfelder (87 Byte)\n  ok    Umlaute und volle Längen (154 Byte)\n\nbase64url – jede Bytefolge übersteht den Weg durch die Adresse\n\n  ok    40 Längen von 0 bis 39 Byte, verlustfrei und URL-sicher\n\nUnterschrift – jede Änderung am Inhalt fällt auf\n\n  ok    öffentlicher Schlüssel 65 Byte → 87 Zeichen im Ring\n  ok    die unveränderte Unterschrift gilt\n  ok    456 einzeln gekippte Bits, jedes fiel auf\n  ok    eine veränderte Unterschrift fällt auf\n  ok    ein fremder Schlüssel passt nicht\n\nQR-Code – der schlimmste Fall muss vom Beleg lesbar sein\n\n        249 Zeichen → Version 11 (61 Module)\n  ok    Version 11 – auf 30 mm sind das 0.49 mm je Modul\n\nGerätebindung – vier Byte, die binden ohne zu verraten\n\n  ok    Schreibweise mit Leerzeichen und Strichen ergibt dieselbe Bindung\n  ok    eine andere IMEI ergibt eine andere Bindung\n  ok    eine zu kurze Nummer wird abgewiesen\n\nAbwehr – kaputte Codes dürfen nicht als Beleg durchgehen\n\n  ok    „leer“ → Der Code ist zu kurz für ein Zertifikat.\n  ok    „zu kurz“ → Der Code ist zu kurz für ein Zertifikat.\n  ok    „fremdes Zeichen“ → Ungültiges Zeichen im Zertifikatscode: „!“\n  ok    „falsche Formatversion“ → Unbekannte Formatversion 9. Diese Seite liest Version 1.\n\nSchlüsselring\n\n  offen  Der Schlüsselring ist leer. Bis der Betrieb seinen Schlüssel\n         veröffentlicht hat, kann niemand außerhalb der Werkstatt einen\n         Beleg prüfen. Einrichtung: /intern/zertifikat.\n\nSignaturbild – zwei Signaturen, zwei Figuren\n\n  ok    ein geändertes Byte ändert die Figur\n  ok    500 Signaturen → 500 verschiedene Kurzformen\n\nAlles geprüft. Das Zertifikat hält, was auf /pruefen steht."
     }
   ]
 }

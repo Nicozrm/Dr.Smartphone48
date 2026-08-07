@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "verify": "node scripts/verify.mjs",
     "build:static": "node scripts/build-static.mjs",
     "cf:build": "opennextjs-cloudflare build",
     "cf:preview": "opennextjs-cloudflare preview",
@@ -17,11 +18,13 @@
     "verify:support": "node --experimental-strip-types --no-warnings scripts/verify-support.mjs",
     "verify:status": "node --experimental-strip-types --no-warnings scripts/verify-status.mjs",
     "verify:co2": "node --experimental-strip-types --no-warnings scripts/verify-co2.mjs",
+    "verify:cert": "node --experimental-strip-types --no-warnings scripts/verify-cert.mjs",
     "verify:report": "node --experimental-strip-types --no-warnings scripts/verify-report.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.0",
+    "@vercel/speed-insights": "^2.0.0",
     "geist": "^1.7.2",
     "next": "^15.4.5",
     "react": "^19.1.0",

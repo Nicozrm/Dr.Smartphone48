@@ -399,7 +399,6 @@ function SheetPageView({
           right: `${MARGIN_R}mm`,
           top: `${page.top}mm`,
         }}
-        data-sheet-body
       >
         {!first && (
           <div className="sheet-carry sheet-carry-in">
@@ -573,7 +572,6 @@ function SheetPageView({
       <footer
         className="absolute"
         style={{ left: `${MARGIN_L}mm`, right: `${MARGIN_R}mm`, bottom: "12mm" }}
-        data-sheet-foot
       >
         <div className="sheet-hairline" />
         <div

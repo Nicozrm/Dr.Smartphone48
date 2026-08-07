@@ -10,8 +10,14 @@ import type { Invoice, InvoiceLine, TaxMode, TaxRate } from "./types";
  * am Ende rundet, produziert Rechnungen, die um einen Cent nicht aufgehen.
  */
 
-/** Kaufmännische Rundung (halbe Cent immer aufwärts, auch bei Negativbeträgen). */
-function round(value: number): number {
+/**
+ * Kaufmännische Rundung (halbe Cent immer aufwärts, auch bei Negativbeträgen).
+ *
+ * Exportiert, weil die E-Rechnung dieselbe Rundung braucht: Weichen XML und
+ * Blatt auch nur um einen Cent voneinander ab, ist die Rechnung nach EN 16931
+ * ungültig – und zwar wortlos, weil das Blatt weiterhin richtig aussieht.
+ */
+export function round(value: number): number {
   return value < 0 ? -Math.round(-value) : Math.round(value);
 }
 
@@ -31,32 +37,92 @@ export function effectiveRate(rate: TaxRate, mode: TaxMode): TaxRate {
   return mode === "regel" ? rate : 0;
 }
 
-export function lineTotals(line: InvoiceLine, invoice: Invoice): LineTotals {
-  const rate = effectiveRate(line.taxRate, invoice.taxMode);
-  const factor = 1 + rate / 100;
+/** Positionswert vor der Steuerrechnung, in der eingegebenen Preisart. */
+interface RawLine {
+  rate: TaxRate;
+  rawCents: number;
+  discountCents: number;
+  /** Wert nach Rabatt – brutto oder netto, je nach `grossEntry`. */
+  valueCents: number;
+}
 
+function rawLine(line: InvoiceLine, invoice: Invoice): RawLine {
+  const rate = effectiveRate(line.taxRate, invoice.taxMode);
   const rawCents = round(line.qty * line.unitCents);
   const discountCents = round(rawCents * (line.discountPct / 100));
-  const value = rawCents - discountCents;
+  return { rate, rawCents, discountCents, valueCents: rawCents - discountCents };
+}
 
-  let netCents: number;
-  let grossCents: number;
+/**
+ * Verteilt eine Summe nach der Methode der größten Reste.
+ *
+ * `exact` sind die ungerundeten Anteile, `total` die Summe, die exakt
+ * herauskommen **muss**. Jeder Anteil wird abgerundet, der Rest geht an die
+ * Positionen mit dem größten Nachkommateil. Damit stimmen Summe und
+ * Einzelwerte auf den Cent – im Gegensatz zum naiven Runden jeder Position,
+ * bei dem sich die Fehler aufaddieren.
+ */
+function largestRemainder(exact: number[], total: number): number[] {
+  const floors = exact.map(Math.floor);
+  const assigned = floors.reduce((s, v) => s + v, 0);
+  let rest = total - assigned;
 
-  if (invoice.grossEntry) {
-    grossCents = value;
-    netCents = round(grossCents / factor);
-  } else {
-    netCents = value;
-    grossCents = round(netCents * factor);
+  const order = exact
+    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+    // Gleicher Nachkommateil: die frühere Position gewinnt, damit dieselbe
+    // Rechnung immer dasselbe Ergebnis liefert.
+    .sort((a, b) => b.frac - a.frac || a.i - b.i);
+
+  const result = [...floors];
+  for (const { i } of order) {
+    if (rest <= 0) break;
+    result[i] += 1;
+    rest -= 1;
   }
+  // Negativer Rest (bei Gutschriften) wandert von den kleinsten Resten zurück.
+  for (let k = order.length - 1; k >= 0 && rest < 0; k--) {
+    result[order[k].i] -= 1;
+    rest += 1;
+  }
+  return result;
+}
+
+/**
+ * Nettobetrag einer Steuergruppe aus ihrem Bruttobetrag.
+ *
+ * Nicht einfach `brutto / 1,19` gerundet: EN 16931 verlangt in BR-CO-17, dass
+ * der Steuerbetrag sich aus der Bemessungsgrundlage ergibt
+ * (`Steuer = runde(Netto × Satz)`). Nach naivem Abrunden gilt das nicht immer,
+ * und dann steht auf dem Blatt eine Summe, die kein Prüfprogramm nachrechnen
+ * kann. Deshalb werden drei Kandidaten geprüft und der genommen, der die
+ * Bruttosumme **exakt** trifft – also die Summe der Ladenpreise erhält.
+ *
+ * Nur wenn keiner passt (arithmetisch möglich, praktisch selten), gewinnt die
+ * Norm: Dann verschiebt sich der Bruttobetrag um einen Cent.
+ */
+function netFromGross(grossCents: number, rate: TaxRate): number {
+  if (rate === 0) return grossCents;
+  const start = round(grossCents / (1 + rate / 100));
+  for (const candidate of [start, start - 1, start + 1]) {
+    if (candidate + round((candidate * rate) / 100) === grossCents) return candidate;
+  }
+  return start;
+}
+
+export function lineTotals(line: InvoiceLine, invoice: Invoice): LineTotals {
+  const r = rawLine(line, invoice);
+  const netCents = invoice.grossEntry
+    ? netFromGross(r.valueCents, r.rate)
+    : r.valueCents;
+  const taxCents = round((netCents * r.rate) / 100);
 
   return {
-    rawCents,
-    discountCents,
+    rawCents: r.rawCents,
+    discountCents: r.discountCents,
     netCents,
-    taxCents: grossCents - netCents,
-    grossCents,
-    effectiveRate: rate,
+    taxCents,
+    grossCents: netCents + taxCents,
+    effectiveRate: r.rate,
   };
 }
 
@@ -79,31 +145,110 @@ export interface InvoiceTotals {
   dueDate: string;
 }
 
+/**
+ * Summen der Rechnung – gruppenweise gerechnet, nicht positionsweise.
+ *
+ * Der Unterschied ist kein Feinschliff. Wer je Position rundet und die
+ * Ergebnisse addiert, bekommt regelmäßig einen Cent mehr oder weniger heraus
+ * als die Norm vorschreibt: EN 16931 leitet den Steuerbetrag aus der
+ * **Bemessungsgrundlage der Steuergruppe** ab (BR-CO-17), nicht aus der Summe
+ * gerundeter Einzelsteuern. Bei drei Positionen zu 19 % lagen beide Wege in
+ * unserem Test 0,01 € auseinander – genug, dass ein Empfänger die E-Rechnung
+ * automatisch zurückweist, während das gedruckte Blatt weiterhin plausibel
+ * aussieht.
+ *
+ * Deshalb: erst gruppieren, dann je Gruppe rechnen, dann die Gruppensumme mit
+ * größten Resten auf die Positionen zurückverteilen. So stimmen Positionen,
+ * Gruppen und Endsumme zugleich – und Blatt und XML sagen dasselbe.
+ */
 export function invoiceTotals(invoice: Invoice): InvoiceTotals {
-  const lines = invoice.lines.map((l) => ({ id: l.id, ...lineTotals(l, invoice) }));
+  const raws = invoice.lines.map((l) => rawLine(l, invoice));
 
-  const byRate = new Map<TaxRate, TaxGroup>();
-  for (const l of lines) {
-    const g = byRate.get(l.effectiveRate) ?? {
-      rate: l.effectiveRate,
-      netCents: 0,
-      taxCents: 0,
-      grossCents: 0,
-    };
-    g.netCents += l.netCents;
-    g.taxCents += l.taxCents;
-    g.grossCents += l.grossCents;
-    byRate.set(l.effectiveRate, g);
+  const netCents = new Array<number>(raws.length).fill(0);
+  const taxCents = new Array<number>(raws.length).fill(0);
+  const groups: TaxGroup[] = [];
+
+  // Reihenfolge der Sätze festhalten, damit die Ausgabe stabil bleibt.
+  const rates = [...new Set(raws.map((r) => r.rate))].sort((a, b) => b - a);
+
+  for (const rate of rates) {
+    const idx = raws.map((r, i) => (r.rate === rate ? i : -1)).filter((i) => i >= 0);
+    const values = idx.map((i) => raws[i].valueCents);
+    const factor = 1 + rate / 100;
+
+    /*
+      Grundsatz: Der eingegebene Wert bleibt unangetastet, verteilt wird nur
+      der abgeleitete.
+
+      Wer im Laden 19,90 € auszeichnet und zwei Stück verkauft, muss auf der
+      Rechnung 39,80 € lesen – nicht 39,79 €, weil ein Rundungsrest so fiel.
+      Also steht bei Bruttoeingabe der Bruttobetrag jeder Position fest, und
+      die Nettobeträge werden mit größten Resten so verteilt, dass ihre Summe
+      die Bemessungsgrundlage der Gruppe trifft. Bei Nettoeingabe umgekehrt.
+    */
+    let groupNet: number;
+    let groupTax: number;
+
+    if (invoice.grossEntry) {
+      const groupGross = values.reduce((s, v) => s + v, 0);
+      groupNet = netFromGross(groupGross, rate);
+      groupTax = round((groupNet * rate) / 100);
+
+      const nets = largestRemainder(
+        values.map((v) => v / factor),
+        groupNet,
+      );
+      idx.forEach((i, k) => {
+        netCents[i] = nets[k];
+        // Steuer als Differenz zum festen Bruttobetrag – nicht separat
+        // gerundet. Nur so bleibt Netto + Steuer exakt der Ladenpreis.
+        taxCents[i] = values[k] - nets[k];
+      });
+
+      // Findet `netFromGross` keinen passenden Nettowert, gewinnt die Norm und
+      // die Gruppensumme verschiebt sich um einen Cent. Der geht auf die
+      // größte Position, damit die Positionen weiter zur Summe passen.
+      const drift = groupGross - (groupNet + groupTax);
+      if (drift !== 0) {
+        const biggest = idx.reduce((a, b) => (values[idx.indexOf(a)] >= values[idx.indexOf(b)] ? a : b));
+        taxCents[biggest] -= drift;
+      }
+    } else {
+      idx.forEach((i, k) => (netCents[i] = values[k]));
+      groupNet = values.reduce((s, v) => s + v, 0);
+      groupTax = round((groupNet * rate) / 100);
+
+      const taxes = largestRemainder(
+        values.map((v) => (v * rate) / 100),
+        groupTax,
+      );
+      idx.forEach((i, k) => (taxCents[i] = taxes[k]));
+    }
+
+    groups.push({
+      rate,
+      netCents: groupNet,
+      taxCents: groupTax,
+      grossCents: groupNet + groupTax,
+    });
   }
 
-  const groups = [...byRate.values()].sort((a, b) => b.rate - a.rate);
+  const lines = invoice.lines.map((l, i) => ({
+    id: l.id,
+    rawCents: raws[i].rawCents,
+    discountCents: raws[i].discountCents,
+    netCents: netCents[i],
+    taxCents: taxCents[i],
+    grossCents: netCents[i] + taxCents[i],
+    effectiveRate: raws[i].rate,
+  }));
 
   return {
     lines,
     groups,
-    netCents: lines.reduce((s, l) => s + l.netCents, 0),
-    taxCents: lines.reduce((s, l) => s + l.taxCents, 0),
-    grossCents: lines.reduce((s, l) => s + l.grossCents, 0),
+    netCents: groups.reduce((s, g) => s + g.netCents, 0),
+    taxCents: groups.reduce((s, g) => s + g.taxCents, 0),
+    grossCents: groups.reduce((s, g) => s + g.grossCents, 0),
     discountCents: lines.reduce((s, l) => s + l.discountCents, 0),
     dueDate: addDays(invoice.date, invoice.dueDays),
   };

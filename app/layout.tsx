@@ -3,13 +3,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
-import { Bootloader } from "@/components/experience/Bootloader";
-import { CommandPalette } from "@/components/experience/CommandPalette";
-import { MagneticField } from "@/components/experience/MagneticField";
-import { CursorGlass } from "@/components/experience/CursorGlass";
-import { Ripple } from "@/components/experience/Ripple";
-import { ScrollProgress } from "@/components/experience/ScrollProgress";
+import { ClientEffects } from "@/components/experience/ClientEffects";
 import { site, fullAddress } from "@/lib/site";
 import "./globals.css";
 
@@ -181,13 +175,7 @@ export default function RootLayout({
         <Header />
         <main id="inhalt">{children}</main>
         <Footer />
-        <ScrollProgress />
-        <CommandPalette />
-        <MagneticField />
-        <CursorGlass />
-        <Ripple />
-        <Bootloader />
-        <ServiceWorkerRegister />
+        <ClientEffects />
       </body>
     </html>
   );

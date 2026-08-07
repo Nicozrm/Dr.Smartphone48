@@ -1,10 +1,10 @@
 /*
   Der öffentliche Prüfbeleg – ein Schnappschuss, keine Behauptung.
 
-  Sechs Skripte prüfen bei diesem Projekt, ob eine Zusage der Website noch
+  Sieben Skripte prüfen bei diesem Projekt, ob eine Zusage der Website noch
   stimmt (siehe CLAUDE.md, Abschnitt „Befehle"). Bisher sah das nur, wer
   `npm run verify:*` selbst ausführte. Dieses Skript macht daraus eine Seite:
-  Es führt alle sechs Prüfungen aus, genau mit dem Befehl aus package.json,
+  Es führt alle sieben Prüfungen aus, genau mit dem Befehl aus package.json,
   und schreibt Ergebnis und vollständige Ausgabe nach
   `lib/data/verify-report.json`. `/beleg` zeigt diese Datei an.
 
@@ -71,6 +71,13 @@ const checks = [
     description:
       "Jeder CO₂-Wert im Katalog gegen ein Modell, keine Duplikate, jede Zahl in plausibler Spanne mit Beleg aus dem jeweiligen Hersteller-Umweltbericht.",
   },
+  {
+    id: "cert",
+    npmScript: "verify:cert",
+    title: "Reparaturzertifikat",
+    description:
+      "Das Reparaturzertifikat gegen die Zusage auf /pruefen: Jedes einzelne Bit des unterschriebenen Datensatzes bricht die Signatur, dazu Hin- und Rückweg des Binärformats, die QR-Version des schlimmsten Falls und die Stimmigkeit des Schlüsselrings.",
+  },
 ];
 
 const results = checks.map((check) => {
@@ -111,6 +118,6 @@ for (const r of results) {
   console.log(`${r.ok ? "ok    " : "FEHLER"} ${r.npmScript}`);
 }
 console.log(
-  `\n${report.ok ? "Alle sechs Prüfungen bestanden." : "Mindestens eine Prüfung ist fehlgeschlagen."} Geschrieben nach lib/data/verify-report.json.`,
+  `\n${report.ok ? "Alle sieben Prüfungen bestanden." : "Mindestens eine Prüfung ist fehlgeschlagen."} Geschrieben nach lib/data/verify-report.json.`,
 );
 process.exit(report.ok ? 0 : 1);

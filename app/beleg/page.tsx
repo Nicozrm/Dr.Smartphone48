@@ -12,7 +12,8 @@ import { site } from "@/lib/site";
 
   Diese Website behauptet an mehreren Stellen etwas Nachprüfbares: 40 Punkte
   im Prüfprotokoll, eine Werkstattdauer, die exakt aufgeht, ein Update-
-  Horizont mit Beleg, ein Vorgangsablauf, der zur Datenbank passt. Sechs
+  Horizont mit Beleg, ein Vorgangsablauf, der zur Datenbank passt, ein
+  Reparaturzertifikat, dessen Signatur bei jeder Änderung bricht. Sieben
   Skripte prüfen das bei jeder Änderung nach – nicht als Behauptung im Text,
   sondern als Code, der bei einer Abweichung mit einem Fehlercode abbricht
   (siehe CLAUDE.md, Abschnitt „Befehle").
@@ -36,7 +37,7 @@ export const metadata = pageMeta({
   path: "/beleg",
   title: "Der Prüfbeleg",
   description:
-    "Sechs Skripte prüfen bei jeder Änderung, ob die Zusagen dieser Website noch stimmen – hier steht ihre vollständige, unveränderte Ausgabe.",
+    "Sieben Skripte prüfen bei jeder Änderung, ob die Zusagen dieser Website noch stimmen – hier steht ihre vollständige, unveränderte Ausgabe.",
 });
 
 const geprueft = new Date(verifyReport.generatedAt).toLocaleString("de-DE", {
@@ -57,6 +58,7 @@ const icons: Record<string, IconName> = {
   support: "cpu",
   status: "tool",
   co2: "leaf",
+  cert: "sparkle",
 };
 
 export default function BelegPage() {
@@ -75,7 +77,7 @@ export default function BelegPage() {
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-soft">
             40 Punkte im Prüfprotokoll, eine Werkstattdauer, die aufgeht, ein
             Update-Horizont mit Beleg – das sind keine Textbausteine, sondern
-            Zusagen, die sechs Skripte bei jeder Änderung nachrechnen. Hier
+            Zusagen, die sieben Skripte bei jeder Änderung nachrechnen. Hier
             steht ihre Ausgabe, vollständig und unverändert.
           </p>
         </Reveal>
@@ -106,7 +108,7 @@ export default function BelegPage() {
       <section className="border-t border-line bg-raised">
         <div className="mx-auto max-w-4xl px-5 py-20 md:px-8 md:py-28">
           <SectionHeading
-            eyebrow="Die sechs Prüfungen"
+            eyebrow="Die sieben Prüfungen"
             title="Jede mit ihrer vollen Ausgabe."
             lede="Ein Klick auf eine Prüfung öffnet, was auch am Terminal erschiene – dieselbe Ausgabe, dasselbe Ergebnis. Nichts davon ist für diese Seite umformuliert."
           />
@@ -189,7 +191,7 @@ export default function BelegPage() {
               <div className="mt-6 space-y-5 leading-relaxed text-ink-soft">
                 <p>
                   Kein Beweis, dass alles auf dieser Website stimmt – nur ein
-                  Beleg, dass die sechs Zusagen stimmen, die sich maschinell
+                  Beleg, dass die sieben Zusagen stimmen, die sich maschinell
                   prüfen lassen. Für alles andere gilt dieselbe Regel wie
                   überall hier: Wo etwas geschätzt ist, steht „Schätzung&rdquo;
                   dabei, und wo eine Zahl fehlt, fehlt sie lieber, als dass

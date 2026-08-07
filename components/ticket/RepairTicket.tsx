@@ -624,6 +624,19 @@ function TicketBody({ ticket }: { ticket: Ticket }) {
               <legend className="mb-2.5 text-[0.875rem] font-medium text-ink-strong">
                 Vor der Abgabe erledigt
               </legend>
+              {/* Dieses Protokoll hält fest, *dass* es erledigt ist. Wie es
+                  geht – und was entfällt, wenn nicht –, steht unter
+                  /vorbereitung. */}
+              <p className="mb-2.5 text-[0.8125rem] leading-relaxed text-ink-soft" data-print="hide">
+                Noch nicht erledigt?{" "}
+                <Link
+                  href="/vorbereitung"
+                  className="font-medium text-accent underline underline-offset-4"
+                >
+                  Der Weg im Gerät, Schritt für Schritt
+                </Link>{" "}
+                – inklusive der Frage, wie Sie es mit dem Sperrcode halten.
+              </p>
               <div className="space-y-2">
                 {[
                   {

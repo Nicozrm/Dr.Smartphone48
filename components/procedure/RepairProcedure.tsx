@@ -314,7 +314,7 @@ export function RepairProcedure() {
               <button
                 type="button"
                 onClick={playing ? stop : play}
-                className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-accent text-[0.9375rem] font-medium text-white transition-colors hover:bg-accent-hover"
+                className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-accent text-[0.9375rem] font-medium text-accent-contrast transition-colors hover:bg-accent-hover"
               >
                 {playing ? (
                   <>Anhalten</>

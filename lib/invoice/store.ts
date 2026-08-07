@@ -49,6 +49,8 @@ export const emptyParty: Party = {
   city: "",
   country: "",
   vatId: "",
+  email: "",
+  reference: "",
 };
 
 function read<T>(key: string, fallback: T): T {

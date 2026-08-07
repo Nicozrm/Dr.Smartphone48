@@ -19,6 +19,7 @@ const columns = [
     links: [
       { href: "/notfall", label: "Notfall-Soforthilfe" },
       { href: "/check", label: "Geräte-Check" },
+      { href: "/vorbereitung", label: "Vor der Abgabe" },
       { href: "/zwilling", label: "Digitaler Zwilling" },
       { href: "/ticket", label: "Reparatur-Ticket" },
       { href: "/versorgung", label: "Update-Horizont" },
