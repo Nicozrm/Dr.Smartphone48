@@ -28,6 +28,7 @@ npm run verify:support    # Update-Horizont gegen den Gerätekatalog
 npm run verify:status     # Werkstattablauf gegen das Datenbankschema
 npm run verify:cert       # Reparaturzertifikat: Format, Signatur, QR-Größe
 npm run verify:instruments # Physik der Instrumente und der Bruchmechanik
+npm run verify:privacy    # Datenschutz-Nachweis: kein Weg nach draußen
 
 npm run cf:build          # Cloudflare-Worker bauen (OpenNext)
 npm run cf:preview        # Worker lokal in workerd testen
@@ -71,7 +72,7 @@ tatsächlich saß.
 
 ### Die fachlichen Prüfskripte
 
-Der Prüfstand deckt die Regeln dieser Datei ab. Daneben stehen sieben Skripte,
+Der Prüfstand deckt die Regeln dieser Datei ab. Daneben stehen acht Skripte,
 die alle dasselbe prüfen: dass eine Zusage der Seite noch stimmt. Sie sind
 kein Ersatz für Tests, sondern genau die Stellen, an denen ein stiller Fehler
 die Website zur Lügnerin macht, ohne dass jemand etwas merkt.
@@ -102,6 +103,10 @@ die Website zur Lügnerin macht, ohne dass jemand etwas merkt.
   Sollwerte, der Klirrfaktor gegen ein Spektrum mit bekanntem Inhalt, und die
   Frequenzachse gegen sich selbst: keine Bildspalte ohne Bin, keine Lücke,
   jede Oktave gleich breit.
+- `verify:privacy` – der Fingerabdruck-Nachweis auf /datenschutz. Prüft im
+  Quelltext, dass die beteiligten Dateien kein `fetch`, kein `sendBeacon`,
+  keinen Browserspeicher und keinen Zählpixel enthalten, dass jede gelesene
+  Angabe auch angezeigt wird, und dass die Seite keine Häufigkeit behauptet.
 
 ## Deployment (Cloudflare Workers – empfohlen)
 
@@ -230,6 +235,7 @@ components/
                          CheckpointGrid, VerifyView (Prüfseite),
                          CertificateIssuer (Werkstattwerkzeug)
   invoice/               InvoiceBuilder (Editor) + InvoiceSheet (das Blatt, DIN 5008)
+  privacy/               Fingerprint (der Nachweis auf /datenschutz)
   pwa/                   ServiceWorkerRegister
 lib/
   site.ts                Stammdaten (Name, Adresse, URL …) – zentrale Quelle
@@ -251,6 +257,7 @@ lib/
                          Klirrfaktor)
   motion/                impact.ts (Fallgesetze, Bremsweg, Untergründe),
                          crack.ts (Spannungsüberhöhung nach Inglis)
+  privacy/               signals.ts (was ein Browser ungefragt preisgibt)
   cert/                  format.ts (Binärformat + base64url), crypto.ts
                          (ECDSA P-256, Gerätebindung), keys.ts (öffentlicher
                          Schlüsselring), glyph.ts (Signaturbild), store.ts
@@ -288,6 +295,7 @@ scripts/
   verify-cert.mjs        Zertifikatsformat, Signatur bitweise, QR-Größe
   verify-instruments.mjs Sturzphysik und Bruchmechanik gegen das Tafelwerk,
                          Spektrum-Abbildung, Klirrfaktor
+  verify-privacy.mjs     Fingerabdruck-Nachweis: kein Weg nach draußen
 ```
 
 ## Konventionen
@@ -824,6 +832,44 @@ irgendwo ein Bit, das die Signatur nicht abdeckt, wäre genau dort die Stelle
 zum Fälschen. Das Skript hat sich beim ersten Lauf selbst überführt – es
 meldete eine schwache Kurzform, obwohl der Fehler in seinen eigenen
 Testdaten saß (eine Folge, die sich alle 256 Durchgänge wiederholte).
+
+### Der Fingerabdruck-Nachweis (`/datenschutz`)
+
+Eine Datenschutzerklärung ist der am wenigsten gelesene Text jeder Website,
+weil sie nur behaupten kann. Oben auf dieser steht deshalb ein Abschnitt, der
+zeigt statt behauptet: Auf Knopfdruck liest er aus, was der Browser jeder
+Website ungefragt herausgibt – Bildschirm, Zeitzone, Grafikchip, installierte
+Schriften, eine Canvas-Signatur – und stellt daneben den Satz, auf den es
+ankommt: Nichts davon wird gesendet, gespeichert oder gezählt.
+
+**Der Abschnitt steht vor der Erklärung, nicht als Anhang.** Wer nach dem
+dritten Absatz aufhört zu lesen, soll wenigstens diesen gesehen haben.
+
+**Gelesen wird erst auf Knopfdruck.** Beim bloßen Aufrufen der Seite passiert
+nichts – ein Abschnitt über Datensparsamkeit, der beim Laden schon zugreift,
+wäre die Pointe gegen sich selbst. Aus demselben Grund wird jeder gelesene
+Wert auch angezeigt; `verify:privacy` prüft, dass die Anzeige über
+`signals.map` läuft und nicht über eine Auswahl.
+
+**Keine Angabe darf um Erlaubnis fragen.** Das ist der Kern der Aussage: Ein
+Wert, für den der Browser einen Dialog zeigt, gehört nicht in diese Liste –
+er wäre der Gegenbeweis statt des Beweises. Das Prüfskript liest deshalb den
+Quelltext jeder Lesefunktion und schlägt bei `getUserMedia`, `geolocation`,
+`requestPermission` und Verwandten an.
+
+**Die eine Zahl, die fehlen muss.** „Sie sind einer von 3 Millionen" wäre der
+stärkste Effekt und die einzige Angabe, die diese Seite nicht haben darf: Für
+sie müsste man Besucher miteinander vergleichen, also genau die Sammlung
+anlegen, deren Fehlen hier der Punkt ist. Stattdessen der Beweis, den jeder
+selbst führen kann – noch einmal drücken, derselbe Wert. `verify:privacy`
+schlägt an, wenn im Quelltext eine Häufigkeit auftaucht.
+
+**Die Zusage wird im Quelltext geprüft, nicht zugesagt.** Die beteiligten
+Dateien dürfen kein `fetch`, kein `sendBeacon`, kein `XMLHttpRequest`, keinen
+`localStorage`, kein `new Image()` und keinen dynamischen Import enthalten.
+Ein „nur zum Zählen" eingebautes `fetch" fiele sonst niemandem auf –
+Fingerabdruckdaten sehen im Netzwerkfenster aus wie jede andere Anfrage. Wer
+eine weitere Datei anlegt, die diese Werte liest, trägt sie in `GUARDED` ein.
 
 ### Zwei Regeln, die über der Optik stehen
 
