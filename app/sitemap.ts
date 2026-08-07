@@ -38,6 +38,7 @@ const entries: Entry[] = [
   { path: "/kontakt", priority: 0.8, changeFrequency: "monthly" },
   { path: "/werkstatt", priority: 0.7, changeFrequency: "yearly" },
   { path: "/ersatzteile", priority: 0.7, changeFrequency: "monthly" },
+  { path: "/beleg", priority: 0.5, changeFrequency: "monthly" },
 ];
 
 // Impressum, Datenschutz und AGB stehen bewusst nicht in der Sitemap: Sie sind

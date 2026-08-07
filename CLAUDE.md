@@ -26,6 +26,7 @@ npm run verify:inspection # Prüfprotokoll + Bestand gegen die eigenen Zusagen
 npm run verify:support    # Update-Horizont gegen den Gerätekatalog
 npm run verify:status     # Werkstattablauf gegen das Datenbankschema
 npm run verify:co2        # Herstellungs-Fußabdruck gegen den Gerätekatalog
+npm run verify:report     # Alle sechs Prüfungen ausführen, Ausgabe für /beleg schreiben
 
 npm run cf:build      # Cloudflare-Worker bauen (OpenNext)
 npm run cf:preview    # Worker lokal in workerd testen
@@ -37,7 +38,7 @@ node scripts/generate-og.mjs      # public/og.png neu rendern (Link-Vorschaubild
 
 Es gibt keine Test-Suite. Verifikation = `npm run build` + `npm run lint`.
 
-Dazu vier Prüfskripte, und alle vier prüfen dasselbe: dass eine Zusage der
+Dazu sechs Prüfskripte, und alle sechs prüfen dasselbe: dass eine Zusage der
 Seite noch stimmt. Sie sind kein Ersatz für Tests, sondern die Stellen, an
 denen ein stiller Fehler die Website zur Lügnerin macht, ohne dass jemand
 etwas merkt.
@@ -62,6 +63,14 @@ etwas merkt.
   Katalog, keiner steht doppelt, jede Zahl liegt in einer plausiblen Spanne
   und trägt einen Beleg. Schlägt außerdem an, wenn `CO2_CHECKED` über ein
   Jahr alt ist.
+
+Ein siebtes Skript, `verify:report`, prüft nichts Eigenes – es führt die
+sechs obigen aus und schreibt ihre wortgleiche Ausgabe nach
+`lib/data/verify-report.json`. Die Seite `/beleg` zeigt diesen Schnappschuss
+öffentlich: derselbe Gedanke wie bei `SUPPORT_CHECKED`, nur diesmal nicht als
+Zahl im Text, sondern als vollständiges Prüfprotokoll zum Aufklappen. Wer eine
+der geprüften Dateien ändert, führt `npm run verify:report` erneut aus – der
+Schnappschuss ist eingecheckt, keine Laufzeit-Berechnung.
 
 ## Deployment (Vercel – hier läuft die Seite)
 
@@ -175,6 +184,8 @@ app/                     App-Router-Seiten (alle statisch prerendert)
   refurbished/[id]/      … und je Gerät eine Akte: Prüfprotokoll mit allen
                          40 Positionen, Messwerte, Product-JSON-LD, druckbar
   ersatzteile/ werkstatt/ kontakt/
+  beleg/                  Öffentlicher Prüfbeleg: die volle Ausgabe der sechs
+                         verify-Skripte, aus lib/data/verify-report.json
   impressum/ datenschutz/ agb/ offline/ not-found.tsx
   intern/rechnung/       Rechnungswerkzeug (nicht verlinkt, noindex, kein Server)
   intern/werkstatt/      Vorgangs-Dashboard (nicht verlinkt, noindex, Anmeldung)
@@ -227,8 +238,9 @@ lib/
                          inspection.ts (die 40 Prüfpositionen), procedure.ts
                          (Werkstattschritte), support.ts (Update-Horizont je
                          Modell), co2.ts (Herstellungs-Fußabdruck je Modell,
-                         aus Hersteller-Umweltberichten), faq.ts, reviews.ts,
-                         emergency.ts
+                         aus Hersteller-Umweltberichten), verify-report.ts/.json
+                         (Schnappschuss der sechs Prüfskripte für /beleg),
+                         faq.ts, reviews.ts, emergency.ts
   invoice/               types.ts calc.ts (Cent-Arithmetik) catalog.ts validate.ts
                          (§ 14 UStG) store.ts (localStorage) girocode.ts qr.ts
   tickets/               status.ts (die acht Zustände), code.ts (Vorgangscode),
@@ -259,6 +271,9 @@ scripts/
   verify-inspection.mjs  Prüfpositionen gegen site.checkpoints, Bestand gegen Grad
   verify-support.mjs     Update-Horizont gegen den Gerätekatalog
   verify-status.mjs      Werkstattablauf gegen das Datenbankschema
+  verify-co2.mjs         Herstellungs-Fußabdruck gegen den Gerätekatalog
+  verify-report.mjs      Führt alle sechs verify-Skripte aus, schreibt
+                         lib/data/verify-report.json für /beleg
 ```
 
 ## Konventionen

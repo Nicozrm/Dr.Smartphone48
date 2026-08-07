@@ -52,6 +52,7 @@ const commands: Command[] = [
   { id: "ersatzteile", label: "Ersatzteile", icon: "cpu", group: "Navigation", keywords: "teile", run: (r) => r.push("/ersatzteile") },
   { id: "werkstatt", label: "Werkstatt", icon: "pin", group: "Navigation", keywords: "labor team", run: (r) => r.push("/werkstatt") },
   { id: "kontakt", label: "Kontakt", icon: "mail", group: "Navigation", keywords: "termin anfahrt", run: (r) => r.push("/kontakt") },
+  { id: "beleg", label: "Prüfbeleg", hint: "Sechs Prüfskripte, vollständige Ausgabe", icon: "waveform", group: "Navigation", keywords: "beleg prüfung verify nachweis transparenz skript", run: (r) => r.push("/beleg") },
 
   { id: "act-notfall", label: "Wasserschaden – was jetzt zu tun ist", icon: "waveform", group: "Aktionen", keywords: "wasser nass spüle toilette regen notfall", run: (r) => r.push("/notfall#wasser") },
   { id: "act-preis", label: "Sofortpreis berechnen", icon: "arrow-right", group: "Aktionen", keywords: "reparatur preis", run: (r) => r.push("/reparatur") },
