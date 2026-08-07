@@ -27,7 +27,7 @@ npm run verify:inspection # Prüfprotokoll + Bestand gegen die eigenen Zusagen
 npm run verify:support    # Update-Horizont gegen den Gerätekatalog
 npm run verify:status     # Werkstattablauf gegen das Datenbankschema
 npm run verify:cert       # Reparaturzertifikat: Format, Signatur, QR-Größe
-npm run verify:instruments # Sturzphysik und Spektrum-Abbildung auf /check
+npm run verify:instruments # Physik der Instrumente und der Bruchmechanik
 
 npm run cf:build          # Cloudflare-Worker bauen (OpenNext)
 npm run cf:preview        # Worker lokal in workerd testen
@@ -97,10 +97,11 @@ die Website zur Lügnerin macht, ohne dass jemand etwas merkt.
   die Signatur jedes Mal bricht. Dazu Hin- und Rückweg des Binärformats (auch
   mit Umlauten an der Längengrenze), die QR-Version des schlimmsten Falls und
   die Stimmigkeit des Schlüsselrings.
-- `verify:instruments` – die beiden Messgeräte auf /check. Die Fallgesetze
-  gegen unabhängig gerechnete Sollwerte, die Verzögerungsformel gegen die
-  Handrechnung, und die Frequenzachse gegen sich selbst: keine Bildspalte ohne
-  Bin, keine Lücke, jede Oktave gleich breit.
+- `verify:instruments` – die Messgeräte auf /check und die Bruchmechanik auf
+  /ersatzteile. Fallgesetze und Inglis-Formel gegen unabhängig gerechnete
+  Sollwerte, der Klirrfaktor gegen ein Spektrum mit bekanntem Inhalt, und die
+  Frequenzachse gegen sich selbst: keine Bildspalte ohne Bin, keine Lücke,
+  jede Oktave gleich breit.
 
 ## Deployment (Cloudflare Workers – empfohlen)
 
@@ -167,8 +168,8 @@ app/                     App-Router-Seiten (alle statisch prerendert)
                          Röntgen, Stats, CTA)
   reparatur/             Sofortpreis-Rechner (Signature-Feature) + Werkstattablauf + FAQ
   notfall/               Notfall-Protokolle (ohne JS lesbar, offline im Cache)
-  check/                 Geräte-Check: Sensor-Diagnose im Browser, dazu die
-                         zwei Instrumente (Stethoskop, Sturzschreiber)
+  check/                 Geräte-Check: Sensor-Diagnose im Browser, dazu drei
+                         Instrumente (Stethoskop, Klirrfaktor, Sturzschreiber)
   vorbereitung/          Übergabe-Assistent: was vor der Abgabe zu tun ist
   ankauf/                Restwert-Rechner mit offengelegter Rechnung
   zwilling/              Digitaler Zwilling, Akku-Coach, Reparieren-oder-neu
@@ -206,6 +207,7 @@ components/
                          DeviceExploded, XRay, MagneticField, ScrollProgress
   check/                 DeviceCheck (Display-, Sensor-, Audio-, Akku-Tests),
                          Stethoscope (Spektrum + Wasserfall),
+                         Distortion (Klirrfaktor über die Lautstärke),
                          DropForensics (Beschleunigungsschreiber)
   handover/              HandoverAssistant (Vorbereitung zur Abgabe)
   twin/                  DigitalTwin, RepairOrReplace
@@ -220,7 +222,8 @@ components/
                          ShortcutHelp
   emergency/             RescueClock
   parts/                 DisplayCompare (echte Eingabeverzögerung),
-                         PwmDemo (Flimmern als Zeitdiagramm)
+                         PwmDemo (Flimmern als Zeitdiagramm),
+                         CrackTip (Spannungsüberhöhung am Riss)
   procedure/             RepairProcedure (Werkstattablauf im Zeitraffer)
   support/               SupportHorizon (Zeitachse), SupportTable (alle Modelle)
   cert/                  CertificateSeal (das Siegel), SignatureGlyph,
@@ -244,8 +247,10 @@ lib/
                          (Werkstattschritte), support.ts (Update-Horizont je
                          Modell), acoustics.ts (Frequenzmarken), faq.ts,
                          reviews.ts, emergency.ts, handover.ts
-  audio/                 spectrum.ts (logarithmische Frequenzachse, Farbrampe)
-  motion/                impact.ts (Fallgesetze, Bremsweg, Untergründe)
+  audio/                 spectrum.ts (logarithmische Frequenzachse, Farbrampe,
+                         Klirrfaktor)
+  motion/                impact.ts (Fallgesetze, Bremsweg, Untergründe),
+                         crack.ts (Spannungsüberhöhung nach Inglis)
   cert/                  format.ts (Binärformat + base64url), crypto.ts
                          (ECDSA P-256, Gerätebindung), keys.ts (öffentlicher
                          Schlüsselring), glyph.ts (Signaturbild), store.ts
@@ -281,7 +286,8 @@ scripts/
   verify-support.mjs     Update-Horizont gegen den Gerätekatalog
   verify-status.mjs      Werkstattablauf gegen das Datenbankschema
   verify-cert.mjs        Zertifikatsformat, Signatur bitweise, QR-Größe
-  verify-instruments.mjs Sturzphysik gegen das Tafelwerk, Spektrum-Abbildung
+  verify-instruments.mjs Sturzphysik und Bruchmechanik gegen das Tafelwerk,
+                         Spektrum-Abbildung, Klirrfaktor
 ```
 
 ## Konventionen
@@ -691,6 +697,55 @@ begrenzt den Ablesewert des Stethoskops auf sechs Aktualisierungen je Sekunde.
 **Mikrofon und Sensor werden freigegeben.** Beide Werkzeuge räumen beim
 Verlassen der Seite auf (`stopRef` im Aufräumer). Ein Mikrofon, das nach dem
 Wegklicken weiterläuft, ist ein Fehler mit Kameralampe.
+
+### Klirrfaktor und Spannungslinse
+
+Zwei Ergänzungen zu den Instrumenten, beide nach derselben Regel gebaut: Die
+Zahl ist gerechnet, das Bild ist ein Bild, und wo etwas nicht messbar ist,
+steht ein Strich.
+
+**Der Klirrfaktor misst eine Rampe, keinen Wert.** Ein einzelner Wert wäre
+wertlos – er hängt am Raum, am Abstand, am Mikrofon. Aussagekräftig ist der
+Verlauf über fünf Lautstärkestufen: Ein gesunder Lautsprecher bleibt lange
+flach und klirrt erst kurz unter Vollaussteuerung, ein beschädigter klirrt von
+der ersten Stufe an. Deshalb steht dort auch kein Grenzwert; „unter 1 % ist
+gut" gilt für einen Messplatz, nicht für ein Telefon auf dem Küchentisch.
+
+**Ohne verwertbare Grundwelle wird nichts angezeigt.** Der Klirrfaktor teilt
+die Oberwellen durch die Grundwelle; ist die nur Rauschen, teilt man Rauschen
+durch Rauschen. Im Test kamen dabei 550 % heraus – eine Zahl, die nicht bloß
+falsch ist, sondern auch noch nach Befund aussieht. Jede Stufe wird deshalb
+einzeln gegen `USABLE_AMPLITUDE` geprüft.
+
+**`amplitudeAt` summiert die Leistung, es liest nicht den stärksten Bin.** Ein
+Ton liegt fast nie genau auf einem Bin, und die Fensterfunktion verschmiert
+ihn zusätzlich über mehrere. Die erste Fassung las nur das Maximum und maß
+gegen eine Datei mit exakt 5,00 % zweiter Oberwelle nur 4,58 % ab; mit der
+Leistungssumme trifft dieselbe Messung auf zwei Nachkommastellen.
+`verify:instruments` prüft das mit einer künstlich über fünf Bins verteilten
+Linie – wer zurück auf das Maximum baut, bekommt 0,68 statt 1,00 gemeldet.
+
+**Die Spannungslinse rechnet nach Inglis (1913).** σ = σ₀ · (1 + 2 · √(a / ρ))
+beantwortet die Frage „ist doch nur ein Kratzer" mit einer Zahl: 50 µm tief
+und 0,5 µm scharf ergeben die einundzwanzigfache Spannung an der Spitze. Die
+Formel ist eine Idealisierung (elliptisches Loch, unendliche Platte,
+gleichmäßiger Zug), und das steht auf der Seite dabei – ihre Aussage, dass
+die Schärfe mehr zählt als die Tiefe, gilt auch in der modernen Rechnung mit
+Spannungsintensitätsfaktoren.
+
+**Das Bild dazu ist ein Schema und sagt das.** Die Kraftlinien zeigen, dass
+sich der Fluss vor der Spitze staut, nicht wie stark. Eine echte
+Spannungsverteilung wäre eine Finite-Elemente-Rechnung; sie zu behaupten wäre
+dieselbe Sorte gefälschter Genauigkeit, die auf derselben Seite schon beim
+PWM-Diagramm vermieden wird.
+
+**Die Schieber laufen logarithmisch, und der für die Schärfe ist umgedreht.**
+Linear läge der ganze interessante Bereich in den ersten zwei Prozent des
+Wegs. Und weil „schärfer" der kleinere Radius ist, läuft dieser Schieber
+rückwärts: Ein Regler, der nach rechts weniger bedeutet, wird falsch bedient.
+`verify:instruments` prüft außerdem, dass jedes Beispiel innerhalb der
+Schieberwege liegt – das flachste lag zuerst darunter und hätte beim Antippen
+etwas anderes angezeigt, als der Knopf verspricht.
 
 ### Das Reparaturzertifikat (`/pruefen`, `/intern/zertifikat`)
 

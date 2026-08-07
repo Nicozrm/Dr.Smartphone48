@@ -1,5 +1,6 @@
 import { Reveal } from "@/components/ui/Reveal";
 import { DeviceCheck } from "@/components/check/DeviceCheck";
+import { Distortion } from "@/components/check/Distortion";
 import { DropForensics } from "@/components/check/DropForensics";
 import { Stethoscope } from "@/components/check/Stethoscope";
 import { JsonLd, breadcrumbJsonLd, pageMeta } from "@/lib/seo";
@@ -37,17 +38,17 @@ export default function CheckPage() {
         Zwei Werkzeuge, die bewusst außerhalb des Befunds stehen.
 
         Der Check oben zählt zwölf Prüfpunkte zu einem Ergebnis zusammen. Diese
-        beiden lassen sich nicht bestehen oder nicht bestehen – sie liefern
+        drei lassen sich nicht bestehen oder nicht bestehen – sie liefern
         Messwerte, und die Deutung bleibt beim Menschen. Sie in die Liste zu
         hängen, hieße, ein Spektrum in ein Häkchen zu übersetzen, und genau
         diese Übersetzung wäre die Behauptung, die hier niemand aufstellen
         will.
       */}
       <Reveal className="mt-24 max-w-2xl" printHide>
-        <p className="text-eyebrow">Zwei Instrumente</p>
+        <p className="text-eyebrow">Drei Instrumente</p>
         <h2 className="text-headline mt-4">Messen statt raten.</h2>
         <p className="mt-5 text-lg leading-relaxed text-ink-soft">
-          Diese beiden geben keinen Befund und tauchen oben in der Auswertung
+          Diese drei geben keinen Befund und tauchen oben in der Auswertung
           nicht auf. Sie zeigen, was die Sensoren dieses Geräts tatsächlich
           hergeben – mit ihren Grenzen daneben. Was daraus folgt, entscheiden
           Sie.
@@ -56,6 +57,10 @@ export default function CheckPage() {
 
       <Reveal className="mt-12" printHide>
         <Stethoscope />
+      </Reveal>
+
+      <Reveal className="mt-20" printHide>
+        <Distortion />
       </Reveal>
 
       <Reveal className="mt-20" printHide>

@@ -159,3 +159,110 @@ export function formatHz(hz: number): string {
   if (hz >= 1000) return `${kHzFormat.format(hz / 1000)} kHz`;
   return `${Math.round(hz)} Hz`;
 }
+
+/* ==========================================================================
+   Klirrfaktor
+   ==========================================================================
+   Ein Lautsprecher, der nachgibt, erzeugt aus einem reinen Ton Vielfache
+   davon. Spielt man 1 kHz und misst bei 2, 3 und 4 kHz mit, hat man ein Maß
+   dafür, wie sauber die Membran der Spannung folgt – den Klirrfaktor
+   (englisch THD, total harmonic distortion).
+
+   Das ist keine Spielerei, sondern die Größe, an der ein defekter
+   Lautsprecher als Erstes auffällt: Eine angerissene Sicke oder eine
+   schleifende Schwingspule verzerrt lange, bevor man den Fehler hört.
+
+   ## Was diese Messung kann und was nicht
+
+   Gemessen wird die ganze Kette: Verstärker, Lautsprecher, Luft, Mikrofon,
+   Vorverstärker. Der Absolutwert hängt deshalb am Raum, am Abstand und am
+   Mikrofon – ein Wert von „3 %" bedeutet ohne diese Angaben nichts, und die
+   Seite behauptet auch nichts anderes.
+
+   Belastbar ist der **Verlauf über die Lautstärke**. Ein gesunder
+   Lautsprecher bleibt bis kurz unter Vollaussteuerung sauber und klirrt erst
+   dann; ein beschädigter klirrt von Anfang an. Diese Form ist von Raum und
+   Mikrofon weitgehend unabhängig, weil sie ein Vergleich desselben Aufbaus
+   mit sich selbst ist.
+   ========================================================================== */
+
+/** dBFS in eine lineare Amplitude. 20·log₁₀ gilt für Amplituden, nicht 10·log₁₀. */
+export function dbToAmplitude(db: number): number {
+  return Number.isFinite(db) ? 10 ** (db / 20) : 0;
+}
+
+/**
+ * Amplitude eines Tons bei `hz`, aufsummiert über sein Fenster.
+ *
+ * Ein Ton liegt fast nie genau auf einem Bin. Die FFT verteilt seine Energie
+ * dann auf die Nachbarn – zusätzlich verschmiert das Fenster, mit dem die
+ * Analyse arbeitet, jede Linie über mehrere Bins. Wer nur den stärksten Bin
+ * abliest, misst deshalb systematisch zu wenig.
+ *
+ * Gemessen wird stattdessen die **Leistung** im Fenster, also die Summe der
+ * Quadrate, und daraus wieder die Amplitude. Der Unterschied ist nicht
+ * theoretisch: Gegen eine Datei mit exakt 5,00 % zweiter Oberwelle las die
+ * Einzelbin-Fassung 4,58 % ab, die Summe trifft.
+ *
+ * `spread` ist die Zahl der Bins zu jeder Seite. Zwei decken die Hauptkeule
+ * der üblichen Fensterfunktion ab; mehr würde nur Rauschen dazuzählen.
+ */
+export function amplitudeAt(
+  bins: Float32Array,
+  sampleRate: number,
+  hz: number,
+  spread = 2,
+): number {
+  const hzPerBin = sampleRate / 2 / bins.length;
+  const center = Math.round(hz / hzPerBin);
+  let power = 0;
+  for (let i = center - spread; i <= center + spread; i++) {
+    if (i < 1 || i >= bins.length) continue;
+    const amplitude = dbToAmplitude(bins[i]);
+    power += amplitude * amplitude;
+  }
+  return Math.sqrt(power);
+}
+
+export interface Distortion {
+  /** Klirrfaktor als Anteil, 0.03 heißt 3 Prozent. */
+  thd: number;
+  /** Amplitude der Grundwelle – unterhalb der Rauschgrenze ist alles Unsinn. */
+  fundamental: number;
+  /** Die einzelnen Oberwellen, beginnend bei der zweiten. */
+  harmonics: number[];
+}
+
+/**
+ * Klirrfaktor aus einem Spektrum.
+ *
+ * THD = √(a₂² + a₃² + … + aₙ²) / a₁ – die geometrische Summe der Oberwellen,
+ * bezogen auf die Grundwelle. Das ist die in der Akustik übliche Definition
+ * (THD_R, bezogen auf die Grundwelle; die Variante bezogen auf das
+ * Gesamtsignal liefert bei kleinen Werten fast dasselbe und bei großen
+ * weniger, sieht also besser aus – deshalb nicht sie).
+ *
+ * Oberwellen oberhalb der Nyquist-Grenze werden übersprungen statt als null
+ * gezählt: Dort steht kein Signal, sondern nichts, und eine Null im Zähler
+ * schönte das Ergebnis.
+ */
+export function harmonicDistortion(
+  bins: Float32Array,
+  sampleRate: number,
+  fundamentalHz: number,
+  count = 5,
+): Distortion {
+  const nyquist = sampleRate / 2;
+  const fundamental = amplitudeAt(bins, sampleRate, fundamentalHz);
+  const harmonics: number[] = [];
+
+  for (let n = 2; n <= count; n++) {
+    const hz = fundamentalHz * n;
+    if (hz >= nyquist) break;
+    harmonics.push(amplitudeAt(bins, sampleRate, hz));
+  }
+
+  if (fundamental <= 0) return { thd: 0, fundamental: 0, harmonics };
+  const sum = harmonics.reduce((total, a) => total + a * a, 0);
+  return { thd: Math.sqrt(sum) / fundamental, fundamental, harmonics };
+}

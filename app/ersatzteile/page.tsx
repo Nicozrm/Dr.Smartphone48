@@ -3,6 +3,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { Reveal } from "@/components/ui/Reveal";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { DisplayCompare } from "@/components/parts/DisplayCompare";
+import { CrackTip } from "@/components/parts/CrackTip";
 import { PwmDemo } from "@/components/parts/PwmDemo";
 import { site } from "@/lib/site";
 import { JsonLd, breadcrumbJsonLd, pageMeta } from "@/lib/seo";
@@ -141,6 +142,33 @@ export default function ErsatzteilePage() {
             <PwmDemo />
           </div>
         </Reveal>
+      </section>
+
+      {/*
+        Die Spannungslinse steht bewusst auf dieser Seite und nicht bei den
+        Reparaturen: Sie beantwortet, warum ein Deckglas überhaupt bricht –
+        und damit auch, warum die Qualität des Glases eine Rolle spielt und
+        eine Schutzfolie mehr bringt, als sie aussieht.
+      */}
+      <section className="border-t border-line">
+        <div className="mx-auto max-w-6xl px-5 py-20 md:px-8 md:py-28">
+          <SectionHeading
+            eyebrow="Bruchmechanik"
+            title={
+              <>
+                Es ist nie
+                <br />
+                nur ein Kratzer.
+              </>
+            }
+            lede="Glas bricht nicht, weil es überall zu schwach wäre, sondern an einem Fehler: An dessen Spitze bündelt sich die Spannung wie Licht in einer Linse. Wie stark, hängt weniger an der Tiefe als an der Schärfe – und das erklärt, warum ein Display beim zweiten, harmloseren Sturz bricht."
+          />
+          <Reveal>
+            <div className="mt-12">
+              <CrackTip />
+            </div>
+          </Reveal>
+        </div>
       </section>
 
       <section className="border-t border-line">

@@ -3051,3 +3051,145 @@ html[data-js] .nojs-only {
     display: none;
   }
 }
+
+/* ==========================================================================
+   Klirrfaktor (/check) und Spannungslinse (/ersatzteile)
+   ========================================================================== */
+
+.dist-ramp {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.dist-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.5rem;
+  border-radius: var(--radius-m);
+  transition: background-color var(--duration-base) var(--ease-out);
+}
+
+/* Die Stufe, die gerade läuft. Ohne diese Markierung sieht eine Messung,
+   die zwei Sekunden dauert, aus wie ein hängengebliebener Knopf. */
+.dist-col[data-active="true"] {
+  background: var(--accent-subtle);
+}
+
+.dist-bar-slot {
+  display: flex;
+  align-items: flex-end;
+  height: 7rem;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.dist-bar {
+  width: 100%;
+  border-radius: var(--radius-s) var(--radius-s) 0 0;
+  background: var(--accent);
+  transition: height var(--duration-slow) var(--ease-out);
+}
+
+.dist-value {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  color: var(--ink-strong);
+}
+
+.dist-level {
+  font-size: 0.6875rem;
+  color: var(--ink-faint);
+}
+
+.dist-harmonics {
+  border-top: 1px solid var(--line);
+}
+
+.dist-harmonics > li {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: baseline;
+  padding: 0.625rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.dist-hz {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  color: var(--ink-strong);
+}
+
+.dist-role {
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+.dist-share {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  color: var(--ink);
+}
+
+/* ---- Spannungslinse ----------------------------------------------------- */
+
+.crack-plate {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-m);
+}
+
+.crack-glass {
+  fill: var(--surface-sunken);
+}
+
+.crack-flow {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+}
+
+.crack-notch {
+  fill: var(--ink-strong);
+}
+
+/* Der Punkt, an dem es losgeht. Er wächst mit der Überhöhung – das ist die
+   einzige Größe im Bild, die einer Zahl folgt. */
+.crack-hotspot {
+  fill: var(--danger);
+  opacity: 0.75;
+}
+
+.crack-load {
+  fill: none;
+  stroke: var(--ink-faint);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+.crack-factor {
+  margin-top: 0.5rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: clamp(2.5rem, 7vw, 3.5rem);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--ink-strong);
+}
+
+.crack-slider {
+  width: 100%;
+  margin-top: 0.75rem;
+  accent-color: var(--accent);
+}
+
+@media print {
+  .dist-ramp,
+  .crack-plate {
+    break-inside: avoid;
+  }
+}
