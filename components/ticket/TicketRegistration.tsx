@@ -279,14 +279,27 @@ export function TicketRegistration({
           </p>
         ) : null}
 
-        <button
-          type="submit"
-          {...consent.sendProps()}
-          className="mt-5 inline-flex h-12 items-center gap-2 rounded-full bg-accent px-6 text-[0.9375rem] font-medium text-accent-contrast transition-colors hover:bg-accent-hover"
-        >
-          {state === "sendet" ? "Wird angemeldet …" : "Vorgang anmelden"}
-          <Icon name="arrow-right" size={17} />
-        </button>
+        {/*
+          Der Grund steht neben dem Knopf, nicht in der Überschrift.
+
+          Wer bis hierher gescrollt hat, hat die Einleitung vor zwei
+          Bildschirmhöhen gelesen und entscheidet jetzt. In diesem Moment
+          zählt nicht, was die Anmeldung ist, sondern was sie dem Kunden
+          erspart – und das ist der Anruf, den er sonst führen müsste.
+        */}
+        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <button
+            type="submit"
+            {...consent.sendProps()}
+            className="inline-flex h-12 items-center gap-2 rounded-full bg-accent px-6 text-[0.9375rem] font-medium text-accent-contrast transition-colors hover:bg-accent-hover"
+          >
+            {state === "sendet" ? "Wird angemeldet …" : "Vorgang anmelden"}
+            <Icon name="arrow-right" size={17} />
+          </button>
+          <p className="text-[0.8125rem] leading-relaxed text-ink-soft">
+            Damit Sie nicht anrufen müssen, um zu erfahren, wie weit wir sind.
+          </p>
+        </div>
       </form>
     </section>
   );

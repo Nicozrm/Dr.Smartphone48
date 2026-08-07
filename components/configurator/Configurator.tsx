@@ -567,6 +567,20 @@ export function Configurator() {
                 <dt className="sr-only">Garantie</dt>
                 <dd>{site.warrantyMonths} Monate Garantie auf Teil und Arbeit</dd>
               </div>
+              {/*
+                Diese Zeile stand zuvor als Fußnote unter der Karte, in der
+                schwächsten Textfarbe – typografisch also im Kleingedruckten.
+                Dabei ist sie kein Vorbehalt, sondern das Gegenteil: die
+                Zusage, die den Preis überhaupt erst risikofrei macht. Wer
+                nicht vorab zahlt, kann sich irren. Deshalb steht sie jetzt
+                auf derselben Stufe wie Dauer und Garantie – drei Zusagen,
+                gleiches Gewicht, gleicher Ton.
+              */}
+              <div className="flex items-center gap-2.5 text-ink-soft">
+                <Icon name="check" size={16} />
+                <dt className="sr-only">Zahlung</dt>
+                <dd>Zahlung erst nach der Reparatur</dd>
+              </div>
             </dl>
 
             {/*
@@ -607,7 +621,8 @@ export function Configurator() {
           </div>
         </div>
         <p className="mt-3 text-center text-[0.8125rem] text-ink-faint">
-          Festpreis. Keine versteckten Kosten. Zahlung erst nach der Reparatur.
+          Keine versteckten Kosten. Zeigt sich beim Öffnen mehr, fragen wir
+          vorher.
         </p>
       </aside>
     </div>

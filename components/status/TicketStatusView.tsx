@@ -17,6 +17,7 @@ import {
   ticketStatusMeta,
 } from "@/lib/tickets/status";
 import type { PublicTicket } from "@/lib/tickets/types";
+import { monthsUntil, supportFor } from "@/lib/data/support";
 import { site } from "@/lib/site";
 
 /*
@@ -320,6 +321,8 @@ export function TicketStatusView({ ticketCode }: { ticketCode: string }) {
             Nachricht schreiben
           </Link>
         </div>
+        <SupportHint ticket={ticket} />
+
         {isClosed(ticket.status) ? (
           <p className="mt-6 border-t border-line pt-5 text-[0.8125rem] leading-relaxed text-ink-soft">
             Dieser Vorgang ist abgeschlossen. Die Seite bleibt erreichbar,
@@ -333,6 +336,46 @@ export function TicketStatusView({ ticketCode }: { ticketCode: string }) {
 }
 
 /* ------------------------------------------------------------------------- */
+
+/**
+ * Der Update-Horizont – aber erst, wenn das Gerät fertig ist.
+ *
+ * Wer noch auf seine Reparatur wartet, will keinen Hinweis darauf, wie lange
+ * sein Gerät noch Updates bekommt; das läse sich wie ein Verkaufsversuch am
+ * offenen Herzen. Ist die Reparatur dagegen erledigt, ist es genau die
+ * Information, die er als Nächstes braucht – und ein Grund, wiederzukommen,
+ * ohne dass jemand etwas verkaufen muss.
+ *
+ * Das Datum stammt aus `lib/data/support.ts` und trägt dort seine Quellenart.
+ * Steht das Modell nicht in der Tabelle, erscheint hier nichts – lieber eine
+ * Lücke als eine Behauptung.
+ */
+function SupportHint({ ticket }: { ticket: PublicTicket }) {
+  if (ticket.status !== "ready_for_pickup" && !isClosed(ticket.status)) return null;
+
+  const entry = ticket.deviceModelId ? supportFor(ticket.deviceModelId) : undefined;
+  if (!entry) return null;
+
+  const monate = monthsUntil(entry.securityUntil);
+  if (monate <= 0) return null;
+
+  return (
+    <p className="mt-6 flex items-start gap-2.5 border-t border-line pt-5 text-[0.8125rem] leading-relaxed text-ink-soft">
+      <Icon name="shield" size={15} className="mt-0.5 shrink-0" />
+      <span>
+        Übrigens: Ihr {ticket.device} bekommt noch{" "}
+        <span className="text-ink-strong">
+          {monate < 24 ? `${monate} Monate` : `${Math.round(monate / 12)} Jahre`}
+        </span>{" "}
+        Sicherheitsupdates
+        {entry.source === "schaetzung" ? " (geschätzt)" : ""}.{" "}
+        <Link href="/versorgung" className="text-accent hover:underline">
+          Alle Modelle im Vergleich
+        </Link>
+      </span>
+    </p>
+  );
+}
 
 function Row({ label, value }: { label: string; value: string }) {
   return (

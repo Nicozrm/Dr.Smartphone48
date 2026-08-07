@@ -6,6 +6,17 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 import { DiagramShowcase } from "@/components/sections/DiagramShowcase";
 import { ShaderField } from "@/components/experience/ShaderField";
 import { HeroDevice } from "@/components/experience/HeroDevice";
+/*
+  Hier stand kurzzeitig `next/dynamic` für `DeviceExploded` und `XRay`, um die
+  beiden größten Bauteile unter der Falz aus dem Startbündel zu lösen.
+  Zurückgenommen, weil die Messung dagegen sprach: Der App Router legt
+  Client-Komponenten ohnehin in eigene Bündel, `First Load JS` blieb bei
+  123 kB, und der Lade-Umweg kostete 0,5 kB obendrauf.
+
+  Eine Optimierung, die nur in der Theorie wirkt, ist auf dieser Website keine.
+  Wer es erneut versucht, misst vorher TBT und INP auf einem gedrosselten
+  Telefon – die Bündelgröße allein beantwortet die Frage nicht.
+*/
 import { DeviceExploded } from "@/components/experience/DeviceExploded";
 import { XRay } from "@/components/experience/XRay";
 import { RefurbishedCard } from "@/components/sections/RefurbishedCard";

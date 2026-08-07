@@ -71,18 +71,22 @@ export function useStatusChannel(
       return;
     }
 
-    const client = getBrowserClient();
-    if (!client) {
-      setState("aus");
-      return;
-    }
-
     let cancelled = false;
     let channel: RealtimeChannel | null = null;
+    let client: Awaited<ReturnType<typeof getBrowserClient>> = null;
 
     setState("verbindet");
 
     const start = async () => {
+      // Der Realtime-Client wird erst hier geholt (dynamischer Import, siehe
+      // `lib/supabase/browser.ts`). Bis er da ist, steht die Seite bereits.
+      client = await getBrowserClient();
+      if (cancelled) return;
+      if (!client) {
+        setState("aus");
+        return;
+      }
+
       // `setAuth` ohne Argument nimmt das Token, das gerade gilt – beim Kunden
       // das des öffentlichen Schlüssels, in der Werkstatt das der Anmeldung.
       await client.realtime.setAuth();
@@ -106,7 +110,9 @@ export function useStatusChannel(
 
     return () => {
       cancelled = true;
-      if (channel) void client.removeChannel(channel);
+      // Beides kann noch fehlen, wenn die Komponente aushängt, während das
+      // Paket lädt – dann gibt es auch nichts abzuräumen.
+      if (channel && client) void client.removeChannel(channel);
     };
   }, [topic]);
 

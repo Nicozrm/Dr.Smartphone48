@@ -54,6 +54,7 @@ export function toPublicTicket(
   return {
     ticketCode: ticket.ticketCode,
     device: ticket.device,
+    deviceModelId: ticket.deviceModelId,
     repairItems: ticket.repairItems,
     totalPrice: ticket.totalPrice,
     estimatedMinutes: ticket.estimatedMinutes,

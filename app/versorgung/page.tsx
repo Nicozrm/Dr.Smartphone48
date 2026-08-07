@@ -181,7 +181,7 @@ export default function VersorgungPage() {
       </section>
 
       <section className="border-t border-line bg-raised">
-        <div className="mx-auto max-w-6xl px-5 py-16 md:px-8">
+        <div className="mx-auto max-w-6xl px-5 py-16 md:px-8 md:py-20">
           <p className="max-w-2xl text-[0.875rem] leading-relaxed text-ink-soft">
             Sie sind sich unsicher, wie lange Ihr Gerät noch mitmacht? Der{" "}
             <Link href="/zwilling" className="text-accent underline underline-offset-4">

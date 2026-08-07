@@ -115,6 +115,12 @@ export interface TicketListItem {
 export interface PublicTicket {
   ticketCode: string;
   device: string;
+  /**
+   * Modell-Kennung aus dem Katalog. Kein zusätzliches Wissen über die Person –
+   * `device` nennt dasselbe Gerät bereits im Klartext. Sie steht hier, damit
+   * die Statusseite den Update-Horizont nachschlagen kann, ohne ihn zu raten.
+   */
+  deviceModelId: string | null;
   repairItems: TicketRepairItem[];
   totalPrice: number;
   estimatedMinutes: number;

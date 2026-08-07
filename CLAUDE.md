@@ -282,6 +282,28 @@ scripts/
 - Alle Firmendaten (Adresse, Telefon, Reparatur- und Ankaufspreise,
   Impressum) sind **Platzhalter** und vor dem Livegang zu ersetzen.
 
+### Der vertikale Takt: zwei Stufen, nicht sieben
+
+Abschnittsflächen benutzen genau zwei Paare, und zwar nach Rolle, nicht nach
+Geschmack:
+
+| Rolle | Klassen |
+| --- | --- |
+| Abschnitt auf einer Unterseite | `py-20 md:py-28` |
+| Abschnitt auf der Startseite | `py-24 md:py-36` |
+| dichtes Band (Nachsatz, Hinweiszeile) | `py-16 md:py-20` |
+
+Von 24 Abschnittsflächen folgen 17 diesem Takt. Die Ausreißer sind gezählt und
+teils gewollt – der Schlussaufruf der Startseite steht bewusst auf
+`py-28 md:py-40`, weil er als einziger Abschnitt Luft nach beiden Seiten
+braucht. Wer eine neue Fläche anlegt, nimmt eines der drei Paare; wer ein
+viertes braucht, hat wahrscheinlich ein Gliederungsproblem und kein
+Abstandsproblem.
+
+**Jede Fläche braucht eine `md:`-Variante.** Eine Fläche mit nur `py-16` liest
+sich auf dem Schreibtisch merklich enger als ihre Nachbarn – genau so ein Fall
+lag auf /versorgung und ist behoben.
+
 ### Kontrast: die Tonleiter ist gemessen, nicht geschätzt
 
 Alle vier Textstufen (`--ink-strong`, `--ink`, `--ink-soft`, `--ink-faint`)

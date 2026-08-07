@@ -12,24 +12,53 @@
   `anon`, und die hat auf den Vorgangstabellen keine einzige Policy. Wer ihn
   aus dem Quelltext liest, kann damit nichts abfragen.
 
+  ---------------------------------------------------------------------------
+  Warum der Import unten dynamisch ist
+
+  `@supabase/ssr` samt Realtime wiegt rund 60 kB – auf der Statusseite mehr
+  als die halbe Startlast. Statisch importiert läge das Paket im kritischen
+  Pfad **der einen Seite, die ein Kunde am Tresen per QR-Code öffnet**, oft im
+  überlasteten Innenstadtnetz.
+
+  Gebraucht wird es dort aber erst als Zweites. Der erste Blick auf den
+  Vorgang kommt über einen einzigen Abruf der API; zuhören muss die Seite erst,
+  wenn sie schon steht. Genau diese Reihenfolge stellt der dynamische Import
+  her: Erst rendern, dann verbinden.
+
   Ein Client pro Seite (Modul-Singleton): Jeder Aufruf von `createBrowserClient`
   öffnet eine eigene Realtime-Verbindung. Zwei Komponenten, die beide zuhören,
   ergäben sonst zwei WebSockets, zwei Anmeldungen und am Ende zwei Aufräum-
-  Pflichten, von denen eine vergessen wird.
+  Pflichten, von denen eine vergessen wird. Das gilt auch nebenläufig: Fragen
+  zwei Komponenten gleichzeitig, bekommen beide **dasselbe** Versprechen und
+  damit denselben Client – deshalb wird das Versprechen zwischengespeichert,
+  nicht erst sein Ergebnis.
 */
 
-import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, hasPublicBackend } from "./env";
 
 export type BrowserClient = SupabaseClient<Database>;
 
-let cached: BrowserClient | null = null;
+let pending: Promise<BrowserClient> | null = null;
 
-/** `null`, solange kein Projekt hinterlegt ist – dann bleibt die Seite still. */
-export function getBrowserClient(): BrowserClient | null {
+/**
+ * Der Client, sobald er geladen ist. `null`, solange kein Projekt hinterlegt
+ * ist – dann bleibt die Seite still, und das Paket wird nie geholt.
+ */
+export async function getBrowserClient(): Promise<BrowserClient | null> {
   if (!hasPublicBackend()) return null;
-  cached ??= createBrowserClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY);
-  return cached;
+
+  pending ??= import("@supabase/ssr").then(({ createBrowserClient }) =>
+    createBrowserClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY),
+  );
+
+  try {
+    return await pending;
+  } catch {
+    // Netzabbruch beim Nachladen: Die Seite bleibt bedienbar, nur ohne
+    // Selbstaktualisierung. Beim nächsten Versuch wird neu geladen.
+    pending = null;
+    return null;
+  }
 }
