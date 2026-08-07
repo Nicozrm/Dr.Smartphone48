@@ -587,6 +587,21 @@ html[data-js] .reveal[data-revealed="true"] {
    Das Objekt im Hero. Alle Maße hängen an --dev-w, damit die Proportionen
    beim Verkleinern erhalten bleiben; JS liefert nur --rx/--ry (Neigung),
    --gx/--gy (Glanzpunkt) und --sy (Kamerafahrt). Siehe HeroDevice.tsx. */
+.hero-stage-wrap {
+  position: relative;
+}
+
+/* Auf Touch-Geräten mit iOS der einzige Weg zum Neigungssensor: ein echter
+   Knopf, positioniert relativ zum Wrapper statt zur (aria-hidden) Bühne. */
+.hero-tilt-prompt {
+  position: absolute;
+  top: 3%;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 2;
+  white-space: nowrap;
+}
+
 .hero-stage {
   --dev-w: clamp(180px, 21vw, 268px);
   position: relative;

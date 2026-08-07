@@ -205,7 +205,9 @@ components/
                          Reviews (Google-Aggregat), LiveStatus (Öffnungsstatus)
   configurator/          Configurator (Preislogik) + DeviceDiagram (SVG-Explosion)
   experience/            Bootloader, CommandPalette (⌘K), ShaderField (WebGL-Hero),
-                         DeviceExploded, XRay, MagneticField, ScrollProgress
+                         HeroDevice (Glasreflexion: Zeiger auf dem Desktop,
+                         Neigungssensor auf Touch-Geräten), DeviceExploded,
+                         XRay, MagneticField, ScrollProgress, CursorGlass
   check/                 DeviceCheck (Display-, Sensor-, Audio-, Akku-Tests)
   twin/                  DigitalTwin, RepairOrReplace
   battery/               BatteryCoach (3-Jahres-Prognose)
@@ -353,6 +355,40 @@ Tabulatortaste landet in einem Feld, das die Vorlesehilfe nicht ankündigt und
 die Maus nicht bedienen kann. `inert` nimmt Fokusreihenfolge,
 Zeigerereignisse und Barrierefreiheitsbaum in einem Zug – ein zusätzliches
 `pointer-events-none` erübrigt sich damit.
+
+Dieselbe Regel gilt umgekehrt für neue Deko-Elemente mit einer echten
+Schaltfläche darin: Die Glasreflexion im Hero (`HeroDevice.tsx`) ist als
+Ganzes `aria-hidden`, weil sie reine Optik ist – der optionale Knopf, mit dem
+Safari auf dem iPhone den Zugriff auf den Neigungssensor freigibt, sitzt
+deshalb bewusst als eigenes Geschwisterelement **außerhalb** dieses Bereichs,
+nicht darin. Ein fokussierbarer Knopf innerhalb von `aria-hidden` wäre exakt
+die Tabulator-Falle von oben, nur neu gebaut.
+
+### Der Neigungssensor im Hero (`components/experience/HeroDevice.tsx`)
+
+Der Glanzpunkt auf dem Gerät im Hero folgt auf dem Desktop dem Mauszeiger.
+Auf einem Telefon gibt es keinen Zeiger – aber ein Telefon in der Hand kennt
+seine eigene Lage im Raum, und genau die treibt dort dieselbe Rechnung über
+`deviceorientation`. Wer das eigene Gerät leicht kippt, sieht die Spiegelung
+auf dem gezeichneten Gerät im selben Moment wandern.
+
+- **iOS verlangt eine Nutzerhandlung.** `DeviceOrientationEvent.requestPermission()`
+  öffnet den nativen Dialog nur aus einem echten Tap heraus – ein
+  automatischer Aufruf beim Laden schlägt fehl. Deshalb der kleine, rein
+  optionale Knopf „Zum Ausprobieren neigen", der nur dort erscheint (grober
+  Zeiger **und** die iOS-spezifische `requestPermission`-Methode vorhanden)
+  und nach der Antwort verschwindet, ob erlaubt oder abgelehnt – kein zweites
+  Nachfragen.
+- **Android braucht keinen Dialog.** Dort beginnt die Neigung ohne
+  Zwischenschritt, genau wie der Mauszeiger auf dem Desktop ohne
+  Zwischenschritt beginnt.
+- **Der Messwert verlässt das Gerät nie.** Er bewegt ausschließlich diese
+  eine CSS-Animation im Arbeitsspeicher des Tabs – dieselbe Zusage wie überall
+  sonst auf der Seite (siehe „Personenbezogene Daten" unten). Deshalb braucht
+  es dafür kein `ConsentGate`: Das Gate sichert Sendevorgänge nach draußen,
+  hier verlässt nichts den Browser.
+- Bei `prefers-reduced-motion` bleibt das Gerät still – Zeiger, Sensor und
+  Lichtband gleichermaßen.
 
 ### Metadaten: jede Seite setzt ihre eigenen
 
