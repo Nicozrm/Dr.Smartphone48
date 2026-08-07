@@ -3,7 +3,7 @@
  * – Navigation: Netz zuerst, Cache als Fallback, /offline als letzte Instanz
  * – Statische Assets (_next/static, Icons): Cache zuerst (immutable)
  */
-const VERSION = "v3";
+const VERSION = "v4";
 const RUNTIME_CACHE = `ds48-${VERSION}`;
 // Basis-Pfad aus der eigenen URL ableiten – funktioniert unter "/"
 // genauso wie unter "/Koko/" (GitHub Pages).
@@ -45,13 +45,29 @@ const CRITICAL_URLS = [OFFLINE_URL, `${BASE}/notfall`];
  */
 async function precache() {
   const cache = await caches.open(RUNTIME_CACHE);
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     PRECACHE_URLS.map(async (url) => {
       const response = await fetch(url, { cache: "reload" });
       if (!response.ok) throw new Error(`${url}: ${response.status}`);
       await cache.put(url, response);
+      return url;
     }),
   );
+  /*
+   * Das Ergebnis wird zurückgegeben, nicht verschluckt.
+   *
+   * `allSettled` sorgt dafür, dass ein einzelner Fehlschlag die Installation
+   * nicht mitnimmt – das ist richtig. Es sorgte aber auch dafür, dass diese
+   * Funktion selbst dann erfüllt zurückkam, wenn kein einziger Abruf geklappt
+   * hatte. Der Knopf auf /notfall meldete daraufhin Erfolg und hatte nichts
+   * getan. Wer den Ausgang nicht weitergibt, kann ihn nicht melden.
+   */
+  return {
+    gespeichert: results.filter((r) => r.status === "fulfilled").length,
+    fehlgeschlagen: results
+      .filter((r) => r.status === "rejected")
+      .map((r) => String(r.reason?.message ?? r.reason)),
+  };
 }
 
 /**
@@ -120,6 +136,38 @@ self.addEventListener("activate", (event) => {
 
       await self.clients.claim();
     })(),
+  );
+});
+
+/*
+ * Vorrat auf Zuruf ergänzen.
+ *
+ * Der Abschnitt „Offline-Vorrat" auf /notfall zeigt, welche Seiten im
+ * Speicher liegen, und bietet an, fehlende nachzuladen. Der naheliegende Weg
+ * – die Seite ruft die fehlenden Adressen selbst per `fetch` ab – sieht aus,
+ * als würde er funktionieren, und tut es nicht: Der Handler unten legt HTML
+ * nur bei `request.mode === "navigate"` ab, und ein `fetch` aus einem Skript
+ * ist keine Navigation. Der Knopf lief ins Leere, ohne dass etwas fehlschlug.
+ *
+ * Der Vorrat gehört dem Service Worker, also legt er ihn auch nach. Die
+ * Antwort läuft über einen MessagePort zurück, damit die Seite weiß, wann
+ * sie neu nachsehen kann – ein Zeitgeber wäre geraten, nicht gewusst.
+ */
+const REFILL = "vorrat-nachlegen";
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type !== REFILL) return;
+  const port = event.ports[0];
+  event.waitUntil(
+    precache()
+      .then((result) => port?.postMessage({ ok: true, ...result }))
+      .catch((error) =>
+        port?.postMessage({
+          ok: false,
+          gespeichert: 0,
+          fehlgeschlagen: [String(error?.message ?? error)],
+        }),
+      ),
   );
 });
 

@@ -58,6 +58,7 @@ Geprüft wird:
 | Redaktion | keine Markdown-Betonung in `lib/data/`-Textwerten, keine feste Garantiedauer außerhalb `site.ts` |
 | Shader | kein Backtick im GLSL-Literal, keine GLSL-Schlüsselwörter als Bezeichner |
 | Metadaten | jede Route nutzt `pageMeta()` |
+| Offline-Vorrat | `public/sw.js` und `lib/pwa/precache.ts` nennen dieselben Seiten in derselben Reihenfolge, /notfall zuerst, gleicher Nachrichtenname |
 | Export | eigener Canonical je Seite, `og:image` überall, nichts zugleich in Sitemap und auf `noindex` |
 
 Die Export-Prüfungen laufen nur, wenn `./out` vorliegt – also nach
@@ -236,7 +237,7 @@ components/
                          CertificateIssuer (Werkstattwerkzeug)
   invoice/               InvoiceBuilder (Editor) + InvoiceSheet (das Blatt, DIN 5008)
   privacy/               Fingerprint (der Nachweis auf /datenschutz)
-  pwa/                   ServiceWorkerRegister
+  pwa/                   ServiceWorkerRegister, OfflineStock (der Kassensturz)
 lib/
   site.ts                Stammdaten (Name, Adresse, URL …) – zentrale Quelle
   seo.tsx                pageMeta() – Canonical/OG pro Seite, Breadcrumbs, JsonLd
@@ -258,6 +259,7 @@ lib/
   motion/                impact.ts (Fallgesetze, Bremsweg, Untergründe),
                          crack.ts (Spannungsüberhöhung nach Inglis)
   privacy/               signals.ts (was ein Browser ungefragt preisgibt)
+  pwa/                   precache.ts (die Vorratsliste, gegen sw.js geprüft)
   cert/                  format.ts (Binärformat + base64url), crypto.ts
                          (ECDSA P-256, Gerätebindung), keys.ts (öffentlicher
                          Schlüsselring), glyph.ts (Signaturbild), store.ts
@@ -832,6 +834,42 @@ irgendwo ein Bit, das die Signatur nicht abdeckt, wäre genau dort die Stelle
 zum Fälschen. Das Skript hat sich beim ersten Lauf selbst überführt – es
 meldete eine schwache Kurzform, obwohl der Fehler in seinen eigenen
 Testdaten saß (eine Folge, die sich alle 256 Durchgänge wiederholte).
+
+### Der Offline-Vorrat (`/notfall`)
+
+Auf /notfall steht die wichtigste Zusage dieser Website – die Seite
+funktioniert ohne Netz – und zugleich die einzige, die niemand glauben kann:
+Man merkt es erst, wenn es zu spät ist, sie zu prüfen. Deshalb steht dort
+jetzt ein Kassensturz aus dem echten Browserspeicher: Welche Seiten liegen
+gerade auf diesem Gerät, wie groß sind sie, und was fehlt.
+
+**Die Vorratsliste steht zweimal und wird verglichen.** Ein Service Worker
+ist eine eigenständige Datei ohne Zugriff auf das Modulsystem, also gibt es
+die Liste in `public/sw.js` und in `lib/pwa/precache.ts`. Der Prüfstand
+vergleicht beide zeichen- und reihenfolgengenau, dazu die als unverzichtbar
+markierten Seiten und den Namen der Nachricht. Zwei Fassungen derselben
+Liste driften sonst auseinander, und dann zeigt /notfall einen Vorrat an, den
+es nicht gibt – ausgerechnet dem, der ihn braucht.
+
+**Nachlegen macht der Worker, nicht die Seite.** Der erste Entwurf rief die
+fehlenden Adressen mit `fetch` ab und verließ sich darauf, dass der Worker
+sie unterwegs mitnimmt. Er tut es nicht: Sein Handler legt HTML nur bei
+`request.mode === "navigate"` ab, und ein `fetch` aus einem Skript ist keine
+Navigation. Der Knopf lief ins Leere, ohne dass etwas fehlschlug. Jetzt geht
+die Bitte per `postMessage` an den Worker und die Antwort über einen
+MessagePort zurück.
+
+**`precache()` gibt sein Ergebnis zurück.** `Promise.allSettled` sorgt dafür,
+dass ein einzelner Fehlschlag die Installation nicht mitnimmt – richtig so.
+Es sorgte aber auch dafür, dass die Funktion selbst dann erfüllt zurückkam,
+wenn kein einziger Abruf geklappt hatte; der Knopf meldete daraufhin Erfolg
+und hatte nichts getan. Wer den Ausgang nicht weitergibt, kann ihn nicht
+melden. Fehlgeschlagene Adressen stehen jetzt namentlich auf der Seite.
+
+**Die Größe kommt erst auf Knopfdruck.** Die Byte-Zahl steht in keinem
+Verzeichnis; sie entsteht, indem jede gespeicherte Antwort einmal gelesen
+wird. Das ist Arbeit, die niemand bestellt hat, wenn er die Seite bloß
+aufruft.
 
 ### Der Fingerabdruck-Nachweis (`/datenschutz`)
 

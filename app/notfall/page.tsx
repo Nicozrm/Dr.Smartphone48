@@ -3,6 +3,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Reveal } from "@/components/ui/Reveal";
 import { RescueClock } from "@/components/emergency/RescueClock";
 import { LiveStatus } from "@/components/sections/LiveStatus";
+import { OfflineStock } from "@/components/pwa/OfflineStock";
 import { emergencyScenarios } from "@/lib/data/emergency";
 import { site } from "@/lib/site";
 import { pageMeta } from "@/lib/seo";
@@ -220,6 +221,24 @@ export default function NotfallPage() {
           </div>
         </section>
       ))}
+
+      {/*
+        Der Offline-Vorrat, nachgesehen statt zugesagt.
+
+        Diese Seite verspricht, ohne Netz zu funktionieren – die wichtigste
+        Zusage der ganzen Website, weil jemand mit einem nassen Telefon oft
+        kein Netz mehr hat. Und zugleich die einzige, die niemand glauben
+        kann: Man merkt es erst, wenn es zu spät ist, sie zu prüfen.
+
+        Deshalb steht hier ein Kassensturz aus dem echten Browserspeicher.
+      */}
+      <section className="border-t border-line">
+        <div className="mx-auto max-w-6xl px-5 py-16 md:px-8 md:py-20">
+          <Reveal>
+            <OfflineStock />
+          </Reveal>
+        </div>
+      </section>
 
       {/* Abschluss: Verfügbarkeit und der Weg zu uns */}
       <section className="border-t border-line">
