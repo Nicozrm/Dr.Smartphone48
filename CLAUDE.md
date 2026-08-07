@@ -187,7 +187,8 @@ app/                     App-Router-Seiten (alle statisch prerendert)
   sitemap.ts robots.ts manifest.ts   Metadata-Routen (force-static)
 components/
   ui/                    Primitives: Button, Icon (eigenes SVG-Set), Reveal,
-                         SectionHeading, ThemeToggle, QrCode, PrintButton
+                         SectionHeading, ThemeToggle, SoundToggle, QrCode,
+                         PrintButton
   layout/                Header, Footer, Logo
   sections/              Faq, RefurbishedGrid/-Card, DiagramShowcase, ContactForm,
                          Reviews (Google-Aggregat), LiveStatus (Öffnungsstatus)
@@ -219,7 +220,8 @@ lib/
   ticket.ts              Ticket-Zustand aus der Adresse, Vorgangsnummer, .ics
   resale.ts              Ankauf-Bewertung als Liste begründeter Posten
   battery.ts             Alterungsmodell (kalendarisch + zyklisch)
-  format.ts detect.ts theme.ts
+  format.ts detect.ts theme.ts sound.ts (Klickton im Rechner, synthetisiert,
+                         standardmäßig aus)
   data/                  devices.ts (Modelle, Preise, Ankaufswerte), refurbished.ts
                          (Bestand inkl. Zyklen, Prüfdatum, ersetzte Teile, Befund),
                          inspection.ts (die 40 Prüfpositionen), procedure.ts

@@ -25,6 +25,8 @@ import { ticketQuery } from "@/lib/ticket";
 import { useCountUp } from "@/lib/useCountUp";
 import { Icon } from "@/components/ui/Icon";
 import { ConsentGate, useConsentGate } from "@/components/ui/ConsentGate";
+import { SoundToggle } from "@/components/ui/SoundToggle";
+import { playClick } from "@/lib/sound";
 import Link from "next/link";
 import { DeviceDiagram } from "./DeviceDiagram";
 import { BrandMark } from "./BrandMark";
@@ -104,6 +106,7 @@ export function Configurator() {
   };
 
   const chooseBrand = (id: string) => {
+    playClick("on");
     setBrandId(id);
     setModelId(null);
     setSelected([]);
@@ -113,6 +116,7 @@ export function Configurator() {
   };
 
   const chooseModel = (id: string) => {
+    playClick("on");
     setModelId(id);
     setSelected([]);
     setHighlight(null);
@@ -123,6 +127,7 @@ export function Configurator() {
   const toggleRepair = (kind: RepairKind, part: DiagramPart) => {
     setSelected((prev) => {
       const active = prev.includes(kind);
+      playClick(active ? "off" : "on");
       const next = active ? prev.filter((k) => k !== kind) : [...prev, kind];
       setHighlight(active ? null : part);
       return next;
@@ -190,7 +195,12 @@ export function Configurator() {
       <div className="space-y-14 min-w-0">
         {/* Schritt 1: Marke */}
         <section className="scroll-mt-24">
-          <StepLabel number="01">Welche Marke?</StepLabel>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+            <StepLabel number="01">Welche Marke?</StepLabel>
+            {/* Klein, am Rand, standardmäßig aus – Ton ist eine Zugabe für
+                diesen Rechner, keine Grundeinstellung der Seite. */}
+            <SoundToggle />
+          </div>
           {/*
             Große Kacheln statt einer Reihe von Textknöpfen. Die Marke ist der
             erste Schritt von vieren – wenn schon der erste wie ein Formular

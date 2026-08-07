@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { toggleTheme } from "@/lib/theme";
+import { playClick, toggleSound } from "@/lib/sound";
 import { grades, refurbishedDevices } from "@/lib/data/refurbished";
 import { formatEuro } from "@/lib/format";
 import { site } from "@/lib/site";
@@ -57,6 +58,9 @@ const commands: Command[] = [
   { id: "act-check", label: "Geräte-Check starten", icon: "waveform", group: "Aktionen", keywords: "diagnose test", run: (r) => r.push("/check") },
   { id: "act-wert", label: "Restwert schätzen", icon: "leaf", group: "Aktionen", keywords: "verkaufen wert ankauf", run: (r) => r.push("/ankauf") },
   { id: "act-theme", label: "Design wechseln", hint: "Hell / Dunkel", icon: "moon", group: "Aktionen", keywords: "dark light dunkel hell theme", keepOpen: true, run: () => toggleTheme() },
+  // Direktes Feedback im selben Klick, sonst hört niemand, dass sich etwas
+  // geändert hat – der Ton ist schließlich das, worum es hier geht.
+  { id: "act-sound", label: "Klickton im Rechner", hint: "Ein / Aus", icon: "waveform", group: "Aktionen", keywords: "ton sound audio klick feedback rechner konfigurator", keepOpen: true, run: () => { if (toggleSound()) playClick("on"); } },
   { id: "act-call", label: "Anrufen", hint: site.phone, icon: "phone", group: "Aktionen", keywords: "telefon", run: () => { window.location.href = site.phoneHref; } },
   { id: "act-route", label: "Route planen", hint: `${site.street}, ${site.city}`, icon: "pin", group: "Aktionen", keywords: "anfahrt maps karte", run: () => window.open(mapsUrl, "_blank", "noopener,noreferrer") },
   { id: "act-mail", label: "E-Mail schreiben", hint: site.email, icon: "mail", group: "Aktionen", keywords: "kontakt", run: () => { window.location.href = `mailto:${site.email}`; } },
