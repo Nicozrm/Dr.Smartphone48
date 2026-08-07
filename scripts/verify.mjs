@@ -324,7 +324,116 @@ function checkPageMeta() {
 }
 
 /* ================================================================== */
-/* 5. Export (nur wenn ./out vorliegt)                                */
+/* 5. Offline-Vorrat: zwei Listen, eine Wahrheit                      */
+/* ================================================================== */
+
+/*
+  Die Precache-Liste steht zweimal – in `public/sw.js` und in
+  `lib/pwa/precache.ts`. Das ist unvermeidbar: Ein Service Worker ist eine
+  eigenständige Datei ohne Zugriff auf das Modulsystem der Anwendung.
+
+  Unvermeidbare Doppelung wird in diesem Projekt maschinell abgesichert (wie
+  der Werkstattablauf gegen das Postgres-Enum). Sonst zeigt /notfall einen
+  Vorrat an, den es nicht gibt – und zwar genau dem Besucher, der ihn
+  braucht und es nicht mehr nachprüfen kann.
+
+  Geprüft wird auch die Reihenfolge: `cache.addAll()` legt der Reihe nach ab.
+  Bricht die Verbindung ab, ist das Erste am sichersten – und das muss die
+  Notfallhilfe sein. Auch das steht so in CLAUDE.md.
+*/
+function checkPrecache() {
+  checksRun++;
+  const sw = read("public/sw.js");
+  const ts = read("lib/pwa/precache.ts");
+
+  const swBlock = sw.match(/const PRECACHE_URLS = \[([\s\S]*?)\]/);
+  if (!swBlock) {
+    report("offline", "public/sw.js", "PRECACHE_URLS nicht gefunden.");
+    return;
+  }
+  const swPaths = [...swBlock[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  const tsPaths = [...ts.matchAll(/path:\s*"([^"]+)"/g)].map((m) => m[1]);
+
+  if (swPaths.join("|") !== tsPaths.join("|")) {
+    report(
+      "offline",
+      "lib/pwa/precache.ts",
+      `Liste weicht von public/sw.js ab.\n      sw.js:      ${swPaths.join(", ")}\n      precache:   ${tsPaths.join(", ")}`,
+    );
+  }
+
+  if (swPaths[0] !== "/notfall") {
+    report(
+      "offline",
+      "public/sw.js",
+      `Erste Seite im Vorrat ist "${swPaths[0]}", nicht /notfall. Der Notfall hat Vorrang.`,
+    );
+  }
+
+  /*
+    Jede als unverzichtbar markierte Seite muss im Service Worker auch
+    nachgelegt werden.
+
+    In `CRITICAL_URLS` stehen die Pfade nicht alle wörtlich – einer kommt
+    über die Konstante `OFFLINE_URL` herein. Der erste Anlauf dieser Prüfung
+    sah nur nach Zeichenketten und meldete deshalb einen Fehler, den es
+    nicht gab. Die Konstanten werden jetzt zuerst aufgelöst.
+  */
+  const criticalTs = [...ts.matchAll(/path:\s*"([^"]+)"[^}]*critical:\s*true/g)].map(
+    (m) => m[1],
+  );
+
+  // const NAME = `${BASE}/pfad`  →  NAME: "/pfad"
+  const constants = new Map(
+    [...sw.matchAll(/const\s+(\w+)\s*=\s*`\$\{BASE\}([^`]*)`/g)].map((m) => [
+      m[1],
+      m[2],
+    ]),
+  );
+
+  const criticalBlock = sw.match(/const CRITICAL_URLS = \[([\s\S]*?)\]/);
+  const criticalSw = criticalBlock
+    ? criticalBlock[1]
+        .split(",")
+        .map((part) => {
+          const literal = part.match(/`\$\{BASE\}([^`]*)`/);
+          if (literal) return literal[1];
+          const name = part.trim().replace(/[^\w]/g, "");
+          return constants.get(name) ?? null;
+        })
+        .filter(Boolean)
+    : [];
+
+  /*
+    Die Nachricht, mit der die Seite den Worker um Nachschub bittet, steht
+    ebenfalls zweimal. Ein Tippfehler darin wäre ein Knopf, der stumm nichts
+    tut – und genau diese Sorte Fehler hat den Weg überhaupt nötig gemacht.
+  */
+  const refillTs = ts.match(/REFILL\s*=\s*"([^"]+)"/);
+  const refillSw = sw.match(/REFILL\s*=\s*"([^"]+)"/);
+  if (!refillTs || !refillSw) {
+    report("offline", "public/sw.js", "REFILL fehlt auf einer der beiden Seiten.");
+  } else if (refillTs[1] !== refillSw[1]) {
+    report(
+      "offline",
+      "lib/pwa/precache.ts",
+      `Nachrichtenname weicht ab: "${refillTs[1]}" gegen "${refillSw[1]}" in sw.js.`,
+    );
+  }
+
+  for (const path of criticalTs) {
+    if (!criticalSw.includes(path)) {
+      report(
+        "offline",
+        "public/sw.js",
+        `${path} gilt in precache.ts als unverzichtbar, steht aber nicht in CRITICAL_URLS.`,
+      );
+    }
+  }
+}
+
+/* ================================================================== */
+/* 6. Export (nur wenn ./out vorliegt)                                */
 /* ================================================================== */
 
 function checkExport() {
@@ -389,6 +498,7 @@ const CHECKS = [
   ["Redaktion", checkEditorial],
   ["Shader", checkShaders],
   ["Metadaten", checkPageMeta],
+  ["Offline-Vorrat", checkPrecache],
 ];
 
 console.log("Prüfstand – die Regeln aus CLAUDE.md, ausgeführt\n");

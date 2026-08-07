@@ -3315,3 +3315,72 @@ html[data-js] .nojs-only {
     display: none;
   }
 }
+
+/* ==========================================================================
+   Offline-Vorrat (/notfall)
+   ==========================================================================
+   Ein Kassensturz, keine Werbung: schlichte Liste, ein Haken oder ein Strich.
+   Grün wäre hier falsch – dass die Seite offline funktioniert, ist der
+   Normalfall und kein Erfolg. Auffallen soll nur, was fehlt.
+   ========================================================================== */
+
+.stock-list {
+  border-top: 1px solid var(--line);
+}
+
+.stock-list > li {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) auto;
+  gap: 0.875rem;
+  align-items: baseline;
+  padding: 0.625rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9375rem;
+}
+
+.stock-mark {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.stock-list > li[data-present="ja"] .stock-mark {
+  color: var(--accent);
+}
+
+.stock-list > li[data-present="nein"] .stock-mark {
+  color: var(--ink-faint);
+}
+
+.stock-list > li[data-present="nein"] .stock-label {
+  color: var(--ink-soft);
+}
+
+.stock-label {
+  color: var(--ink-strong);
+}
+
+/* Die unverzichtbaren Seiten tragen ihre Rolle sichtbar – wenn eine davon
+   fehlt, ist das etwas anderes als eine fehlende Preisliste. */
+.stock-critical {
+  margin-left: 0.5rem;
+  padding: 0.0625rem 0.4375rem;
+  border-radius: var(--radius-full);
+  background: var(--accent-subtle);
+  font-size: 0.6875rem;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.stock-size {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+
+/* Auf Papier gibt es keinen Offline-Modus. */
+@media print {
+  .stock {
+    display: none;
+  }
+}
