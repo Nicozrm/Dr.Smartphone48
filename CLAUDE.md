@@ -25,6 +25,7 @@ npm run verify:procedure  # Werkstattabläufe gegen die zugesagten Zeiten
 npm run verify:inspection # Prüfprotokoll + Bestand gegen die eigenen Zusagen
 npm run verify:support    # Update-Horizont gegen den Gerätekatalog
 npm run verify:status     # Werkstattablauf gegen das Datenbankschema
+npm run verify:co2        # Herstellungs-Fußabdruck gegen den Gerätekatalog
 
 npm run cf:build      # Cloudflare-Worker bauen (OpenNext)
 npm run cf:preview    # Worker lokal in workerd testen
@@ -57,6 +58,10 @@ etwas merkt.
   Reihenfolge. Dazu Kontaktkanäle, die Form des Vorgangscodes, die Namen der
   Realtime-Kanäle und die Zusage, dass es auf den Vorgangstabellen keine
   Policy für `anon` gibt.
+- `verify:co2` – jeder Eintrag in `lib/data/co2.ts` hat ein Modell im
+  Katalog, keiner steht doppelt, jede Zahl liegt in einer plausiblen Spanne
+  und trägt einen Beleg. Schlägt außerdem an, wenn `CO2_CHECKED` über ein
+  Jahr alt ist.
 
 ## Deployment (Vercel – hier läuft die Seite)
 
@@ -219,7 +224,9 @@ lib/
                          (Bestand inkl. Zyklen, Prüfdatum, ersetzte Teile, Befund),
                          inspection.ts (die 40 Prüfpositionen), procedure.ts
                          (Werkstattschritte), support.ts (Update-Horizont je
-                         Modell), faq.ts, reviews.ts, emergency.ts
+                         Modell), co2.ts (Herstellungs-Fußabdruck je Modell,
+                         aus Hersteller-Umweltberichten), faq.ts, reviews.ts,
+                         emergency.ts
   invoice/               types.ts calc.ts (Cent-Arithmetik) catalog.ts validate.ts
                          (§ 14 UStG) store.ts (localStorage) girocode.ts qr.ts
   tickets/               status.ts (die acht Zustände), code.ts (Vorgangscode),
@@ -371,6 +378,15 @@ Zusage formuliert sind:
 
 Wer eine der beiden Zahlen ändert, ändert die andere Seite mit – sonst
 verspricht die Website etwas, das der eigene Datenbestand widerlegt.
+
+Dieselbe Disziplin gilt für `lib/data/co2.ts` (Herstellungs-Fußabdruck je
+Modell, in „Reparieren oder neu" auf `/zwilling`): Jede Zahl kommt aus dem
+eigenen Umweltbericht von Apple, Google oder Samsung, nie aus einer eigenen
+Schätzung. Für Modelle ohne auffindbaren Bericht (Galaxy S22, A54, A34) gibt
+es bewusst keinen Eintrag – `co2For()` liefert dann `undefined`, und die
+Oberfläche fällt auf die allgemein gekennzeichnete Näherung zurück, statt
+eine Zahl zu erfinden. `verify:co2` prüft Gegenstück im Katalog, Duplikate,
+Plausibilität und das Prüfdatum.
 
 ### Bestand aufbereiteter Geräte (`lib/data/refurbished.ts`)
 

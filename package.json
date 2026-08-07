@@ -15,7 +15,8 @@
     "verify:procedure": "node --experimental-strip-types --no-warnings scripts/verify-procedure.mjs",
     "verify:inspection": "node --experimental-strip-types --no-warnings scripts/verify-inspection.mjs",
     "verify:support": "node --experimental-strip-types --no-warnings scripts/verify-support.mjs",
-    "verify:status": "node --experimental-strip-types --no-warnings scripts/verify-status.mjs"
+    "verify:status": "node --experimental-strip-types --no-warnings scripts/verify-status.mjs",
+    "verify:co2": "node --experimental-strip-types --no-warnings scripts/verify-co2.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

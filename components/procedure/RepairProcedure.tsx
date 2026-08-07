@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { DeviceDiagram } from "@/components/configurator/DeviceDiagram";
 import { repairMeta, type RepairKind } from "@/lib/data/devices";
-import { procedures, procedureMinutes } from "@/lib/data/procedure";
+import { procedures, procedureMinutes, type ProcedureStep } from "@/lib/data/procedure";
 import { formatMinutes } from "@/lib/format";
 
 /*
@@ -24,6 +24,21 @@ import { formatMinutes } from "@/lib/format";
   Die Wiedergabe ist rafferisch: eine Minute Werkstatt in 320 ms. Ein
   Displaytausch läuft damit in gut vierzehn Sekunden durch – lang genug, um
   den Ablauf zu begreifen, kurz genug, um ihn zu Ende zu sehen.
+
+  ---------------------------------------------------------------------------
+  Die Partitur
+
+  Die Schrittliste allein beantwortet nur „was kommt als Nächstes". Sie
+  beantwortet nicht die Frage, die ein Blick auf die Uhrzeit im Kopf zuerst
+  stellt: Ist das hier eine lange Reparatur mit einem kurzen kritischen
+  Moment, oder eine kurze mit lauter gleich schweren Schritten? Diese Form
+  sieht man erst, wenn alle Schritte nebeneinanderliegen, proportional zu
+  ihrer echten Dauer – wie die Takte einer Partitur, bei der die Notenlänge
+  die Zeit ist, nicht nur die Reihenfolge.
+
+  Die Balkenbreite kommt direkt aus `step.minutes`, ohne eigene Rechnung und
+  ohne eigene Behauptung: Was hier breit erscheint, ist in derselben Zahl
+  breit, die auch `verify:procedure` gegen den zugesagten Festpreis prüft.
 */
 
 /** Eine Werkstattminute in Millisekunden Wiedergabe. */
@@ -39,30 +54,72 @@ const kinds: RepairKind[] = [
   "diagnose",
 ];
 
+interface StepState {
+  /** Minute, zu der der Schritt beginnt. */
+  start: number;
+  isPast: boolean;
+  isNow: boolean;
+  /** Fortschritt innerhalb des laufenden Schritts, 0 bis 1. */
+  within: number;
+}
+
+/**
+ * Zustand jedes Schritts aus einer einzigen Zeitangabe ableiten.
+ *
+ * Vorher stand diese Rechnung zweimal im Bauteil – einmal, um den laufenden
+ * Schritt zu finden, ein zweites Mal (mit einer eigenen Schleife je Zeile),
+ * um seine Startzeit für die Anzeige zu bestimmen. Beide Stellen konnten
+ * auseinanderlaufen, sobald jemand nur eine davon änderte. Jetzt gibt es nur
+ * noch diese eine Stelle, und die Partitur und die Schrittliste lesen
+ * dieselben Werte.
+ */
+function computeStepStates(
+  steps: ProcedureStep[],
+  elapsed: number,
+  done: boolean,
+): StepState[] {
+  let acc = 0;
+  let currentIndex = 0;
+  for (let i = 0; i < steps.length; i++) {
+    if (elapsed < acc + steps[i].minutes) {
+      currentIndex = i;
+      break;
+    }
+    acc += steps[i].minutes;
+    currentIndex = i;
+  }
+
+  let start = 0;
+  return steps.map((step, i) => {
+    const stepStart = start;
+    start += step.minutes;
+    const isPast = done || i < currentIndex;
+    const isNow = !done && i === currentIndex;
+    const within = isNow
+      ? Math.min(1, Math.max(0, (elapsed - stepStart) / step.minutes))
+      : isPast
+        ? 1
+        : 0;
+    return { start: stepStart, isPast, isNow, within };
+  });
+}
+
 export function RepairProcedure() {
   const [kind, setKind] = useState<RepairKind>("display");
   const [elapsed, setElapsed] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [hovered, setHovered] = useState<number | null>(null);
   const raf = useRef(0);
   const startedAt = useRef(0);
   const offset = useRef(0);
 
   const steps = procedures[kind]!;
   const total = procedureMinutes(steps);
-
-  // Welcher Schritt läuft gerade, und wie weit ist er?
-  let acc = 0;
-  let index = 0;
-  for (let i = 0; i < steps.length; i++) {
-    if (elapsed < acc + steps[i].minutes) {
-      index = i;
-      break;
-    }
-    acc += steps[i].minutes;
-    index = i;
-  }
   const done = elapsed >= total;
-  const current = steps[Math.min(index, steps.length - 1)];
+  const stepStates = computeStepStates(steps, elapsed, done);
+  const nowIndex = stepStates.findIndex((s) => s.isNow);
+  const index = nowIndex === -1 ? steps.length - 1 : nowIndex;
+  const current = steps[index];
 
   const stop = useCallback(() => {
     cancelAnimationFrame(raf.current);
@@ -143,6 +200,18 @@ export function RepairProcedure() {
         ))}
       </div>
 
+      {/* Die Partitur – Form vor Inhalt */}
+      <ProcedureScore
+        steps={steps}
+        stepStates={stepStates}
+        elapsed={elapsed}
+        total={total}
+        done={done}
+        hovered={hovered}
+        onHover={setHovered}
+        onJump={jumpTo}
+      />
+
       <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-14">
         {/* Zeitleiste */}
         <ol className="relative">
@@ -152,41 +221,34 @@ export function RepairProcedure() {
             className="absolute left-[15px] top-2 bottom-2 w-px bg-line"
           />
           {steps.map((step, i) => {
-            const isPast = i < index || done;
-            const isNow = i === index && !done;
-            let stepStart = 0;
-            for (let k = 0; k < i; k++) stepStart += steps[k].minutes;
-            const within = Math.min(
-              1,
-              Math.max(0, (elapsed - stepStart) / step.minutes),
-            );
+            const state = stepStates[i]!;
             return (
               <li key={step.title} className="relative pl-11">
                 <button
                   type="button"
                   onClick={() => jumpTo(i)}
                   className="block w-full py-3 text-left"
-                  aria-current={isNow ? "step" : undefined}
+                  aria-current={state.isNow ? "step" : undefined}
                 >
                   {/* Punkt auf der Linie – füllt sich, während der Schritt läuft */}
                   <span
                     aria-hidden="true"
                     className={`absolute left-2 top-[1.15rem] flex h-4 w-4 items-center justify-center rounded-full border transition-colors duration-[var(--duration-base)] ${
-                      isPast
+                      state.isPast
                         ? "border-accent bg-accent"
-                        : isNow
+                        : state.isNow
                           ? "border-accent bg-page"
                           : "border-line bg-page"
                     }`}
                   >
-                    {isPast ? (
+                    {state.isPast ? (
                       <Icon name="check" size={9} className="text-white" />
-                    ) : isNow ? (
+                    ) : state.isNow ? (
                       <span
                         className="block rounded-full bg-accent transition-[width,height] duration-[var(--duration-base)]"
                         style={{
-                          width: `${4 + within * 6}px`,
-                          height: `${4 + within * 6}px`,
+                          width: `${4 + state.within * 6}px`,
+                          height: `${4 + state.within * 6}px`,
                         }}
                       />
                     ) : null}
@@ -195,11 +257,7 @@ export function RepairProcedure() {
                   <span className="flex flex-wrap items-baseline justify-between gap-x-4">
                     <span
                       className={`text-[0.9375rem] ${
-                        isNow
-                          ? "font-medium text-ink-strong"
-                          : isPast
-                            ? "text-ink-soft"
-                            : "text-ink-soft"
+                        state.isNow ? "font-medium text-ink-strong" : "text-ink-soft"
                       }`}
                     >
                       {step.title}
@@ -211,7 +269,7 @@ export function RepairProcedure() {
 
                   {/* Die Begründung steht nur beim laufenden Schritt – sonst
                       wäre die Leiste eine Textwand statt eines Ablaufs. */}
-                  {isNow ? (
+                  {state.isNow ? (
                     <span className="mt-1.5 block max-w-prose text-[0.875rem] leading-relaxed text-ink-soft">
                       {step.detail}
                     </span>
@@ -286,6 +344,115 @@ export function RepairProcedure() {
         betriebliche Zusagen, keine Messwerte: Ein festsitzendes Rückglas
         dauert länger, eine Ladebuchse, die sich als Flusen entpuppt, endet
         nach vier Minuten. Beides sagen wir Ihnen, bevor wir weitermachen.
+      </p>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+
+/**
+ * Die Partitur: alle Schritte auf einer Zeile, Breite proportional zur
+ * Dauer. Ein Klick springt wie in der Liste darunter; ein Zeigefokus zeigt
+ * den Titel darüber, ohne dass Text in schmale Balken gequetscht werden muss
+ * – bei sechs bis zehn Schritten auf einer Zeile ist für die meisten davon
+ * kein Wort Platz, und halb abgeschnittene Titel wären schlechter als keine.
+ */
+function ProcedureScore({
+  steps,
+  stepStates,
+  elapsed,
+  total,
+  done,
+  hovered,
+  onHover,
+  onJump,
+}: {
+  steps: ProcedureStep[];
+  stepStates: StepState[];
+  elapsed: number;
+  total: number;
+  done: boolean;
+  hovered: number | null;
+  onHover: (i: number | null) => void;
+  onJump: (i: number) => void;
+}) {
+  const nowIndex = stepStates.findIndex((s) => s.isNow);
+  const shownIndex = hovered ?? (nowIndex === -1 ? steps.length - 1 : nowIndex);
+  const shown = steps[shownIndex]!;
+  const playheadPercent = Math.min(100, Math.max(0, (elapsed / total) * 100));
+
+  return (
+    <div className="mt-7">
+      {/* Beschriftung: immer ein Schritt, nie zehn zugleich – der Zeiger
+          bestimmt welcher, in Ruhe der gerade laufende. */}
+      <div className="flex items-baseline justify-between gap-4">
+        <p className="min-w-0 truncate text-[0.8125rem] font-medium text-ink-strong">
+          {done && hovered === null ? "Fertig" : shown.title}
+        </p>
+        <p className="shrink-0 font-mono text-[0.75rem] text-ink-faint">
+          {shown.minutes} min
+        </p>
+      </div>
+
+      <div className="relative mt-2.5">
+        {/* Der Zeiger – bewegt sich mit `elapsed`, springt bei reduzierter
+            Bewegung statt zu gleiten. */}
+        <div
+          aria-hidden="true"
+          className="absolute -top-1 z-10 flex -translate-x-1/2 flex-col items-center transition-[left] duration-100 ease-linear motion-reduce:transition-none"
+          style={{ left: `${playheadPercent}%` }}
+        >
+          <span className="h-2 w-2 rounded-full bg-ink-strong" />
+          <span className="h-[60px] w-px bg-ink-strong/70" />
+        </div>
+
+        <div
+          role="group"
+          aria-label={`Ablauf als Balken, proportional zur Dauer – ${steps.length} Schritte, zusammen ${total} Minuten`}
+          className="flex h-14 gap-[3px] overflow-hidden rounded-[var(--radius-s)]"
+        >
+          {steps.map((step, i) => {
+            const state = stepStates[i]!;
+            return (
+              <button
+                key={step.title}
+                type="button"
+                onClick={() => onJump(i)}
+                onMouseEnter={() => onHover(i)}
+                onMouseLeave={() => onHover(null)}
+                onFocus={() => onHover(i)}
+                onBlur={() => onHover(null)}
+                aria-label={`${step.title}, ${step.minutes} Minuten, Schritt ${i + 1} von ${steps.length}`}
+                aria-current={state.isNow ? "step" : undefined}
+                style={{ flexGrow: step.minutes, flexBasis: 0 }}
+                className="group relative min-w-[6px] overflow-hidden border-y border-line first:rounded-l-[var(--radius-s)] first:border-l last:rounded-r-[var(--radius-s)] last:border-r"
+              >
+                <span
+                  aria-hidden="true"
+                  className={`absolute inset-0 transition-colors duration-[var(--duration-fast)] ${
+                    state.isPast ? "bg-accent" : "bg-sunken group-hover:bg-accent-subtle"
+                  }`}
+                />
+                {/* Innerhalb des laufenden Schritts füllt sich der Balken von
+                    links – dieselbe Zahl (`within`), die auch den Punkt in
+                    der Liste darunter wachsen lässt. */}
+                {state.isNow ? (
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-y-0 left-0 bg-accent"
+                    style={{ width: `${state.within * 100}%` }}
+                  />
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <p className="mt-3 max-w-prose text-[0.8125rem] leading-relaxed text-ink-faint">
+        Jeder Balken ist so breit wie seine Dauer – lang heißt sorgfältig, nicht
+        kompliziert. Ein Fingerzeig oder Klick zeigt, welcher Schritt das ist.
       </p>
     </div>
   );

@@ -6,6 +6,7 @@ import { Icon } from "@/components/ui/Icon";
 import { formatEuro } from "@/lib/format";
 import { brands } from "@/lib/data/devices";
 import { formatDuration, formatMonth, monthsUntil, supportFor } from "@/lib/data/support";
+import { co2For } from "@/lib/data/co2";
 
 /*
   Reparieren oder neu kaufen – die Frage, die keine Reparaturwerkstatt gern
@@ -16,11 +17,23 @@ import { formatDuration, formatMonth, monthsUntil, supportFor } from "@/lib/data
   Neupreise erfunden und keine Empfehlung schöngerechnet – kommt Neukauf
   günstiger heraus, sagt die Seite das auch.
 
-  CO₂: Bei einem Smartphone entfällt der weit überwiegende Teil der
-  Lebenszyklus-Emissionen auf die Herstellung, nicht auf die Nutzung. Die hier
-  verwendeten Größenordnungen (Herstellung ~60 kg CO₂e, Reparatur ~2 kg)
-  stammen aus den Umweltberichten der Hersteller und sind als Näherung
+  CO₂, ohne Modellangabe: Bei einem Smartphone entfällt der weit überwiegende
+  Teil der Lebenszyklus-Emissionen auf die Herstellung, nicht auf die Nutzung.
+  Die hier verwendeten Größenordnungen (Herstellung ~60 kg CO₂e, Reparatur
+  ~2 kg) stammen aus den Umweltberichten der Hersteller und sind als Näherung
   gekennzeichnet – nicht als Messwert für ein konkretes Modell.
+
+  CO₂, mit Modellangabe: Für 22 der Modelle im Katalog gibt es eine echte
+  Zahl statt der Näherung – den Herstellungs-Fußabdruck aus dem eigenen
+  Umweltbericht von Apple, Google oder Samsung (`lib/data/co2.ts`). Dort steht
+  dann der reale Wert für genau dieses Gerät, mit Beleg. Was es nicht gibt –
+  weil kein Hersteller es veröffentlicht –, ist eine Zahl für den
+  Fußabdruck **eines einzelnen Ersatzteils**. Deshalb wird hier nicht
+  behauptet, eine Reparatur „spare X kg" gegenüber dem Neugerät; stattdessen
+  steht der volle Fußabdruck des Neugeräts da, und der Satz, den die
+  Umweltberichte selbst hergeben: Fertigung ist der mit Abstand größte Posten
+  im Lebenszyklus jedes Smartphones. Lieber diese ehrliche Lücke als eine
+  erfundene Differenz.
 */
 
 const CO2_NEW_KG = 60;
@@ -52,6 +65,10 @@ export function RepairOrReplace() {
     const rest = monthsUntil(entry.securityUntil);
     return { entry, rest, zuKnapp: months > rest };
   }, [modelId, months]);
+
+  // Echte Zahl, wenn es sie für dieses Modell gibt – sonst bleibt es bei der
+  // ausgewiesenen Näherung weiter unten.
+  const co2Entry = useMemo(() => (modelId ? co2For(modelId) : undefined), [modelId]);
 
   const calc = useMemo(() => {
     const saved = newPrice - repair;
@@ -301,16 +318,42 @@ export function RepairOrReplace() {
             >
               <Icon name="leaf" size={20} />
             </span>
-            <div>
-              <p className="font-mono text-2xl font-semibold tracking-tight text-ink-strong">
-                ≈ {calc.co2Saved} kg CO₂
-              </p>
-              <p className="mt-1 text-[0.875rem] leading-relaxed text-ink-soft">
-                spart eine Reparatur gegenüber einem Neugerät. Beim Smartphone
-                entsteht der Großteil der Emissionen in der Herstellung, nicht
-                im Betrieb.
-              </p>
-            </div>
+            {co2Entry ? (
+              <div className="min-w-0">
+                <p className="font-mono text-2xl font-semibold tracking-tight text-ink-strong">
+                  {co2Entry.kgCO2e.toLocaleString("de-DE")} kg CO₂e
+                </p>
+                <p className="mt-1 text-[0.875rem] leading-relaxed text-ink-soft">
+                  So viel verursacht die Herstellung eines neuen{" "}
+                  {brands.flatMap((b) => b.models).find((m) => m.id === modelId)?.name} –
+                  laut eigenem Umweltbericht des Herstellers. Eine Reparatur
+                  ersetzt ein Bauteil, nicht das ganze Gerät. Wie groß der
+                  Anteil eines einzelnen Ersatzteils daran ist, veröffentlicht
+                  kein Hersteller – deshalb steht hier keine erfundene
+                  Ersparnis, nur die reale Zahl für den Neukauf.
+                </p>
+                <p className="mt-2 text-[0.75rem] leading-relaxed text-ink-faint">
+                  Quelle: {co2Entry.basis}.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p className="font-mono text-2xl font-semibold tracking-tight text-ink-strong">
+                  ≈ {calc.co2Saved} kg CO₂
+                </p>
+                <p className="mt-1 text-[0.875rem] leading-relaxed text-ink-soft">
+                  spart eine Reparatur gegenüber einem Neugerät. Beim
+                  Smartphone entsteht der Großteil der Emissionen in der
+                  Herstellung, nicht im Betrieb.
+                </p>
+                {modelId ? (
+                  <p className="mt-2 text-[0.75rem] leading-relaxed text-ink-faint">
+                    Für dieses Modell liegt uns kein eigener Umweltbericht mit
+                    Fußabdruck vor – hier gilt die allgemeine Näherung unten.
+                  </p>
+                ) : null}
+              </div>
+            )}
           </div>
         </div>
 
@@ -324,11 +367,13 @@ export function RepairOrReplace() {
           <Icon name="arrow-right" size={16} />
         </Link>
 
-        <p className="mt-3 text-[0.75rem] leading-relaxed text-ink-faint">
-          CO₂-Werte sind Größenordnungen aus Hersteller-Umweltberichten
-          (Herstellung ≈ {CO2_NEW_KG} kg, Reparatur ≈ {CO2_REPAIR_KG} kg), keine
-          Messwerte für Ihr Modell.
-        </p>
+        {!co2Entry ? (
+          <p className="mt-3 text-[0.75rem] leading-relaxed text-ink-faint">
+            CO₂-Werte sind Größenordnungen aus Hersteller-Umweltberichten
+            (Herstellung ≈ {CO2_NEW_KG} kg, Reparatur ≈ {CO2_REPAIR_KG} kg),
+            keine Messwerte für Ihr Modell.
+          </p>
+        ) : null}
       </div>
     </div>
   );
