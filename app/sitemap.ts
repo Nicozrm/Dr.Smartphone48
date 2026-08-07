@@ -36,6 +36,7 @@ const entries: Entry[] = [
   { path: "/zwilling", priority: 0.9, changeFrequency: "monthly" },
   { path: "/versorgung", priority: 0.85, changeFrequency: "monthly" },
   { path: "/refurbished", priority: 0.8, changeFrequency: "weekly" },
+  { path: "/pruefen", priority: 0.75, changeFrequency: "yearly" },
   { path: "/kontakt", priority: 0.8, changeFrequency: "monthly" },
   { path: "/werkstatt", priority: 0.7, changeFrequency: "yearly" },
   { path: "/ersatzteile", priority: 0.7, changeFrequency: "monthly" },

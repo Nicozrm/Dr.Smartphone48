@@ -26,6 +26,7 @@ npm run verify:procedure  # Werkstattabläufe gegen die zugesagten Zeiten
 npm run verify:inspection # Prüfprotokoll + Bestand gegen die eigenen Zusagen
 npm run verify:support    # Update-Horizont gegen den Gerätekatalog
 npm run verify:status     # Werkstattablauf gegen das Datenbankschema
+npm run verify:cert       # Reparaturzertifikat: Format, Signatur, QR-Größe
 
 npm run cf:build          # Cloudflare-Worker bauen (OpenNext)
 npm run cf:preview        # Worker lokal in workerd testen
@@ -69,7 +70,7 @@ tatsächlich saß.
 
 ### Die fachlichen Prüfskripte
 
-Der Prüfstand deckt die Regeln dieser Datei ab. Daneben stehen fünf Skripte,
+Der Prüfstand deckt die Regeln dieser Datei ab. Daneben stehen sechs Skripte,
 die alle dasselbe prüfen: dass eine Zusage der Seite noch stimmt. Sie sind
 kein Ersatz für Tests, sondern genau die Stellen, an denen ein stiller Fehler
 die Website zur Lügnerin macht, ohne dass jemand etwas merkt.
@@ -90,6 +91,11 @@ die Website zur Lügnerin macht, ohne dass jemand etwas merkt.
   Reihenfolge. Dazu Kontaktkanäle, die Form des Vorgangscodes, die Namen der
   Realtime-Kanäle und die Zusage, dass es auf den Vorgangstabellen keine
   Policy für `anon` gibt.
+- `verify:cert` – das Reparaturzertifikat gegen die Zusage auf /pruefen. Es
+  kippt **jedes einzelne Bit** des unterschriebenen Datensatzes und prüft, dass
+  die Signatur jedes Mal bricht. Dazu Hin- und Rückweg des Binärformats (auch
+  mit Umlauten an der Längengrenze), die QR-Version des schlimmsten Falls und
+  die Stimmigkeit des Schlüsselrings.
 
 ## Deployment (Cloudflare Workers – empfohlen)
 
@@ -114,7 +120,7 @@ npm run cf:deploy
 ## Deployment (Cloudflare Pages / statisch)
 
 ```bash
-npm run build:static  # → ./out, 13 Seiten, ohne /api
+npm run build:static  # → ./out, alle Seiten statisch, ohne /api
 ```
 
 `scripts/build-static.mjs` legt `app/api` vor dem Build beiseite und stellt es
@@ -172,7 +178,9 @@ app/                     App-Router-Seiten (alle statisch prerendert)
                          40 Positionen, Messwerte, Product-JSON-LD, druckbar
   ersatzteile/ werkstatt/ kontakt/
   impressum/ datenschutz/ agb/ offline/ not-found.tsx
+  pruefen/               Reparaturzertifikat prüfen (öffentlich, ohne Server)
   intern/rechnung/       Rechnungswerkzeug (nicht verlinkt, noindex, kein Server)
+  intern/zertifikat/     Zertifikat ausstellen (nicht verlinkt, noindex, kein Server)
   intern/werkstatt/      Vorgangs-Dashboard (nicht verlinkt, noindex, Anmeldung)
   api/kontakt/           Route Handler für das Formular (nur im Server-Build)
   api/tickets/           Vorgang anmelden (POST)
@@ -203,9 +211,13 @@ components/
                          StatusControl, WorkshopStats, WorkshopLogin,
                          ShortcutHelp
   emergency/             RescueClock
-  parts/                 DisplayCompare (echte Eingabeverzögerung)
+  parts/                 DisplayCompare (echte Eingabeverzögerung),
+                         PwmDemo (Flimmern als Zeitdiagramm)
   procedure/             RepairProcedure (Werkstattablauf im Zeitraffer)
   support/               SupportHorizon (Zeitachse), SupportTable (alle Modelle)
+  cert/                  CertificateSeal (das Siegel), SignatureGlyph,
+                         CheckpointGrid, VerifyView (Prüfseite),
+                         CertificateIssuer (Werkstattwerkzeug)
   invoice/               InvoiceBuilder (Editor) + InvoiceSheet (das Blatt, DIN 5008)
   pwa/                   ServiceWorkerRegister
 lib/
@@ -217,11 +229,15 @@ lib/
   resale.ts              Ankauf-Bewertung als Liste begründeter Posten
   battery.ts             Alterungsmodell (kalendarisch + zyklisch)
   format.ts detect.ts theme.ts
+  viewTransition.ts      Überführung der Gerätesignatur (die einzige im Projekt)
   data/                  devices.ts (Modelle, Preise, Ankaufswerte), refurbished.ts
                          (Bestand inkl. Zyklen, Prüfdatum, ersetzte Teile, Befund),
                          inspection.ts (die 40 Prüfpositionen), procedure.ts
                          (Werkstattschritte), support.ts (Update-Horizont je
                          Modell), faq.ts, reviews.ts, emergency.ts, handover.ts
+  cert/                  format.ts (Binärformat + base64url), crypto.ts
+                         (ECDSA P-256, Gerätebindung), keys.ts (öffentlicher
+                         Schlüsselring), glyph.ts (Signaturbild), store.ts
   invoice/               types.ts calc.ts (Cent-Arithmetik) catalog.ts validate.ts
                          (§ 14 UStG) store.ts (localStorage) girocode.ts
                          einvoice.ts + cii.ts (E-Rechnung nach EN 16931)
@@ -253,6 +269,7 @@ scripts/
   verify-inspection.mjs  Prüfpositionen gegen site.checkpoints, Bestand gegen Grad
   verify-support.mjs     Update-Horizont gegen den Gerätekatalog
   verify-status.mjs      Werkstattablauf gegen das Datenbankschema
+  verify-cert.mjs        Zertifikatsformat, Signatur bitweise, QR-Größe
 ```
 
 ## Konventionen
@@ -278,6 +295,23 @@ scripts/
   die `Reveal`-Komponente (IntersectionObserver setzt `data-revealed`, Bewegung
   lebt in CSS). `prefers-reduced-motion` wird überall respektiert; ohne JS
   bleibt alles sichtbar (`html[data-js]`-Gate).
+- **Überführungen (View Transitions) gibt es genau eine**, und sie hat vier
+  Ausschaltbedingungen: `lib/viewTransition.ts`. Die Gerätesignatur wandert im
+  Sofortpreis-Rechner von der Markenkachel in den Kopf der Vorschau.
+
+  Die Bedingung, an der die erste Fassung gescheitert ist: **Start und Ziel
+  müssen gleichzeitig im Bild sein.** Der Kopf der Vorschau stand zunächst
+  unter dem Diagramm – bei 1440 × 900 also unterhalb des sichtbaren Bereichs,
+  und die Signatur flog aus dem Fenster. Deshalb steht er jetzt darüber, auf
+  Höhe der Kacheln, und unter 1024 px Fensterbreite läuft die Überführung gar
+  nicht erst (dort liegt die Vorschau weit unter den Schritten).
+
+  Zwei Dinge, die man dabei falsch machen kann: Ein zweites Element mit
+  demselben `view-transition-name` in derselben Aufnahme bricht die
+  Überführung ab – der Name wird deshalb im Klick gesetzt und im selben
+  Rutsch wieder entfernt. Und `::view-transition-old(root)` bleibt auf
+  `display: none`: Eine überblendete Seitenaufnahme legte sich eine halbe
+  Sekunde über den gestaffelten Einlauf der Modellkacheln.
 - Server Components als Default; `"use client"` nur wo nötig
   (Reveal, Configurator, DiagramShowcase, ContactForm, ServiceWorkerRegister,
   Bootloader, CommandPalette, DeviceCheck, DigitalTwin, ShaderField,
@@ -579,6 +613,84 @@ Anbieter austauschbar bleibt. Ein Adapter ohne Zugangsdaten meldet
 Benachrichtigt wird nur bei drei Zuständen und nur, wenn der Kunde einen Weg
 gewählt hat – Vorauswahl ist „keine Nachrichten“.
 
+### Das Reparaturzertifikat (`/pruefen`, `/intern/zertifikat`)
+
+Der Grund, warum es das gibt: Jeder Betrieb dieser Branche schreibt „geprüfte
+Qualität" auf seine Rechnung, und niemand kann es nachprüfen. Ein Protokoll,
+das der Aussteller jederzeit umschreiben kann, belegt nichts – es behauptet
+etwas mit Briefkopf. Hier wird das Prüfprotokoll nach der Reparatur
+**kryptografisch unterschrieben**; der Kunde nimmt es als QR-Code mit und kann
+Jahre später nachrechnen, dass daran kein Bit geändert wurde. Auch von uns
+nicht.
+
+**Was der Beleg beweist, steht neben dem, was er nicht beweist.** Eine
+Signatur zeigt Unversehrtheit und Herkunft – nicht Sorgfalt. Der Abschnitt
+„Was er nicht beweist" auf `/pruefen` ist gleich groß gesetzt wie der andere
+und nennt auch die Grenze des Vertrauensankers: Wer die Domain kontrolliert,
+kontrolliert den Schlüsselring. Wer hier etwas hinzufügt, prüft, ob der
+zweite Abschnitt mitwächst.
+
+**ECDSA P-256, nicht Ed25519.** Die modernere Kurve wäre in jedem Vortrag die
+richtige Antwort und ist hier die falsche: Geprüft wird auf dem Gerät des
+Kunden, oft auf genau dem Telefon, das gerade repariert wurde. `Ed25519` kam
+in WebCrypto erst mit Safari 17, Firefox 129 und Chrome 137. P-256 ist seit
+2014 überall, gilt unverändert als sicher und liefert dieselbe
+Signaturlänge – 64 Byte, roh als r‖s, nicht DER-verpackt.
+
+**Der Beleg muss in einen QR-Code auf Thermopapier passen.** Deshalb ein
+Binärformat statt JSON: rund 120 Byte, base64url ~160 Zeichen, mit Adresse
+davor QR-Version 9–11. Die Längengrenzen der Textfelder in `encodeSignable`
+(Modell 32, Charge 24, Kürzel 12 Byte) sind daraus **gerechnet**, nicht
+gegriffen; `verify:cert` rechnet den schlimmsten Fall nach und bricht ab
+Version 12 ab.
+
+**Die Modellbezeichnung steht als Text im Beleg, nicht als Index.** Ein Index
+in `lib/data/devices.ts` wäre zwei Byte kürzer und eine Zeitbombe: Wird ein
+Modell aus dem Katalog genommen, zeigten alle alten Zertifikate auf ein
+anderes Gerät. Ein Beleg, dessen Bedeutung sich mit dem nächsten Deploy
+ändert, ist keiner. Dasselbe gilt für `CERT_REPAIRS` – die Reihenfolge ist
+eingefroren, neue Arten kommen hinten an.
+
+**Die Gerätebindung hat vier Byte, und mehr wäre schlechter.** Im Zertifikat
+steht nicht die IMEI, sondern der Anfang ihres SHA-256-Werts; die Prüfseite
+fragt die Nummer beim Kunden ab. Die Länge ist in beide Richtungen begrenzt:
+Vier Byte lassen ein fremdes Zertifikat nur mit 1 : 4,3 Milliarden zufällig
+passen – und auf denselben Wert fallen rund 23 000 der ~10¹⁴ möglichen
+IMEIs, sodass sich aus einem abfotografierten Bon keine Nummer zurückrechnen
+lässt. Mit fünf Byte wären es 90 Kandidaten, mit sechs genau einer.
+
+**Der Code steht im Fragment der Adresse**, nicht in einem Parameter. Ein
+Fragment schickt der Browser niemals an einen Server – der Beleg landet in
+keinem Zugriffsprotokoll, auch nicht in dem des Hosters.
+
+**Der Schlüsselring in `lib/cert/keys.ts` ist leer und wird vom Betrieb
+gefüllt.** Die private Hälfte darf niemand gesehen haben, der nicht in der
+Werkstatt sitzt – ein Schlüssel aus einem fremden Rechner beweist nichts über
+den Betrieb. Solange der Ring leer ist, meldet `/pruefen` jeden Beleg als
+„Schlüssel nicht hinterlegt"; ein Schlüssel, den nur der ausstellende Browser
+kennt, wird ausdrücklich als **Einrichtungsmodus** benannt und nicht als
+gültig verkauft. Ein Schlüssel wird nie ersetzt, nur ergänzt und mit `until`
+versehen: Alte Belege müssen prüfbar bleiben.
+
+**Das Siegel trägt einen Ton, nicht zwei.** Der erste Entwurf zeichnete die
+Hüllkurve grün und die Speichen blau – das sah nach Ampel aus. Ein gültiges
+Zertifikat ist der Normalfall und kein Erfolg; den Befund trägt der Satz
+daneben. Die zweite Linie der Figur bleibt deshalb überall graphitgrau und
+sagt nichts.
+
+**Das Signaturbild ist die Signatur**, nicht ihr Hash: 64 Speichen, eine je
+Byte, Länge gleich Wert. Es ist eine Lesehilfe und für sich **kein
+Prüfmerkmal** – es zu fälschen ist trivial. Deshalb steht es nie ohne den
+Befund daneben. Die Kurzform (`fingerprint`) nutzt dasselbe Alphabet ohne
+I, O, 0 und 1 wie der Vorgangscode.
+
+**`verify:cert` kippt jedes einzelne Bit** des unterschriebenen Datensatzes
+und verlangt, dass die Signatur jedes Mal bricht. Nicht eine Stichprobe: Läge
+irgendwo ein Bit, das die Signatur nicht abdeckt, wäre genau dort die Stelle
+zum Fälschen. Das Skript hat sich beim ersten Lauf selbst überführt – es
+meldete eine schwache Kurzform, obwohl der Fehler in seinen eigenen
+Testdaten saß (eine Folge, die sich alle 256 Durchgänge wiederholte).
+
 ### Zwei Regeln, die über der Optik stehen
 
 **Nichts behaupten, was nicht stimmt.** Die Werkzeuge hier rechnen, statt zu
@@ -588,6 +700,16 @@ die Luhn-Rechnung. Wo etwas geschätzt ist, steht „Schätzung" dabei; wo etwas
 veranschaulicht ist (Farbdrift im Display-Vergleich), steht das ebenfalls
 dabei. Kein erfundener Countdown, keine erfundenen Marktpreise, keine
 Hersteller-Zuordnung aus einer IMEI. Lieber eine Lücke als eine Behauptung.
+
+Ein Sonderfall davon, weil er beim Weiterbauen so verlockend ist: **Die
+PWM-Darstellung auf `/ersatzteile` ist ein Zeitdiagramm und bleibt eines.**
+Der naheliegende „Verbesserung" wäre, beide Panels verlangsamt blinken zu
+lassen – und sie dreht die Aussage um. 3.000 Hz haben die kürzere Periode als
+240 Hz; in gleichmäßiger Zeitlupe blinkt also das gute Panel schneller und
+wirkt unruhiger. Der Betrachter lernte das Gegenteil der Wirklichkeit.
+Deshalb steht dort ein Ausschnitt von zehn Millisekunden auf einer Zeitachse,
+und die entscheidende Zahl – die Länge einer einzelnen Dunkelphase – steht als
+Zahl dabei, nicht als Effekt.
 
 **Der Notfall hat Vorrang vor allem.** `/notfall` muss ohne JavaScript, ohne
 Netz und auf jedem Gerät funktionieren. Deshalb stehen dort alle vier
@@ -675,6 +797,10 @@ Betriebs) und Widerrufsmöglichkeit.
 
 ### Offene Punkte vor dem Livegang
 
+- **Signaturschlüssel erzeugen und veröffentlichen:** `/intern/zertifikat`
+  öffnen, Schlüssel erzeugen, die Sicherungsdatei außerhalb des Browsers
+  verwahren und die angezeigte Zeile nach `lib/cert/keys.ts` übernehmen. Bis
+  dahin kann niemand außerhalb dieses einen Browsers ein Zertifikat prüfen.
 - **Bankverbindung eintragen:** Das Rechnungswerkzeug startet ohne IBAN, BIC und
   Steuernummer – beim ersten Start unter „Stammdaten" hinterlegen, sonst bleibt
   der GiroCode aus und die Rechnung ist unvollständig.
