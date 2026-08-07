@@ -1,0 +1,366 @@
+/*
+  Prüft die beiden Instrumente auf /check gegen das, was sie behaupten.
+
+  Der Beschleunigungsschreiber rechnet Zahlen aus, die ein Kunde mit nach
+  Hause nimmt („aus 1,20 m, das sind 1.400 g auf Fliesen"). Solche Zahlen
+  müssen stimmen, und Schulphysik hat den Vorteil, dass man sie gegen bekannte
+  Werte halten kann. Das Stethoskop rechnet keine Physik, aber es bildet
+  Frequenzen auf Bildspalten ab – und wenn diese Abbildung Lücken oder
+  Überlappungen hat, zeigt der Wasserfall etwas, das nicht gemessen wurde.
+
+  Aufruf: npm run verify:instruments
+*/
+import {
+  FREEFALL_G,
+  G,
+  IMPACT_G,
+  MIN_FREEFALL_MS,
+  decelerationG,
+  fallHeight,
+  fallTime,
+  impactVelocity,
+  surfaces,
+} from "../lib/motion/impact.ts";
+import {
+  DB_CEIL,
+  DB_FLOOR,
+  columnBins,
+  dbToLevel,
+  formatHz,
+  logPosition,
+  positionToHz,
+  peakFrequency,
+  rampColor,
+} from "../lib/audio/spectrum.ts";
+import {
+  SPECTRUM_MAX_HZ,
+  SPECTRUM_MIN_HZ,
+  landmarks,
+} from "../lib/data/acoustics.ts";
+
+let failures = 0;
+const fail = (text) => {
+  failures++;
+  console.log(`  FEHLER ${text}`);
+};
+const ok = (text) => console.log(`  ok    ${text}`);
+
+/** Vergleich mit Toleranz – Gleitkomma trifft nie exakt. */
+const near = (a, b, tol) => Math.abs(a - b) <= tol;
+
+/* ---- 1. Fallgesetze gegen bekannte Werte -------------------------------- */
+
+console.log("Fallgesetze – gegen Werte, die im Tafelwerk stehen\n");
+{
+  if (!near(G, 9.80665, 1e-9)) fail(`g steht auf ${G}, die Norm nennt 9,80665.`);
+
+  /*
+    Unabhängig gerechnete Sollwerte – nicht aus dem geprüften Modul, sonst
+    bestätigte der Test jede beliebige Fallbeschleunigung.
+
+    Der erste Anlauf stand hier mit g = 9,81 statt 9,80665 und meldete den
+    Code als falsch, obwohl der Fehler in den Sollwerten saß. Der Unterschied
+    beträgt bei einem Meter 0,077 ms – weit unter dem, was ein Telefonsensor
+    bei 60 Hz überhaupt auflöst. Für die Anzeige ist er egal; für einen Test,
+    der auf fünf Stellen vergleicht, ist er es nicht.
+  */
+  const cases = [
+    { h: 1, t: 0.451601, v: 4.428691 },
+    { h: 0.5, t: 0.319330, v: 3.131557 },
+    { h: 2, t: 0.638660, v: 6.263114 },
+  ];
+  for (const c of cases) {
+    if (!near(fallTime(c.h), c.t, 5e-5)) {
+      fail(`Fallzeit aus ${c.h} m: ${fallTime(c.h).toFixed(5)} s statt ${c.t} s`);
+    } else if (!near(impactVelocity(c.h), c.v, 5e-5)) {
+      fail(
+        `Aufprall aus ${c.h} m: ${impactVelocity(c.h).toFixed(5)} m/s statt ${c.v} m/s`,
+      );
+    } else {
+      ok(`${c.h} m → ${c.t} s → ${c.v} m/s`);
+    }
+  }
+
+  // Hin und zurück muss dieselbe Höhe ergeben – die Seite rechnet in beide
+  // Richtungen (gemessene Zeit → Höhe, angenommene Höhe → Zeit).
+  let drift = 0;
+  for (let h = 0.02; h <= 3; h += 0.01) {
+    drift = Math.max(drift, Math.abs(fallHeight(fallTime(h)) - h));
+  }
+  if (drift > 1e-9) fail(`Hin- und Rückweg driften um ${drift.toExponential(2)} m.`);
+  else ok("Höhe → Zeit → Höhe schließt sich über 0,02 bis 3 m");
+}
+
+/* ---- 2. Die Verzögerung, um die es eigentlich geht ---------------------- */
+
+console.log("\nVerzögerung – die Aussage der Tabelle ist das Verhältnis\n");
+{
+  const v = impactVelocity(1);
+
+  // Von Hand: v = 4,42945 m/s, s = 0,0005 m
+  // a = v²/(2s) = 19,62/0,001 = 19620 m/s² = 2000,7 g
+  const handRechnung = (v * v) / (2 * 0.0005) / G;
+  if (!near(decelerationG(v, 0.0005), handRechnung, 1e-9)) {
+    fail("decelerationG weicht von der Handrechnung ab.");
+  } else {
+    ok(`aus 1 m auf 0,5 mm Bremsweg: ${Math.round(handRechnung)} g`);
+  }
+
+  // Die eigentliche Aussage der Seite: zehnfacher Bremsweg, ein Zehntel.
+  const kurz = decelerationG(v, 0.001);
+  const lang = decelerationG(v, 0.01);
+  if (!near(kurz / lang, 10, 1e-9)) {
+    fail(`Zehnfacher Bremsweg ergibt Faktor ${(kurz / lang).toFixed(3)} statt 10.`);
+  } else {
+    ok("zehnfacher Bremsweg = ein Zehntel der Verzögerung");
+  }
+
+  if (Number.isFinite(decelerationG(v, 0))) {
+    fail("Bremsweg 0 liefert eine endliche Zahl – eine Division durch null.");
+  } else {
+    ok("Bremsweg 0 ergibt unendlich statt einer erfundenen Zahl");
+  }
+}
+
+/* ---- 3. Die Untergründe ------------------------------------------------- */
+
+console.log("\nUntergründe – Reihenfolge und Vollständigkeit\n");
+{
+  let sortiert = true;
+  for (let i = 1; i < surfaces.length; i++) {
+    if (surfaces[i].stop <= surfaces[i - 1].stop) sortiert = false;
+  }
+  if (!sortiert) {
+    fail("Die Liste ist nicht nach steigendem Bremsweg sortiert – die Tabelle liest sich dann rückwärts.");
+  } else {
+    ok(`${surfaces.length} Untergründe, aufsteigend von ${surfaces[0].stop * 1000} mm`);
+  }
+
+  for (const surface of surfaces) {
+    if (surface.stop <= 0) fail(`${surface.label}: Bremsweg muss größer als null sein.`);
+    if (!surface.note || surface.note.length < 20) {
+      fail(`${surface.label}: ohne Begründung ist der Wert eine Behauptung.`);
+    }
+    // Kein Wert darf so groß sein, dass die Verzögerung unter 1 g fiele –
+    // das hieße, der Aufprall wäre sanfter als Danebenstehen.
+    const g = decelerationG(impactVelocity(1), surface.stop);
+    if (g < 1) fail(`${surface.label}: ${g.toFixed(2)} g aus 1 m ist unglaubhaft.`);
+  }
+
+  const spanne =
+    decelerationG(impactVelocity(1), surfaces[0].stop) /
+    decelerationG(impactVelocity(1), surfaces[surfaces.length - 1].stop);
+  console.log(`        Spanne der Tabelle: Faktor ${Math.round(spanne)}`);
+  if (spanne < 10) {
+    fail("Ohne deutliche Spanne trägt die Tabelle ihre Aussage nicht.");
+  } else {
+    ok("die Spanne zeigt den Unterschied, um den es geht");
+  }
+}
+
+/* ---- 4. Erkennungsschwellen -------------------------------------------- */
+
+console.log("\nSchwellen des Schreibers\n");
+{
+  if (!(FREEFALL_G > 0 && FREEFALL_G < 1)) {
+    fail(`Freifall-Schwelle ${FREEFALL_G} g muss zwischen 0 und 1 liegen (Ruhe = 1 g).`);
+  } else {
+    ok(`freier Fall unter ${FREEFALL_G} g, Ruhe liegt bei 1 g`);
+  }
+  if (IMPACT_G <= 1) {
+    fail(`Aufprall-Schwelle ${IMPACT_G} g läge unter der Ruhelage – jedes Hinlegen wäre ein Aufprall.`);
+  } else {
+    ok(`Aufprall ab ${IMPACT_G} g`);
+  }
+  // Die Mindestdauer muss einer Höhe entsprechen, die man auch erkennen will.
+  const minHoehe = fallHeight(MIN_FREEFALL_MS / 1000);
+  console.log(`        ${MIN_FREEFALL_MS} ms Mindestdauer entsprechen ${(minHoehe * 100).toFixed(1)} cm`);
+  if (minHoehe > 0.05) {
+    fail("Die Mindestdauer schluckt Stürze, die noch Schaden machen.");
+  } else {
+    ok("die Mindestdauer filtert Zuckungen, nicht Stürze");
+  }
+}
+
+/* ---- 5. Frequenzachse: keine Lücke, keine Überlappung ------------------- */
+
+console.log("\nSpektrum – jede Bildspalte hat genau ihren Bereich\n");
+{
+  const BIN_COUNT = 2048;
+  const RATE = 48000;
+  const cols = columnBins(600, BIN_COUNT, RATE, SPECTRUM_MIN_HZ, SPECTRUM_MAX_HZ);
+
+  if (cols.length !== 600) fail(`${cols.length} Spalten statt 600.`);
+
+  let leer = 0;
+  let rueckwaerts = 0;
+  let ausserhalb = 0;
+  for (const col of cols) {
+    if (col.to < col.from) rueckwaerts++;
+    if (col.from < 0 || col.to >= BIN_COUNT) ausserhalb++;
+    if (col.to - col.from < 0) leer++;
+  }
+  if (rueckwaerts) fail(`${rueckwaerts} Spalten haben ein Ende vor ihrem Anfang.`);
+  if (ausserhalb) fail(`${ausserhalb} Spalten greifen außerhalb der Bins zu.`);
+  if (leer) fail(`${leer} Spalten decken kein einziges Bin ab und blieben schwarz.`);
+  if (!rueckwaerts && !ausserhalb && !leer) {
+    ok("600 Spalten, jede mit mindestens einem Bin, keine außerhalb");
+  }
+
+  // Aufsteigend muss sie sein, sonst läuft die Achse rückwärts.
+  let monoton = true;
+  for (let i = 1; i < cols.length; i++) {
+    if (cols[i].from < cols[i - 1].from) monoton = false;
+  }
+  if (!monoton) fail("Die Spaltenzuordnung steigt nicht durchgehend an.");
+  else ok("die Frequenzachse läuft durchgehend aufwärts");
+
+  // Hin und zurück auf der logarithmischen Achse.
+  let drift = 0;
+  for (let hz = SPECTRUM_MIN_HZ; hz <= SPECTRUM_MAX_HZ; hz *= 1.1) {
+    const back = positionToHz(
+      logPosition(hz, SPECTRUM_MIN_HZ, SPECTRUM_MAX_HZ),
+      SPECTRUM_MIN_HZ,
+      SPECTRUM_MAX_HZ,
+    );
+    drift = Math.max(drift, Math.abs(back - hz) / hz);
+  }
+  if (drift > 1e-12) fail(`Achsenabbildung driftet um ${(drift * 100).toExponential(2)} %.`);
+  else ok("Frequenz → Position → Frequenz schließt sich");
+
+  // Oktaven müssen gleich breit sein – das ist der ganze Sinn der Sache.
+  const oktave1 = logPosition(200, SPECTRUM_MIN_HZ, SPECTRUM_MAX_HZ) -
+    logPosition(100, SPECTRUM_MIN_HZ, SPECTRUM_MAX_HZ);
+  const oktave2 = logPosition(8000, SPECTRUM_MIN_HZ, SPECTRUM_MAX_HZ) -
+    logPosition(4000, SPECTRUM_MIN_HZ, SPECTRUM_MAX_HZ);
+  if (!near(oktave1, oktave2, 1e-12)) {
+    fail("Zwei Oktaven bekommen unterschiedlich viel Platz – die Achse ist nicht logarithmisch.");
+  } else {
+    ok(`jede Oktave bekommt ${(oktave1 * 100).toFixed(2)} % der Breite`);
+  }
+
+  // Nyquist: Bei niedriger Abtastrate darf nichts oberhalb der halben Rate
+  // angezeigt werden – dort steht nur Rechenrest.
+  const schmal = columnBins(600, BIN_COUNT, 16000, SPECTRUM_MIN_HZ, SPECTRUM_MAX_HZ);
+  const maxBin = Math.max(...schmal.map((c) => c.to));
+  if (maxBin >= BIN_COUNT) fail("Bei 16 kHz Abtastrate wird über die Bins hinaus gelesen.");
+  else ok("bei 16 kHz Abtastrate bleibt die Darstellung unterhalb der Nyquist-Grenze");
+}
+
+/* ---- 6. Pegel und Farbrampe -------------------------------------------- */
+
+console.log("\nPegel und Farben\n");
+{
+  if (dbToLevel(DB_FLOOR) !== 0) fail("Der leiseste Pegel ergibt nicht 0.");
+  if (dbToLevel(DB_CEIL) !== 1) fail("Der lauteste Pegel ergibt nicht 1.");
+  if (dbToLevel(-Infinity) !== 0) fail("Stille (-Infinity) ergibt keinen gültigen Pegel.");
+  if (dbToLevel(0) !== 1 || dbToLevel(-200) !== 0) fail("Pegel außerhalb werden nicht begrenzt.");
+  ok(`Pegel ${DB_FLOOR} bis ${DB_CEIL} dB auf 0 bis 1, außerhalb begrenzt`);
+
+  // Die Rampe muss in der Helligkeit monoton steigen – sonst liest man
+  // Strukturen, die in den Daten nicht stehen (der Grund gegen Regenbogen).
+  let letzte = -1;
+  let sprung = 0;
+  for (let i = 0; i <= 100; i++) {
+    const [r, g, b] = rampColor(i / 100);
+    if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) {
+      fail(`Farbwert außerhalb 0–255 bei ${i}%.`);
+      break;
+    }
+    // Wahrgenommene Helligkeit nach BT.601.
+    const y = 0.299 * r + 0.587 * g + 0.114 * b;
+    if (y < letzte - 0.01) sprung++;
+    letzte = y;
+  }
+  if (sprung) fail(`Die Farbrampe wird an ${sprung} Stellen wieder dunkler.`);
+  else ok("die Helligkeit der Rampe steigt durchgehend");
+}
+
+/* ---- 7. Spitzenwert ----------------------------------------------------- */
+
+console.log("\nSpitzenwert – findet er den Ton, den man hineinlegt?\n");
+{
+  const RATE = 48000;
+  const BINS = 2048;
+  const hzPerBin = RATE / 2 / BINS;
+
+  for (const ziel of [50, 200, 1000, 8000]) {
+    const bins = new Float32Array(BINS).fill(-100);
+    const index = Math.round(ziel / hzPerBin);
+    bins[index] = -30;
+    const peak = peakFrequency(bins, RATE, SPECTRUM_MIN_HZ, SPECTRUM_MAX_HZ);
+    if (!peak || Math.abs(peak.hz - ziel) > hzPerBin) {
+      fail(`Ton bei ${ziel} Hz wurde als ${peak ? Math.round(peak.hz) : "nichts"} gemeldet.`);
+    } else {
+      ok(`${formatHz(ziel)} gefunden (${formatHz(peak.hz)}, Auflösung ${hzPerBin.toFixed(1)} Hz)`);
+    }
+  }
+
+  /*
+    Kein gemeldeter Wert darf außerhalb der Achse liegen – weder oben noch
+    unten. Der untere Fall ist der, der wirklich vorkam: Bei 11,7 Hz je Bin
+    und 30 Hz Untergrenze meldete die erste Fassung den Gleichanteil bei
+    23 Hz, den jedes Mikrofon mitbringt. Auf der Achse gibt es diese
+    Frequenz nicht; der Ablesewert zeigte auf einen Punkt außerhalb des
+    Bildes.
+  */
+  for (const [name, hz] of [
+    ["oberhalb", 22000],
+    ["unterhalb", 23],
+  ]) {
+    const bins = new Float32Array(BINS).fill(-100);
+    bins[Math.round(hz / hzPerBin)] = -10;
+    const peak = peakFrequency(bins, RATE, SPECTRUM_MIN_HZ, SPECTRUM_MAX_HZ);
+    if (peak && (peak.hz > SPECTRUM_MAX_HZ || peak.hz < SPECTRUM_MIN_HZ)) {
+      fail(
+        `Ton ${name} der Achse (${hz} Hz) wird als Spitze bei ${Math.round(peak.hz)} Hz gemeldet.`,
+      );
+    } else {
+      ok(`ein Ton ${name} des Bereichs wird nicht als Spitze ausgegeben`);
+    }
+  }
+
+  // Und ein Bereich, in den kein einziges Bin fällt, liefert nichts statt
+  // einer erfundenen Zahl.
+  if (peakFrequency(new Float32Array(BINS).fill(-100), RATE, 19000, 19001) !== null) {
+    fail("Ein Bereich ohne Bin liefert trotzdem einen Wert.");
+  } else {
+    ok("ein Bereich ohne eigenes Bin liefert nichts");
+  }
+}
+
+/* ---- 8. Die Marken ------------------------------------------------------ */
+
+console.log("\nOrientierungsmarken\n");
+{
+  // Eigener Zähler: Der globale wäre hier von den Abschnitten davor
+  // verschmutzt, und dann meldete dieser Abschnitt einen Fehler, den er
+  // nicht gefunden hat.
+  const before = failures;
+  const ids = new Set();
+  for (const mark of landmarks) {
+    if (ids.has(mark.id)) fail(`Kennung „${mark.id}" kommt doppelt vor.`);
+    ids.add(mark.id);
+    if (mark.from >= mark.to) fail(`${mark.label}: untere Grenze liegt nicht unter der oberen.`);
+    if (mark.from < SPECTRUM_MIN_HZ || mark.to > SPECTRUM_MAX_HZ) {
+      fail(`${mark.label} liegt außerhalb der dargestellten Achse und wäre unsichtbar.`);
+    }
+    // Jede Marke muss ihren Grund nennen – das ist die Regel in acoustics.ts.
+    if (!mark.reason || mark.reason.length < 60) {
+      fail(`${mark.label}: ohne Begründung ist die Marke eine Behauptung.`);
+    }
+    if (/\*\*|__/.test(mark.reason + mark.label)) {
+      fail(`${mark.label}: Markdown im Text – er wird wörtlich gerendert.`);
+    }
+  }
+  if (failures === before) ok(`${landmarks.length} Marken, alle begründet und im Bild`);
+}
+
+/* ---- Ergebnis ----------------------------------------------------------- */
+
+console.log("");
+if (failures > 0) {
+  console.log(`${failures} Fehler. Die Instrumente zeigen etwas anderes, als sie sagen.`);
+  process.exit(1);
+}
+console.log("Beide Instrumente rechnen, was sie behaupten.");

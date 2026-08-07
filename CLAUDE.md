@@ -27,6 +27,7 @@ npm run verify:inspection # Prüfprotokoll + Bestand gegen die eigenen Zusagen
 npm run verify:support    # Update-Horizont gegen den Gerätekatalog
 npm run verify:status     # Werkstattablauf gegen das Datenbankschema
 npm run verify:cert       # Reparaturzertifikat: Format, Signatur, QR-Größe
+npm run verify:instruments # Sturzphysik und Spektrum-Abbildung auf /check
 
 npm run cf:build          # Cloudflare-Worker bauen (OpenNext)
 npm run cf:preview        # Worker lokal in workerd testen
@@ -70,7 +71,7 @@ tatsächlich saß.
 
 ### Die fachlichen Prüfskripte
 
-Der Prüfstand deckt die Regeln dieser Datei ab. Daneben stehen sechs Skripte,
+Der Prüfstand deckt die Regeln dieser Datei ab. Daneben stehen sieben Skripte,
 die alle dasselbe prüfen: dass eine Zusage der Seite noch stimmt. Sie sind
 kein Ersatz für Tests, sondern genau die Stellen, an denen ein stiller Fehler
 die Website zur Lügnerin macht, ohne dass jemand etwas merkt.
@@ -96,6 +97,10 @@ die Website zur Lügnerin macht, ohne dass jemand etwas merkt.
   die Signatur jedes Mal bricht. Dazu Hin- und Rückweg des Binärformats (auch
   mit Umlauten an der Längengrenze), die QR-Version des schlimmsten Falls und
   die Stimmigkeit des Schlüsselrings.
+- `verify:instruments` – die beiden Messgeräte auf /check. Die Fallgesetze
+  gegen unabhängig gerechnete Sollwerte, die Verzögerungsformel gegen die
+  Handrechnung, und die Frequenzachse gegen sich selbst: keine Bildspalte ohne
+  Bin, keine Lücke, jede Oktave gleich breit.
 
 ## Deployment (Cloudflare Workers – empfohlen)
 
@@ -162,7 +167,8 @@ app/                     App-Router-Seiten (alle statisch prerendert)
                          Röntgen, Stats, CTA)
   reparatur/             Sofortpreis-Rechner (Signature-Feature) + Werkstattablauf + FAQ
   notfall/               Notfall-Protokolle (ohne JS lesbar, offline im Cache)
-  check/                 Geräte-Check: Sensor-Diagnose im Browser
+  check/                 Geräte-Check: Sensor-Diagnose im Browser, dazu die
+                         zwei Instrumente (Stethoskop, Sturzschreiber)
   vorbereitung/          Übergabe-Assistent: was vor der Abgabe zu tun ist
   ankauf/                Restwert-Rechner mit offengelegter Rechnung
   zwilling/              Digitaler Zwilling, Akku-Coach, Reparieren-oder-neu
@@ -198,7 +204,9 @@ components/
   configurator/          Configurator (Preislogik) + DeviceDiagram (SVG-Explosion)
   experience/            Bootloader, CommandPalette (⌘K), ShaderField (WebGL-Hero),
                          DeviceExploded, XRay, MagneticField, ScrollProgress
-  check/                 DeviceCheck (Display-, Sensor-, Audio-, Akku-Tests)
+  check/                 DeviceCheck (Display-, Sensor-, Audio-, Akku-Tests),
+                         Stethoscope (Spektrum + Wasserfall),
+                         DropForensics (Beschleunigungsschreiber)
   handover/              HandoverAssistant (Vorbereitung zur Abgabe)
   twin/                  DigitalTwin, RepairOrReplace
   battery/               BatteryCoach (3-Jahres-Prognose)
@@ -234,7 +242,10 @@ lib/
                          (Bestand inkl. Zyklen, Prüfdatum, ersetzte Teile, Befund),
                          inspection.ts (die 40 Prüfpositionen), procedure.ts
                          (Werkstattschritte), support.ts (Update-Horizont je
-                         Modell), faq.ts, reviews.ts, emergency.ts, handover.ts
+                         Modell), acoustics.ts (Frequenzmarken), faq.ts,
+                         reviews.ts, emergency.ts, handover.ts
+  audio/                 spectrum.ts (logarithmische Frequenzachse, Farbrampe)
+  motion/                impact.ts (Fallgesetze, Bremsweg, Untergründe)
   cert/                  format.ts (Binärformat + base64url), crypto.ts
                          (ECDSA P-256, Gerätebindung), keys.ts (öffentlicher
                          Schlüsselring), glyph.ts (Signaturbild), store.ts
@@ -270,6 +281,7 @@ scripts/
   verify-support.mjs     Update-Horizont gegen den Gerätekatalog
   verify-status.mjs      Werkstattablauf gegen das Datenbankschema
   verify-cert.mjs        Zertifikatsformat, Signatur bitweise, QR-Größe
+  verify-instruments.mjs Sturzphysik gegen das Tafelwerk, Spektrum-Abbildung
 ```
 
 ## Konventionen
@@ -612,6 +624,73 @@ Anbieter austauschbar bleibt. Ein Adapter ohne Zugangsdaten meldet
 `isConfigured() === false` und sendet nicht; das Dashboard zeigt, was fehlt.
 Benachrichtigt wird nur bei drei Zuständen und nur, wenn der Kunde einen Weg
 gewählt hat – Vorauswahl ist „keine Nachrichten“.
+
+### Zwei Instrumente auf `/check`
+
+Der Geräte-Check oben auf der Seite zählt zwölf Prüfpunkte zu einem Befund
+zusammen. Darunter stehen zwei Werkzeuge, die das ausdrücklich **nicht** tun:
+Stethoskop und Beschleunigungsschreiber liefern Messwerte, und die Deutung
+bleibt beim Menschen. Sie in die Liste zu hängen hieße, ein Spektrum in ein
+Häkchen zu übersetzen – und genau diese Übersetzung wäre die Behauptung, die
+hier niemand aufstellen will. Wer ein drittes Instrument ergänzt, hält es
+ebenfalls aus dem Befund heraus.
+
+**Stethoskop: die Aufbereitung muss aus.** `getUserMedia` liefert
+voreingestellt einen für Sprache aufbereiteten Kanal. Besonders die
+Rauschunterdrückung ist hier fatal, weil sie gezielt *gleichförmige* Geräusche
+entfernt – also genau Spulenfiepen und Motorbrummen. Mit Voreinstellung fände
+das Werkzeug zuverlässig nichts, und niemand käme auf die Idee, dass es daran
+liegt. `echoCancellation`, `noiseSuppression` und `autoGainControl` stehen
+deshalb alle drei auf `false`, wie schon beim Frequenzgang-Test daneben.
+
+**Die Frequenzachse ist logarithmisch, und das ist keine Kosmetik.** Linear
+aufgetragen läge die halbe Bildbreite zwischen 12 und 24 kHz, wo bei einem
+Telefon nichts passiert, während sich Netzbrummen und Vibrationsmotor die
+ersten zwanzig Pixel teilten. `verify:instruments` prüft, dass jede Oktave
+gleich breit ist und keine Bildspalte ohne Bin bleibt.
+
+**Der Ablesewert schweigt, wenn nichts da ist.** Unterhalb der Rauschgrenze ist
+der „lauteste Ton" der lauteste Punkt des Eigenrauschens; eine Frequenz dafür
+anzugeben wäre eine Messung von nichts mit drei Ziffern Genauigkeit. Frequenz
+und Pegel hängen deshalb an derselben Bedingung. Aus demselben Grund rundet
+`peakFrequency` seine Grenzen nach innen, während `columnBins` nach außen
+rundet: Eine Bildspalte muss lückenlos abdecken, ein Ablesewert darf nicht auf
+eine Frequenz zeigen, die es auf der Achse nicht gibt (der erste Entwurf
+meldete den Gleichanteil bei 23 Hz).
+
+**Die eine Leinwand im Projekt.** Der Rest dieser Website kommt ohne Canvas
+aus – der PWM-Vergleich auf /ersatzteile ist eine CSS-Kachel. Der Wasserfall
+ist die Ausnahme: 600 einzeln eingefärbte Bildpunkte je Bild, dazu das
+Verschieben des Bisherigen um eine Zeile. Als DOM wären das 120.000 Knoten in
+Bewegung.
+
+**Der Sturzschreiber misst den freien Fall, nicht den Aufprall.** Ein
+Beschleunigungsmesser zeigt in Ruhe 1 g und im Fall 0 g; der Fall dauert aus
+einem Meter 452 ms und ist bei 60 Messwerten je Sekunde gut aufgelöst. Der
+Aufprall dauert etwa eine Millisekunde – da nimmt der Sensor meist gar keinen
+Wert. Der angezeigte Spitzenwert wird deshalb ausdrücklich als **Untergrenze**
+bezeichnet, mit der Rechnung daneben. Ein Messgerät, das seine eigene Grenze
+verschweigt, ist ein Ratespiel mit Nachkommastellen.
+
+**Die Aussage der Tabelle ist das Verhältnis, nicht der Absolutwert.** Die
+Bremswege in `surfaces` sind Größenordnungen und heißen auf der Seite auch so.
+Belastbar ist, dass ein Teppich etwa zehnmal länger bremst als eine Fliese –
+und dass die Kraft dadurch auf ein Zehntel sinkt. `verify:instruments` prüft
+genau diese Proportionalität und die Reihenfolge der Liste.
+
+**Niemand wird aufgefordert, sein Telefon fallen zu lassen.** Der Hinweis
+steht über dem Knopf, nicht darunter. Das Werkzeug funktioniert mit einem Klaps
+auf den Tisch.
+
+**Die Kurve wird an React vorbei gezeichnet.** Der Schrieb ändert sich
+sechzigmal je Sekunde; über `useState` rechnete React sechzigmal je Sekunde
+einen Baum durch, um ein `d`-Attribut zu setzen. Der Pfad wird direkt am
+Element gesetzt, React erfährt nur die Ergebnisse. Dieselbe Überlegung
+begrenzt den Ablesewert des Stethoskops auf sechs Aktualisierungen je Sekunde.
+
+**Mikrofon und Sensor werden freigegeben.** Beide Werkzeuge räumen beim
+Verlassen der Seite auf (`stopRef` im Aufräumer). Ein Mikrofon, das nach dem
+Wegklicken weiterläuft, ist ein Fehler mit Kameralampe.
 
 ### Das Reparaturzertifikat (`/pruefen`, `/intern/zertifikat`)
 
