@@ -17,7 +17,8 @@
     "verify:inspection": "node --experimental-strip-types --no-warnings scripts/verify-inspection.mjs",
     "verify:support": "node --experimental-strip-types --no-warnings scripts/verify-support.mjs",
     "verify:status": "node --experimental-strip-types --no-warnings scripts/verify-status.mjs",
-    "verify:cert": "node --experimental-strip-types --no-warnings scripts/verify-cert.mjs"
+    "verify:cert": "node --experimental-strip-types --no-warnings scripts/verify-cert.mjs",
+    "verify:instruments": "node --experimental-strip-types --no-warnings scripts/verify-instruments.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

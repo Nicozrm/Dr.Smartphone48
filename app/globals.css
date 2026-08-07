@@ -2827,3 +2827,227 @@ html[data-js] .nojs-only {
     list-style: none;
   }
 }
+
+/* ==========================================================================
+   Zwei Instrumente auf /check – Stethoskop und Beschleunigungsschreiber
+   ==========================================================================
+   Beide zeigen Messwerte auf dunklem Grund, und zwar in beiden Themes. Das
+   ist dieselbe Entscheidung wie beim PWM-Diagramm auf /ersatzteile: Ein
+   Spektrum lebt von Helligkeit als Skala, und auf hellem Grund bleibt für
+   „laut" kein Weg nach oben. Der Bildschirm ist deshalb ein Gerät im Bild,
+   keine Fläche der Seite.
+   ========================================================================== */
+
+.scope-screen,
+.drop-screen {
+  position: relative;
+  border-radius: var(--radius-m);
+  background: #08090a;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.07);
+  overflow: hidden;
+}
+
+.scope-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.scope-spectrum {
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+}
+
+/* Die Marken schweben über der Achse, nicht in der Leinwand: als Text
+   bleiben sie auswählbar und für die Vorlesehilfe erreichbar. */
+.scope-marks {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 100%;
+  pointer-events: none;
+}
+
+.scope-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dashed rgb(255 255 255 / 0.16);
+  border-right: 1px dashed rgb(255 255 255 / 0.16);
+}
+
+.scope-mark-label {
+  position: absolute;
+  top: 0.375rem;
+  left: 0.25rem;
+  font-size: 0.625rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.5);
+  white-space: nowrap;
+}
+
+.scope-idle {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.875rem;
+  color: rgb(255 255 255 / 0.42);
+  background: rgb(8 9 10 / 0.82);
+}
+
+/* Der Punkt neben „Mikrofon schließen". Er pulsiert, weil eine laufende
+   Aufnahme sichtbar sein muss – auch für den, der die Seite nur überfliegt. */
+.scope-live {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--danger);
+  animation: scope-blink 1.4s var(--ease-in-out) infinite;
+}
+
+@keyframes scope-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* Die Frequenzachse ist logarithmisch – die Beschriftungen sitzen deshalb
+   nicht in gleichen Abständen, sondern dort, wo ihre Frequenz liegt. */
+.scope-axis {
+  position: relative;
+  height: 1.5rem;
+  margin-top: 0.5rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.625rem;
+  color: var(--ink-faint);
+}
+
+.scope-axis > span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+/* ---- Beschleunigungsschreiber ------------------------------------------ */
+
+.drop-trace {
+  display: block;
+  width: 100%;
+  height: 9.375rem;
+}
+
+.drop-line {
+  fill: none;
+  stroke: #5b8cff;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.drop-rule {
+  stroke: rgb(255 255 255 / 0.14);
+  stroke-width: 1;
+  stroke-dasharray: 3 5;
+  vector-effect: non-scaling-stroke;
+}
+
+.drop-rule.is-impact {
+  stroke: color-mix(in oklab, var(--danger) 60%, transparent);
+}
+
+.drop-rule.is-fall {
+  stroke: color-mix(in oklab, var(--warn) 60%, transparent);
+}
+
+.drop-scale {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.drop-scale > span {
+  position: absolute;
+  left: 0.5rem;
+  transform: translateY(50%);
+  padding: 0.0625rem 0.375rem;
+  border-radius: var(--radius-full);
+  /* Ein Rücken hinter der Schrift: Ohne ihn verschwindet die Beschriftung,
+     sobald die Kurve dort entlangläuft – und dort läuft sie ständig, weil
+     genau diese Linien die interessanten Höhen markieren. */
+  background: rgb(8 9 10 / 0.72);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.625rem;
+  color: rgb(255 255 255 / 0.55);
+  white-space: nowrap;
+}
+
+.drop-finding {
+  padding: 1.5rem 1.75rem;
+  border: 1px solid color-mix(in oklab, var(--accent) 22%, transparent);
+  border-radius: var(--radius-l);
+  background: var(--accent-subtle);
+}
+
+.drop-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.drop-table th,
+.drop-table td {
+  padding: 0.75rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.drop-table thead th {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+  border-bottom-color: var(--line-strong);
+}
+
+.drop-table tbody th {
+  font-weight: 500;
+  color: var(--ink-strong);
+}
+
+.drop-table td {
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* Die letzte Spalte trägt die Aussage – sie darf am rechten Rand stehen. */
+.drop-table th:last-child,
+.drop-table td:last-child {
+  text-align: right;
+}
+
+.drop-note {
+  display: block;
+  margin-top: 0.25rem;
+  max-width: 26rem;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scope-live {
+    animation: none;
+  }
+}
+
+@media print {
+  .scope-screen,
+  .drop-screen {
+    display: none;
+  }
+}
