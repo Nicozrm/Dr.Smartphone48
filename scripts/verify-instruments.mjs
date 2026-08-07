@@ -24,14 +24,27 @@ import {
 import {
   DB_CEIL,
   DB_FLOOR,
+  amplitudeAt,
   columnBins,
+  dbToAmplitude,
   dbToLevel,
   formatHz,
+  harmonicDistortion,
   logPosition,
   positionToHz,
   peakFrequency,
   rampColor,
 } from "../lib/audio/spectrum.ts";
+import {
+  DEPTH_MAX,
+  DEPTH_MIN,
+  TIP_MAX,
+  TIP_MIN,
+  flaws,
+  formatLength,
+  remainingStrength,
+  stressConcentration,
+} from "../lib/motion/crack.ts";
 import {
   SPECTRUM_MAX_HZ,
   SPECTRUM_MIN_HZ,
@@ -354,6 +367,198 @@ console.log("\nOrientierungsmarken\n");
     }
   }
   if (failures === before) ok(`${landmarks.length} Marken, alle begründet und im Bild`);
+}
+
+/* ---- 9. Klirrfaktor ----------------------------------------------------- */
+
+console.log("\nKlirrfaktor – gegen ein Spektrum mit bekanntem Inhalt\n");
+{
+  const RATE = 48000;
+  const BINS = 4096;
+  const hzPerBin = RATE / 2 / BINS;
+  const F0 = 1000;
+
+  // dB und lineare Amplitude müssen ineinander übergehen: -20 dB ist ein
+  // Zehntel, -40 dB ein Hundertstel. (20·log₁₀, nicht 10·log₁₀ – die
+  // Verwechslung ist der häufigste Fehler an dieser Stelle und ergäbe den
+  // doppelten Klirrfaktor.)
+  if (Math.abs(dbToAmplitude(-20) - 0.1) > 1e-12) fail("−20 dB ist nicht ein Zehntel.");
+  else if (Math.abs(dbToAmplitude(-40) - 0.01) > 1e-12) fail("−40 dB ist nicht ein Hundertstel.");
+  else if (dbToAmplitude(0) !== 1) fail("0 dB ist nicht 1.");
+  else ok("dB → Amplitude über 20·log₁₀");
+
+  /** Baut ein Spektrum mit vorgegebenen Amplituden auf den Oberwellen. */
+  const spektrum = (amplitudes) => {
+    const bins = new Float32Array(BINS).fill(-160);
+    amplitudes.forEach((a, i) => {
+      if (a <= 0) return;
+      bins[Math.round((F0 * (i + 1)) / hzPerBin)] = 20 * Math.log10(a);
+    });
+    return bins;
+  };
+
+  // Grundwelle 1, zweite und dritte Oberwelle je 0,1 → THD = √(0,01+0,01) = 0,1414
+  const soll = Math.sqrt(0.01 + 0.01);
+  const gemessen = harmonicDistortion(spektrum([1, 0.1, 0.1]), RATE, F0).thd;
+  if (Math.abs(gemessen - soll) > 1e-6) {
+    fail(`THD ${gemessen.toFixed(6)} statt ${soll.toFixed(6)}.`);
+  } else {
+    ok(`zwei Oberwellen zu je 10 % ergeben ${(soll * 100).toFixed(2)} % Klirrfaktor`);
+  }
+
+  // Ein reiner Ton hat keinen Klirrfaktor.
+  if (harmonicDistortion(spektrum([1]), RATE, F0).thd > 1e-6) {
+    fail("Ein reiner Sinus liefert einen Klirrfaktor über null.");
+  } else {
+    ok("ein reiner Sinus ergibt null");
+  }
+
+  // Ohne Grundwelle darf nichts herauskommen – sonst wird durch fast null
+  // geteilt und die Seite zeigt astronomische Prozentwerte.
+  const leer = harmonicDistortion(new Float32Array(BINS).fill(-Infinity), RATE, F0);
+  if (leer.thd !== 0 || !Number.isFinite(leer.thd)) {
+    fail(`Ein leeres Spektrum ergibt ${leer.thd} statt 0.`);
+  } else {
+    ok("ein leeres Spektrum ergibt null statt einer Division durch fast null");
+  }
+
+  /*
+    Oberwellen oberhalb der Nyquist-Grenze dürfen nicht als Null mitzählen –
+    das schönte das Ergebnis.
+
+    Die Grenze wird hier von beiden Seiten angefasst, weil der erste Anlauf
+    genau dazwischen danebenlag: Bei 8 kHz liegt die dritte Oberwelle mit
+    24 kHz **exakt** auf Nyquist und hat dort kein Bin mehr – es bleibt eine.
+    Bei 7 kHz passen 14 und 21 kHz darunter, also zwei.
+  */
+  for (const [grundton, erwartet] of [
+    [8000, 1],
+    [7000, 2],
+  ]) {
+    const hoch = harmonicDistortion(spektrum([1, 0.1, 0.1, 0.1, 0.1]), RATE, grundton, 5);
+    if (hoch.harmonics.length !== erwartet) {
+      fail(
+        `Bei ${grundton / 1000} kHz Grundton werden ${hoch.harmonics.length} Oberwellen gezählt, unter Nyquist liegen ${erwartet}.`,
+      );
+    } else {
+      ok(`bei ${grundton / 1000} kHz Grundton zählen ${erwartet} Oberwellen, der Rest wird übersprungen`);
+    }
+  }
+
+  // Das Suchfenster muss eine Grundwelle finden, die zwischen zwei Bins liegt.
+  const daneben = new Float32Array(BINS).fill(-160);
+  daneben[Math.round(F0 / hzPerBin) + 1] = 0;
+  if (amplitudeAt(daneben, RATE, F0) < 0.9) {
+    fail("Eine um ein Bin verschobene Grundwelle wird nicht gefunden.");
+  } else {
+    ok("ein um ein Bin verschobener Ton wird noch gefunden");
+  }
+
+  /*
+    Verschmierte Linien: Ein Ton, der nicht genau auf einem Bin liegt, wird
+    von der Fensterfunktion über mehrere Bins verteilt. Die Summe der
+    Leistung muss ihn trotzdem vollständig zurückgeben.
+
+    Das ist die Prüfung, die den ursprünglichen Fehler gefunden hätte: Die
+    erste Fassung las nur den stärksten Bin und maß dadurch gegen eine Datei
+    mit exakt 5,00 % zweiter Oberwelle nur 4,58 % ab. Mit der Leistungssumme
+    trifft dieselbe Messung auf zwei Nachkommastellen.
+  */
+  const verschmiert = new Float32Array(BINS).fill(-160);
+  const mitte = Math.round(F0 / hzPerBin);
+  // Eine Amplitude von 1, aufgeteilt nach Leistung auf fünf Bins.
+  const anteile = [0.2, 0.5, 0.7, 0.5, 0.2];
+  const norm = Math.sqrt(anteile.reduce((t, a) => t + a * a, 0));
+  anteile.forEach((a, i) => {
+    verschmiert[mitte - 2 + i] = 20 * Math.log10(a / norm);
+  });
+  const zurueck = amplitudeAt(verschmiert, RATE, F0);
+  if (Math.abs(zurueck - 1) > 1e-6) {
+    fail(`Eine über fünf Bins verteilte Amplitude kommt als ${zurueck.toFixed(4)} statt 1 zurück.`);
+  } else {
+    ok("eine über fünf Bins verschmierte Linie wird vollständig zurückgewonnen");
+  }
+}
+
+/* ---- 10. Spannungsüberhöhung am Riss ------------------------------------ */
+
+console.log("\nBruchmechanik – Inglis 1913\n");
+{
+  const before = failures;
+
+  // Von Hand: a = 50 µm, ρ = 0,5 µm → 1 + 2·√100 = 21
+  const handRechnung = stressConcentration(0.00005, 0.0000005);
+  if (!near(handRechnung, 21, 1e-9)) {
+    fail(`50 µm bei 0,5 µm Spitze ergibt ${handRechnung.toFixed(4)} statt 21.`);
+  } else {
+    ok("50 µm tief, 0,5 µm scharf → 21-fache Spannung");
+  }
+
+  // a = 1 mm, ρ = 0,1 µm → 1 + 2·√10000 = 201
+  if (!near(stressConcentration(0.001, 0.0000001), 201, 1e-9)) {
+    fail("Der Millimeterriss ergibt nicht die 201-fache Spannung.");
+  } else {
+    ok("1 mm tief, 0,1 µm scharf → 201-fache Spannung");
+  }
+
+  // Ohne Fehler keine Überhöhung, und eine unendlich scharfe Spitze muss
+  // unendlich liefern statt einer erfundenen Zahl.
+  if (stressConcentration(0, 0.000001) !== 1) fail("Ohne Fehler ist die Überhöhung nicht 1.");
+  if (Number.isFinite(stressConcentration(0.001, 0))) {
+    fail("Spitzenradius 0 liefert eine endliche Zahl.");
+  } else {
+    ok("Radius 0 ergibt unendlich, Tiefe 0 ergibt Faktor 1");
+  }
+
+  // Die Kernaussage der Seite: Schärfe zählt mehr als Tiefe. Vierfache Tiefe
+  // verdoppelt die Überhöhung (√4 = 2) – ein Viertel des Radius ebenfalls.
+  const basis = stressConcentration(0.0001, 0.000001) - 1;
+  const tiefer = stressConcentration(0.0004, 0.000001) - 1;
+  const schaerfer = stressConcentration(0.0001, 0.00000025) - 1;
+  if (!near(tiefer / basis, 2, 1e-9) || !near(schaerfer / basis, 2, 1e-9)) {
+    fail("Die Wurzelabhängigkeit stimmt nicht – vierfach müsste verdoppeln.");
+  } else {
+    ok("vierfache Tiefe und ein Viertel Radius wirken gleich stark (Wurzel)");
+  }
+
+  // Rest-Tragfähigkeit ist der Kehrwert.
+  if (!near(remainingStrength(21), 1 / 21, 1e-12)) fail("remainingStrength ist nicht der Kehrwert.");
+  if (remainingStrength(Infinity) !== 0) fail("Bei unendlicher Überhöhung bleibt nicht null.");
+
+  // Die Beispiele müssen im Bereich der Schieber liegen, sonst springt der
+  // Schieber beim Antippen an den Anschlag und zeigt etwas anderes an.
+  for (const flaw of flaws) {
+    if (flaw.depth < DEPTH_MIN || flaw.depth > DEPTH_MAX) {
+      fail(`${flaw.label}: Tiefe ${formatLength(flaw.depth)} liegt außerhalb der Schieber.`);
+    }
+    if (flaw.tip < TIP_MIN || flaw.tip > TIP_MAX) {
+      fail(`${flaw.label}: Spitzenradius ${formatLength(flaw.tip)} liegt außerhalb der Schieber.`);
+    }
+    if (!flaw.note || flaw.note.length < 40) fail(`${flaw.label}: ohne Erläuterung.`);
+    if (/\*\*|__/.test(flaw.note + flaw.label)) fail(`${flaw.label}: Markdown im Text.`);
+  }
+
+  // Die Liste muss von harmlos nach gefährlich laufen – sie wird so gelesen.
+  let steigend = true;
+  for (let i = 1; i < flaws.length; i++) {
+    if (
+      stressConcentration(flaws[i].depth, flaws[i].tip) <=
+      stressConcentration(flaws[i - 1].depth, flaws[i - 1].tip)
+    ) {
+      steigend = false;
+    }
+  }
+  if (!steigend) fail("Die Beispiele sind nicht nach steigender Gefährlichkeit sortiert.");
+
+  if (failures === before) {
+    const span = [
+      stressConcentration(flaws[0].depth, flaws[0].tip),
+      stressConcentration(flaws.at(-1).depth, flaws.at(-1).tip),
+    ];
+    ok(
+      `${flaws.length} Beispiele, aufsteigend von ${span[0].toFixed(1)}× bis ${Math.round(span[1])}×`,
+    );
+  }
 }
 
 /* ---- Ergebnis ----------------------------------------------------------- */
