@@ -977,6 +977,10 @@ function FrequencyCard({ report }: { report: ReportFn }) {
       const tooQuiet = max < -95;
       const worst = Math.min(...rel);
       const dips = rel.filter((v) => v < -26).length;
+      // Der Plural steht an einer Stelle: „Band“ wird zu „Bänder“, nicht zu
+      // „Bandänder“. Beide Zweige können eins melden – der obere auch dann,
+      // wenn ein einzelnes Band tief genug einbricht.
+      const baender = `${dips} ${dips === 1 ? "Band" : "Bänder"}`;
 
       if (tooQuiet) {
         setStatus("warn");
@@ -988,14 +992,14 @@ function FrequencyCard({ report }: { report: ReportFn }) {
         setStatus("fail");
         report("frequency", {
           status: "fail",
-          summary: `Deutliche Einbrüche (${dips} Bänder schwach)`,
+          summary: `Deutliche Einbrüche (${baender} schwach)`,
           advise: "Lautsprecher",
         });
       } else if (dips > 0) {
         setStatus("warn");
         report("frequency", {
           status: "warn",
-          summary: `${dips} Band${dips > 1 ? "änder" : ""} auffällig`,
+          summary: `${baender} auffällig`,
           advise: "Lautsprecher",
         });
       } else {

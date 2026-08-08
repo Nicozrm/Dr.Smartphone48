@@ -212,6 +212,32 @@ function checkEditorial() {
       );
     }
   }
+
+  // 2c) Mehrzahl durch Anhängen einer Endung, die mit einem Umlaut beginnt.
+  //
+  //     Im Geräte-Check stand `${dips} Band${dips > 1 ? "änder" : ""}` und
+  //     damit bei zwei Treffern „2 Bandänder“ auf der Seite. Der Fehler ist
+  //     die eine Sorte, die sich sicher maschinell fassen lässt: Wörter, die
+  //     ihre Mehrzahl mit einem Umlaut im Stamm bilden – Band → Bänder,
+  //     Blatt → Blätter, Haus → Häuser –, entstehen nie durch Anhängen. Eine
+  //     Endung, die mit ä, ö oder ü beginnt, ist deshalb immer falsch.
+  //
+  //     Die übrigen Mehrzahlfehler bleiben ungeprüft; dafür bräuchte es ein
+  //     Wörterbuch, und eine Prüfung, die rät, ist hier schlimmer als keine.
+  for (const file of files) {
+    const src = readFileSync(file, "utf8");
+    const code = src
+      .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/\S/g, " "))
+      .replace(/\/\/[^\n]*/g, (m) => m.replace(/\S/g, " "));
+    for (const m of code.matchAll(/\?\s*"[äöü]\p{L}*"\s*:/giu)) {
+      report(
+        "redaktion",
+        `${rel(file)}:${lineOf(src, m.index)}`,
+        `Mehrzahl-Endung „${m[0].slice(1).trim()}“ beginnt mit einem Umlaut – ` +
+          "so entsteht „Bandänder“ statt „Bänder“. Beide Wörter ausschreiben.",
+      );
+    }
+  }
 }
 
 /* ================================================================== */
