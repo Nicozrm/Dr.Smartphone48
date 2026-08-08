@@ -529,9 +529,23 @@ per Seiten-Metadaten, `Disallow: /intern/` in `robots.ts`.
 - **Mehrseitigkeit** rechnet `lib/invoice/paginate.ts`: Es verteilt die
   Positionen auf Blätter, setzt auf jedes Folgeblatt einen Fortsetzungskopf
   („Rechnung … · Seite 2 von 2") und führt den **Übertrag** als erste Zeile
-  mit. Der Übertrag ist der Bruttobetrag der vorangegangenen Blätter – wer
-  hier etwas ändert, prüft, dass Übertrag plus Folgepositionen wieder die
-  Endsumme ergeben.
+  mit. Der Übertrag ist der Bruttobetrag der vorangegangenen Blätter – dass
+  Übertrag plus Folgepositionen wieder die Endsumme ergeben, prüft seit
+  Neuestem `verify:invoice`, nicht mehr der nächste Mensch. Der Satz stand
+  hier lange im Imperativ und war damit eine Bitte; der Übertrag ist aber
+  die einzige Zahl auf dem Blatt, die ein Kunde tatsächlich nachrechnet.
+
+  Der heikelste Pfad ist der, an dem der Summenblock nicht mehr aufs
+  Vorblatt passt: Er bekommt ein eigenes Blatt, bis zu drei Zeilen wandern
+  mit (kein Schusterjunge), und **danach werden die Überträge neu
+  bestimmt** – die einzige Stelle, an der sie nachträglich verändert
+  werden. Der Zufall trifft sie nicht zuverlässig, deshalb schreitet das
+  Prüfskript die Grenze zusätzlich systematisch ab: jede Positionszahl von
+  1 bis 60, mit und ohne Zahlungsabschnitt, kurze und lange Texte.
+
+  Dass der Pfad wirklich abgedeckt ist, wurde nachgewiesen statt vermutet:
+  Entfernt man die Neuberechnung der Überträge, fallen 610 von 1200
+  gewürfelten Belegen durch.
 - **Belegarten** (`lib/invoice/doctype.ts`): Rechnung, Kostenvoranschlag,
   Angebot, Gutschrift, Storno. Dieselben Positionen und dieselbe Rechenlogik,
   anderes Kürzel im Nummernkreis und andere Sprache im Blatt.

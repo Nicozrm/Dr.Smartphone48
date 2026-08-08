@@ -24,10 +24,12 @@
     4. Bei Bruttoeingabe bleibt der eingegebene Ladenpreis stehen.
     5. Ohne Steuerausweis (§ 19, § 25a) steht nirgends Steuer.
     6. Alle Beträge sind ganzzahlige Cent.
+    7. Übertrag plus Folgepositionen ergeben wieder die Endsumme.
 
   Aufruf: npm run verify:invoice
 */
 import { invoiceTotals, lineTotals, round, parseCents } from "../lib/invoice/calc.ts";
+import { paginate } from "../lib/invoice/paginate.ts";
 
 let failures = 0;
 const fail = (text) => {
@@ -394,6 +396,304 @@ console.log("\nPosition gegen Summe – lineTotals und invoiceTotals\n");
   }
   if (schlecht === 0) ok("500 einzelne Positionen: Zeile und Summe sagen dasselbe");
   else fail(`${schlecht} von 500 Positionen weichen ab.`);
+}
+
+/* ---- 6. Mehrseitigkeit und Übertrag ------------------------------------- */
+
+console.log("\nMehrseitigkeit – Übertrag plus Folgepositionen ergibt die Endsumme\n");
+{
+  /*
+    In CLAUDE.md steht dazu ein Satz im Imperativ: „wer hier etwas ändert,
+    prüft, dass Übertrag plus Folgepositionen wieder die Endsumme ergeben."
+    Geprüft hat das bisher niemand – es war eine Bitte an den nächsten
+    Menschen, und der nächste Mensch hat anderes zu tun.
+
+    Der Übertrag ist die einzige Zahl auf dem Blatt, die ein Kunde
+    nachrechnen kann und auch nachrechnet. Stimmt sie nicht, stimmt aus
+    seiner Sicht die ganze Rechnung nicht – unabhängig davon, ob die
+    Endsumme richtig ist.
+  */
+  const baseInvoice = (lines) => ({
+    docType: "rechnung",
+    number: "RE-2026-0002",
+    date: "2026-08-08",
+    serviceDate: "2026-08-08",
+    dueDays: 14,
+    customer: { name: "Muster" },
+    taxMode: "regel",
+    grossEntry: false,
+    device: { model: "", imei: "", condition: "" },
+    lines,
+  });
+
+  const langeTexte = [
+    "",
+    "IMEI 356938035643809",
+    "Displayeinheit inkl. Rahmen, Originalqualität, mit Dichtung erneuert",
+    "A".repeat(140),
+  ];
+
+  let verletzungen = 0;
+  const melde = (text) => {
+    verletzungen++;
+    if (verletzungen <= 3) fail(text);
+  };
+
+  let mehrseitig = 0;
+  let mitAnschlussblatt = 0;
+  const LAEUFE = 1200;
+
+  for (let lauf = 0; lauf < LAEUFE; lauf++) {
+    const n = int(1, 40);
+    const invoice = baseInvoice(
+      Array.from({ length: n }, (_, i) => ({
+        id: `l${i}`,
+        qty: pick([1, 2, 1.5]),
+        unit: "Stk.",
+        title: pick(["Displaytausch", "Akkutausch", "A".repeat(int(5, 120))]),
+        note: pick(langeTexte),
+        unitCents: int(100, 90000),
+        taxRate: 19,
+        discountPct: pick([0, 0, 10]),
+      })),
+    );
+    const hasSlip = rnd() < 0.5;
+
+    const t = invoiceTotals(invoice);
+    const pages = paginate(invoice, t.lines, (l) => l.grossCents, hasSlip);
+
+    if (pages.length > 1) mehrseitig++;
+    // Ein kurzes Schlussblatt ist das Zeichen dafür, dass der Abschluss nicht
+    // mehr aufs Vorblatt passte und Zeilen mitgewandert sind – der Pfad, an
+    // dem die Überträge nachträglich neu bestimmt werden.
+    if (pages.length > 1 && pages[pages.length - 1].lines.length <= 3) mitAnschlussblatt++;
+
+    // (a) Jede Position genau einmal, in der ursprünglichen Reihenfolge.
+    const verteilt = pages.flatMap((p) => p.lines.map((l) => l.index));
+    const erwartet = invoice.lines.map((_, i) => i);
+    if (verteilt.join() !== erwartet.join()) {
+      melde(
+        `Positionen gehen verloren oder verrutschen: ${verteilt.length} von ${n}` +
+          ` (${verteilt.slice(0, 12).join(",")}…)`,
+      );
+      continue;
+    }
+
+    // (b) Genau ein Schlussblatt, und zwar das letzte.
+    const schluss = pages.map((p, i) => (p.isLast ? i : -1)).filter((i) => i >= 0);
+    if (schluss.length !== 1 || schluss[0] !== pages.length - 1) {
+      melde(`${schluss.length} Blätter tragen den Summenblock (erwartet: nur das letzte).`);
+    }
+
+    // (c) Der Übertrag jeder Seite ist die Bruttosumme aller Vorseiten.
+    let laufend = 0;
+    for (let i = 0; i < pages.length; i++) {
+      const p = pages[i];
+      if (p.carryIn !== laufend) {
+        melde(`Seite ${i + 1}: Übertrag ${p.carryIn} statt ${laufend} Cent.`);
+        break;
+      }
+      const seitenSumme = p.lines.reduce((s, l) => s + l.totals.grossCents, 0);
+      laufend += seitenSumme;
+
+      const istLetzte = i === pages.length - 1;
+      if (istLetzte) {
+        if (p.carryOut !== null) melde(`Die letzte Seite trägt einen Übertrag nach unten.`);
+      } else if (p.carryOut !== laufend) {
+        melde(`Seite ${i + 1}: Übertrag nach unten ${p.carryOut} statt ${laufend} Cent.`);
+        break;
+      }
+    }
+
+    // (d) Die eigentliche Zusage: Übertrag + Positionen der Schlussseite
+    //     ergeben die Endsumme des Belegs.
+    const letzte = pages[pages.length - 1];
+    const schlussSumme =
+      letzte.carryIn + letzte.lines.reduce((s, l) => s + l.totals.grossCents, 0);
+    if (schlussSumme !== t.grossCents) {
+      melde(
+        `Übertrag ${letzte.carryIn} + Schlussseite ergeben ${schlussSumme}, ` +
+          `die Rechnung sagt ${t.grossCents} Cent.`,
+      );
+    }
+
+    // (e) Kein Anschlussblatt mit genau einer verwaisten Position, wenn das
+    //     Vorblatt noch Zeilen hätte abgeben können – der Schusterjunge.
+    if (pages.length > 1) {
+      const vorletzte = pages[pages.length - 2];
+      if (letzte.lines.length === 0 && vorletzte.lines.length === 0) {
+        melde("Zwei leere Blätter hintereinander.");
+      }
+    }
+  }
+
+  if (verletzungen === 0) {
+    ok(
+      `${LAEUFE} Belege, davon ${mehrseitig} mehrseitig und ${mitAnschlussblatt} mit ` +
+        `kurzem Schlussblatt – Übertrag und Endsumme stimmen überein`,
+    );
+  } else {
+    fail(`${verletzungen} Belege verletzen die Übertragsregel.`);
+  }
+}
+
+/* ---- 6b. Die Grenze, an der der Abschluss nicht mehr passt -------------- */
+
+console.log("\nAnschlussblatt – die Grenze systematisch abgeschritten\n");
+{
+  /*
+    Der Zufall oben trifft den heikelsten Pfad nicht zuverlässig: Wenn der
+    Summenblock auf der letzten Seite nicht mehr Platz findet, bekommt er
+    ein eigenes Blatt, und bis zu drei Zeilen wandern mit, damit dort nicht
+    nur eine einsame Endsumme steht. Genau dabei werden die Überträge neu
+    bestimmt – die einzige Stelle, an der sie nachträglich verändert werden.
+
+    Deshalb wird die Grenze hier abgeschritten statt gewürfelt: jede
+    Positionszahl von 1 bis 60, mit und ohne Zahlungsabschnitt. Dazwischen
+    liegt zwangsläufig der Punkt, an dem eine Zeile mehr den Abschluss
+    verdrängt.
+  */
+  const bau = (n, textLang) => ({
+    docType: "rechnung",
+    number: "RE-2026-0004",
+    date: "2026-08-08",
+    serviceDate: "2026-08-08",
+    dueDays: 14,
+    customer: { name: "Muster" },
+    taxMode: "regel",
+    grossEntry: false,
+    device: { model: "", imei: "", condition: "" },
+    lines: Array.from({ length: n }, (_, i) => ({
+      id: `l${i}`,
+      qty: 1,
+      unit: "Stk.",
+      title: textLang ? "B".repeat(90) : `Position ${i + 1}`,
+      note: textLang ? "N".repeat(60) : "",
+      unitCents: 1234 + i,
+      taxRate: 19,
+      discountPct: 0,
+    })),
+  });
+
+  let geprueft = 0;
+  let leereAnschluesse = 0;
+  let kurzeAnschluesse = 0;
+  let schlecht = 0;
+
+  for (let n = 1; n <= 60; n++) {
+    for (const slip of [false, true]) {
+      for (const lang of [false, true]) {
+        geprueft++;
+        const invoice = bau(n, lang);
+        const t = invoiceTotals(invoice);
+        const pages = paginate(invoice, t.lines, (l) => l.grossCents, slip);
+
+        // Vollständigkeit und Reihenfolge.
+        const verteilt = pages.flatMap((p) => p.lines.map((l) => l.index));
+        if (verteilt.join() !== invoice.lines.map((_, i) => i).join()) {
+          schlecht++;
+          if (schlecht === 1) {
+            fail(`n=${n} slip=${slip} lang=${lang}: Positionen verrutschen oder fehlen.`);
+          }
+          continue;
+        }
+
+        // Die Übertragskette.
+        let laufend = 0;
+        let kette = true;
+        for (let i = 0; i < pages.length; i++) {
+          if (pages[i].carryIn !== laufend) kette = false;
+          laufend += pages[i].lines.reduce((s, l) => s + l.totals.grossCents, 0);
+          const istLetzte = i === pages.length - 1;
+          if (istLetzte ? pages[i].carryOut !== null : pages[i].carryOut !== laufend) kette = false;
+        }
+        if (!kette || laufend !== t.grossCents) {
+          schlecht++;
+          if (schlecht === 1) {
+            fail(
+              `n=${n} slip=${slip} lang=${lang}: Übertragskette bricht ` +
+                `(${laufend} gegen ${t.grossCents} Cent).`,
+            );
+          }
+          continue;
+        }
+
+        const letzte = pages[pages.length - 1];
+        if (pages.length > 1) {
+          if (letzte.lines.length === 0) leereAnschluesse++;
+          else if (letzte.lines.length <= 3) kurzeAnschluesse++;
+        }
+      }
+    }
+  }
+
+  if (schlecht > 0) {
+    fail(`${schlecht} von ${geprueft} Aufteilungen sind fehlerhaft.`);
+  } else if (leereAnschluesse === 0 && kurzeAnschluesse === 0) {
+    fail(
+      "Kein einziges Anschlussblatt entstanden – der geprüfte Bereich trifft " +
+        "den Pfad nicht, um den es hier geht.",
+    );
+  } else {
+    ok(
+      `${geprueft} Aufteilungen von 1 bis 60 Positionen: Kette hält. ` +
+        `${kurzeAnschluesse} kurze Schlussblätter, ${leereAnschluesse} leere`,
+    );
+  }
+}
+
+/* ---- 7. Der Übertrag am gerechneten Beispiel ---------------------------- */
+
+console.log("\nÜbertrag – ein Beleg von Hand nachgerechnet\n");
+{
+  const viele = {
+    docType: "rechnung",
+    number: "RE-2026-0003",
+    date: "2026-08-08",
+    serviceDate: "2026-08-08",
+    dueDays: 14,
+    customer: { name: "Muster" },
+    taxMode: "regel",
+    grossEntry: false,
+    device: { model: "", imei: "", condition: "" },
+    // 30 gleiche Positionen zu 100,00 EUR netto – die Summe ist im Kopf zu prüfen.
+    lines: Array.from({ length: 30 }, (_, i) => ({
+      id: `l${i}`,
+      qty: 1,
+      unit: "Stk.",
+      title: `Position ${i + 1}`,
+      note: "",
+      unitCents: 10000,
+      taxRate: 19,
+      discountPct: 0,
+    })),
+  };
+
+  const t = invoiceTotals(viele);
+  const pages = paginate(viele, t.lines, (l) => l.grossCents, true);
+
+  // 30 × 100,00 EUR netto + 19 % = 3.570,00 EUR
+  if (t.grossCents !== 357000) {
+    fail(`30 × 100 € + 19 % ergeben ${t.grossCents} statt 357000 Cent.`);
+  }
+  if (pages.length < 2) {
+    fail(`30 Positionen passen angeblich auf ${pages.length} Blatt.`);
+  } else {
+    const summe = pages.reduce(
+      (s, p) => s + p.lines.reduce((a, l) => a + l.totals.grossCents, 0),
+      0,
+    );
+    const letzte = pages[pages.length - 1];
+    const abschluss = letzte.carryIn + letzte.lines.reduce((s, l) => s + l.totals.grossCents, 0);
+    if (summe !== t.grossCents || abschluss !== t.grossCents) {
+      fail(`Blattsummen ${summe} bzw. Abschluss ${abschluss} gegen ${t.grossCents}.`);
+    } else {
+      ok(
+        `30 Positionen auf ${pages.length} Blättern, Übertrag ` +
+          `${(letzte.carryIn / 100).toFixed(2)} € + Rest = ${(t.grossCents / 100).toFixed(2)} €`,
+      );
+    }
+  }
 }
 
 /* ---- Ergebnis ----------------------------------------------------------- */
