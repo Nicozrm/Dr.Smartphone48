@@ -26,7 +26,7 @@ npm run verify:procedure  # Werkstattabläufe gegen die zugesagten Zeiten
 npm run verify:inspection # Prüfprotokoll + Bestand gegen die eigenen Zusagen
 npm run verify:support    # Update-Horizont gegen den Gerätekatalog
 npm run verify:status     # Werkstattablauf gegen das Datenbankschema
-npm run verify:cert       # Reparaturzertifikat: Format, Signatur, QR-Größe
+npm run verify:cert       # Reparaturzertifikat: Format, Signatur, QR-Größe, Geheimnisse
 npm run verify:instruments # Physik der Instrumente, Bruchmechanik, Drosselung
 npm run verify:privacy    # Datenschutz-Nachweis: kein Weg nach draußen
 
@@ -78,6 +78,12 @@ die alle dasselbe prüfen: dass eine Zusage der Seite noch stimmt. Sie sind
 kein Ersatz für Tests, sondern genau die Stellen, an denen ein stiller Fehler
 die Website zur Lügnerin macht, ohne dass jemand etwas merkt.
 
+**Alle acht laufen in CI**, einzeln aufgeführt in
+`.github/workflows/nextjs.yml`. Bis August 2026 taten sie das nicht – dort
+liefen nur der Prüfstand und `verify:qr`, die übrigen sechs starteten nur,
+wenn jemand daran dachte. Ein Prüfskript, das niemand ausführt, ist ein
+Kommentar mit Laufzeit.
+
 - `verify:qr` – der QR-Encoder gegen ISO/IEC 18004. Ein Fehler hier ergibt
   einen Ausdruck, den kein Telefon liest.
 - `verify:procedure` – die Summe der Arbeitsschritte gegen
@@ -101,7 +107,9 @@ die Website zur Lügnerin macht, ohne dass jemand etwas merkt.
   kippt **jedes einzelne Bit** des unterschriebenen Datensatzes und prüft, dass
   die Signatur jedes Mal bricht. Dazu Hin- und Rückweg des Binärformats (auch
   mit Umlauten an der Längengrenze), die QR-Version des schlimmsten Falls und
-  die Stimmigkeit des Schlüsselrings.
+  die Stimmigkeit des Schlüsselrings. Und seit einem realen Vorfall: der
+  gesamte Quelltext gegen privates Schlüsselmaterial, plus die Frage, ob ein
+  öffentlicher Schlüssel wirkungslos neben dem Ring liegt.
 - `verify:instruments` – die Messgeräte auf /check und die Bruchmechanik auf
   /ersatzteile. Fallgesetze und Inglis-Formel gegen unabhängig gerechnete
   Sollwerte, der Klirrfaktor gegen ein Spektrum mit bekanntem Inhalt, und die
@@ -908,6 +916,26 @@ kennt, wird ausdrücklich als **Einrichtungsmodus** benannt und nicht als
 gültig verkauft. Ein Schlüssel wird nie ersetzt, nur ergänzt und mit `until`
 versehen: Alte Belege müssen prüfbar bleiben.
 
+**Die Sicherungsdatei gehört niemals in dieses Repository.** Sie enthält
+beide Hälften und sieht der Zeile, die nach `keys.ts` gehört, zum
+Verwechseln ähnlich – oben `{ "id": 1, "privateJwk": { … } }`, unten
+`{ id: 1, publicKey: "…", since: "…", note: "…" },`. Genau diese
+Verwechslung ist am 8.8.2026 passiert: Der Inhalt der Sicherung landete im
+Dokumentationskommentar über `certKeys`, mit dem privaten Skalar, in einem
+öffentlichen Repository. Zugleich stand die öffentliche Zeile in einem
+zweiten Kommentar – der Ring war also leer und sah eingerichtet aus.
+
+Der Fehler war nicht schwer zu finden, sondern schwer zu **bemerken**:
+Alles übersetzte, alle Prüfskripte liefen durch, `/pruefen` verhielt sich
+wie vor der Einrichtung. Seitdem durchsucht `verify:cert` den ganzen
+Quelltext nach privatem Schlüsselmaterial und schlägt an, wenn in
+`keys.ts` ein öffentlicher Schlüssel steht, der nicht im Array ist.
+
+Ein so offengelegter Schlüssel ist verbrannt. Er wird **nicht** in den Ring
+eingetragen – ein Eintrag würde die Fälschungen derer beglaubigen, die den
+privaten Teil aus der Historie lesen. Er wird ersetzt, und da noch kein
+Beleg mit ihm im Umlauf ist, bleibt die Liste einfach leer.
+
 **Das Siegel trägt einen Ton, nicht zwei.** Der erste Entwurf zeichnete die
 Hüllkurve grün und die Speichen blau – das sah nach Ampel aus. Ein gültiges
 Zertifikat ist der Normalfall und kein Erfolg; den Befund trägt der Satz
@@ -1107,10 +1135,18 @@ Betriebs) und Widerrufsmöglichkeit.
 
 ### Offene Punkte vor dem Livegang
 
-- **Signaturschlüssel erzeugen und veröffentlichen:** `/intern/zertifikat`
+- **Signaturschlüssel neu erzeugen und veröffentlichen:** `/intern/zertifikat`
   öffnen, Schlüssel erzeugen, die Sicherungsdatei außerhalb des Browsers
-  verwahren und die angezeigte Zeile nach `lib/cert/keys.ts` übernehmen. Bis
-  dahin kann niemand außerhalb dieses einen Browsers ein Zertifikat prüfen.
+  verwahren und die angezeigte Zeile – **nur diese Zeile** – in das Array
+  `certKeys` in `lib/cert/keys.ts` übernehmen. Bis dahin kann niemand
+  außerhalb dieses einen Browsers ein Zertifikat prüfen.
+
+  **Dringend:** Der am 8.8.2026 erzeugte Schlüssel #1 ist offengelegt (siehe
+  „Das Reparaturzertifikat"). Der im Browser gespeicherte Schlüssel ist über
+  „Schlüssel erzeugen" zu ersetzen; die alte Sicherungsdatei ist zu löschen.
+  Solange das nicht geschehen ist, unterschreibt der Werkstattrechner mit
+  einem Schlüssel, dessen private Hälfte öffentlich in der Git-Historie
+  steht.
 - **Bankverbindung eintragen:** Das Rechnungswerkzeug startet ohne IBAN, BIC und
   Steuernummer – beim ersten Start unter „Stammdaten" hinterlegen, sonst bleibt
   der GiroCode aus und die Rechnung ist unvollständig.

@@ -16,9 +16,25 @@
   – Die Reihenfolge der Reparaturarten stimmt mit dem Gerätekatalog überein;
     sie ist eingefroren und darf sich nicht verschieben.
   – Der veröffentlichte Schlüsselring ist in sich stimmig.
+  – Im Quelltext steht kein privates Schlüsselmaterial, und kein öffentlicher
+    Schlüssel liegt wirkungslos in einem Kommentar.
+
+  Die letzte Prüfung hat einen Anlass. Die Sicherungsdatei aus
+  /intern/zertifikat enthält beide Hälften des Schlüssels; sie sieht der
+  Zeile, die nach `lib/cert/keys.ts` gehört, zum Verwechseln ähnlich. Genau
+  diese Verwechslung ist passiert: Der ganze Dateiinhalt landete im
+  Kommentar über `certKeys`, mit der privaten Hälfte, in einem öffentlichen
+  Repository. Zugleich stand die öffentliche Zeile ebenfalls in einem
+  Kommentar – der Ring war leer, sah aber eingerichtet aus.
+
+  Beide Fehler zusammen ergaben den schlimmsten Fall: Der Schlüssel war
+  offengelegt, und niemand konnte es an der Website ablesen. Dieses Skript
+  lief dabei durch und meldete „Alles geprüft“.
 
   Aufruf: npm run verify:cert
 */
+import fs from "node:fs";
+import path from "node:path";
 import {
   BINDING_BYTES,
   CERT_REPAIRS,
@@ -328,9 +344,116 @@ console.log("\nAbwehr – kaputte Codes dürfen nicht als Beleg durchgehen\n");
   }
 }
 
-/* ---- 8. Der veröffentlichte Schlüsselring ------------------------------- */
+/* ---- 8. Kein privates Schlüsselmaterial im Quelltext --------------------- */
+
+console.log("\nGeheimnisse – die private Hälfte gehört nirgends in dieses Repository\n");
+{
+  /** Was nicht durchsucht wird: fremder Code, Bauergebnisse, die Historie. */
+  const SKIP = new Set([
+    "node_modules",
+    ".git",
+    ".next",
+    ".open-next",
+    ".vercel",
+    ".wrangler",
+    "out",
+  ]);
+
+  /**
+   * Der private Skalar eines P-256-Schlüssels ist 32 Byte, base64url also
+   * 43 Zeichen. Nach ihm allein zu suchen wäre zu grob – ein `d`-Attribut
+   * an einem SVG-Pfad sieht ähnlich aus. Deshalb muss im selben Feld auch
+   * das Umfeld eines JWK stehen (`kty`, `crv`, `key_ops`).
+   */
+  const JWK_SCALAR = /["']?\bd["']?\s*:\s*["'][A-Za-z0-9_-]{40,50}["']/;
+  const JWK_CONTEXT = /["']?\b(?:kty|crv|key_ops)["']?\s*:/;
+
+  const PATTERNS = [
+    [
+      /-----BEGIN (?:EC |RSA |OPENSSH )?PRIVATE KEY-----/,
+      "ein PEM-Block mit einem privaten Schlüssel",
+    ],
+    [
+      /["']?\bkey_ops["']?\s*:\s*\[[^\]]*["']sign["']/,
+      "ein JWK mit der Erlaubnis zu unterschreiben (key_ops: sign)",
+    ],
+  ];
+
+  const TEXT = /\.(ts|tsx|js|jsx|mjs|cjs|json|jsonc|md|css|txt|yml|yaml|html|svg)$/;
+
+  const dateien = [];
+  const sammeln = (dir) => {
+    for (const eintrag of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (eintrag.name.startsWith(".") && eintrag.name !== ".github") continue;
+      if (SKIP.has(eintrag.name)) continue;
+      const voll = path.join(dir, eintrag.name);
+      if (eintrag.isDirectory()) sammeln(voll);
+      else if (TEXT.test(eintrag.name) && eintrag.name !== "package-lock.json") {
+        dateien.push(voll);
+      }
+    }
+  };
+  sammeln(".");
+
+  let gefunden = 0;
+  for (const datei of dateien) {
+    const quelle = fs.readFileSync(datei, "utf8");
+
+    // Das eigene Skript nennt die Muster, nach denen es sucht.
+    if (path.resolve(datei) === path.resolve("scripts/verify-cert.mjs")) continue;
+
+    for (const [muster, grund] of PATTERNS) {
+      if (muster.test(quelle)) {
+        gefunden++;
+        fail(`${datei}: ${grund}.`);
+      }
+    }
+    if (JWK_SCALAR.test(quelle) && JWK_CONTEXT.test(quelle)) {
+      gefunden++;
+      fail(
+        `${datei}: der private Skalar eines JWK („d“) steht im Quelltext.\n` +
+          "        Dieser Schlüssel gilt ab sofort als offengelegt: aus dem Ring\n" +
+          "        nehmen, neuen erzeugen, alten nie wieder unterschreiben lassen.",
+      );
+    }
+  }
+  if (gefunden === 0) {
+    ok(`${dateien.length} Dateien durchsucht, kein privates Schlüsselmaterial`);
+  }
+}
+
+/* ---- 8b. Kein Schlüssel, der nur so aussieht ---------------------------- */
 
 console.log("\nSchlüsselring\n");
+{
+  /*
+    Der zweite Teil derselben Verwechslung: Die öffentliche Zeile landet im
+    Kommentar über `certKeys` statt im Array. Nichts schlägt fehl – die
+    Datei übersetzt, der Ring ist leer, und die Prüfseite meldet weiterhin
+    „Schlüssel nicht hinterlegt“. Wer die Zeile eingefügt hat, hält die
+    Einrichtung für erledigt.
+
+    Ein roher P-256-Punkt ist 65 Byte, base64url also 87 Zeichen. Jede
+    solche Zeichenkette in der Datei muss auch im Ring stehen.
+  */
+  const quelle = fs.readFileSync("lib/cert/keys.ts", "utf8");
+  const imRing = new Set(certKeys.map((k) => k.publicKey));
+  const verwaist = [...quelle.matchAll(/[A-Za-z0-9_-]{87}/g)]
+    .map((m) => m[0])
+    .filter((wert) => !imRing.has(wert));
+
+  if (verwaist.length > 0) {
+    fail(
+      `In lib/cert/keys.ts steht ein öffentlicher Schlüssel, der nicht im Ring ist:\n` +
+        `        ${verwaist[0].slice(0, 24)}…\n` +
+        "        Vermutlich steht er in einem Kommentar. Ein auskommentierter\n" +
+        "        Schlüssel richtet nichts ein – der Eintrag gehört in das Array.",
+    );
+  } else {
+    ok("kein öffentlicher Schlüssel liegt wirkungslos neben dem Ring");
+  }
+}
+
 {
   const ids = new Set();
   for (const key of certKeys) {

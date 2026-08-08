@@ -64,8 +64,39 @@ jobs:
       - name: Prüfstand (Quelltext)
         run: npm run verify
 
+      # Die fachlichen Prüfskripte. Sie standen bisher nur in CLAUDE.md und
+      # liefen damit genau dann, wenn jemand daran dachte – also nicht, wenn
+      # es darauf ankam. Der offengelegte Signaturschlüssel vom 8.8.2026 kam
+      # über einen Weg herein, den `verify:cert` heute abfängt; in CI lief
+      # das Skript damals nicht.
+      #
+      # Jedes Skript einzeln aufgeführt statt in einer Schleife: So steht in
+      # der Übersicht des fehlgeschlagenen Laufs, welche Zusage gebrochen
+      # ist, ohne dass jemand ein Protokoll aufklappt.
       - name: QR-Encoder gegen die Norm prüfen
         run: npm run verify:qr
+
+      - name: Werkstattabläufe gegen die zugesagten Zeiten
+        run: npm run verify:procedure
+
+      - name: Prüfprotokoll und Bestand gegen die eigenen Zusagen
+        run: npm run verify:inspection
+
+      - name: Update-Horizont gegen den Gerätekatalog
+        run: npm run verify:support
+
+      - name: Werkstattablauf gegen das Datenbankschema
+        run: npm run verify:status
+
+      # Prüft zusätzlich den Quelltext auf privates Schlüsselmaterial.
+      - name: Reparaturzertifikat und Schlüsselring
+        run: npm run verify:cert
+
+      - name: Physik der Instrumente und Bruchmechanik
+        run: npm run verify:instruments
+
+      - name: Datenschutz-Nachweis – kein Weg nach draußen
+        run: npm run verify:privacy
 
       - name: Statischen Export bauen
         run: npm run build:static
