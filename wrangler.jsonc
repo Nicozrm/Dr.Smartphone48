@@ -16,8 +16,42 @@
   "observability": {
     "enabled": true
   }
-  // Secrets NICHT hier eintragen. Sie werden gesetzt mit:
+  // Secrets NICHT hier eintragen – siehe unten. Vollständige Liste mit
+  // Erklärungen: .env.example
+
+  // ---------------------------------------------------------------------------
+  // Umgebungswerte: zwei Sorten, und die Verwechslung kostet einen Abend
+  //
+  // **Zur Laufzeit** – gehören als Secret in den Worker:
+  //
   //   npx wrangler secret put RESEND_API_KEY
   //   npx wrangler secret put CONTACT_FROM
-  //   npx wrangler secret put CONTACT_TO     (optional)
+  //   npx wrangler secret put CONTACT_TO                (optional)
+  //   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY (Vorgangsverwaltung)
+  //   npx wrangler secret put CRON_SECRET               (Werkstattbrief)
+  //   npx wrangler secret put NOTIFY_WHATSAPP_WEBHOOK   (und die übrigen
+  //   npx wrangler secret put NOTIFY_WHATSAPP_TOKEN      NOTIFY_*, je nach
+  //   …                                                  genutztem Kanal)
+  //
+  // **Beim Bauen** – alles mit `NEXT_PUBLIC_` davor:
+  //
+  //   NEXT_PUBLIC_SUPABASE_URL
+  //   NEXT_PUBLIC_SUPABASE_ANON_KEY
+  //
+  // Für diese beiden ist `wrangler secret put` wirkungslos, und zwar
+  // lautlos: Next.js ersetzt `process.env.NEXT_PUBLIC_*` schon beim Bauen
+  // durch den Wert. Nachgemessen – baut man mit einem erkennbaren Platzhalter,
+  // steht er anschließend wörtlich in zwei ausgelieferten JavaScript-Dateien.
+  // Ein später gesetztes Secret findet dort niemand mehr; der Worker liefe,
+  // und die Vorgangsverwaltung bliebe einfach unsichtbar.
+  //
+  // Sie müssen deshalb in der Umgebung stehen, in der `npm run cf:build`
+  // läuft:
+  //
+  //   NEXT_PUBLIC_SUPABASE_URL=… NEXT_PUBLIC_SUPABASE_ANON_KEY=… npm run cf:build
+  //
+  // Dass sie damit im Browser landen, ist richtig so: Der `anon`-Schlüssel
+  // verleiht nur die Rechte der Rolle `anon`, und für die gibt es auf den
+  // Vorgangstabellen keine einzige Policy.
+  // ---------------------------------------------------------------------------
 }

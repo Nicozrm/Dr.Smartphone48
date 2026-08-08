@@ -17,6 +17,37 @@
  * Die Wiederherstellung läuft in finally und zusätzlich über Signal-Handler,
  * damit der Quellbaum auch bei Fehler oder Abbruch nicht verändert
  * zurückbleibt.
+ *
+ * ## PUBLIC_ONLY: der interne Bereich bleibt draußen
+ *
+ * `PUBLIC_ONLY=true` legt zusätzlich **app/intern** beiseite. Damit enthält
+ * der öffentliche Export kein Rechnungswerkzeug, keinen Zertifikatsaussteller
+ * und kein Werkstatt-Dashboard – weder als Seite noch als JavaScript.
+ *
+ * Der Grund ist keine Geheimhaltung: Die Vorgänge schützt die Datenbank, das
+ * Rechnungsarchiv liegt im Browser des Betriebs. Es geht um Angriffsfläche
+ * und Ladelast, die kein Besucher braucht.
+ *
+ * **Der Schalter steht bewusst standardmäßig aus.** Rechnung und Zertifikat
+ * laufen vollständig im Browser und funktionieren auf GitHub Pages heute
+ * tatsächlich. Wer sie aus dem öffentlichen Export nimmt, bevor der Betrieb
+ * einen eigenen Zugang hat, nimmt ihm ein Werkzeug weg, das er benutzt.
+ *
+ * Die Reihenfolge lautet deshalb:
+ *
+ *   1. Internen Zugang aufsetzen: `npm run cf:build && npm run cf:deploy`
+ *      (voller Server, damit auch `/api/werkstatt` läuft) und davor eine
+ *      Zugangsbeschränkung setzen – Cloudflare Access oder ein Passwort.
+ *   2. Erst dann in `.github/workflows/nextjs.yml` beim Build-Schritt
+ *      `PUBLIC_ONLY: "true"` ergänzen.
+ *
+ * Warum kein eigenes Repository für den internen Teil: Er teilt sich mit der
+ * öffentlichen Seite den Gerätekatalog (die Rechnung zieht ihre Preise aus
+ * `lib/data/devices.ts`, damit sie nicht vom Sofortpreis-Rechner abweicht),
+ * den QR-Encoder, den Zertifikatscode und die Design-Tokens. Zwei
+ * Repositories hießen zwei Fassungen davon – und Drift ist in diesem Projekt
+ * der Fehler, gegen den die halbe Prüfmaschinerie gebaut ist. Eine
+ * Codebasis, zwei Builds.
  */
 import { execSync } from "node:child_process";
 import { existsSync, renameSync, mkdirSync, rmSync } from "node:fs";
@@ -24,6 +55,9 @@ import { join } from "node:path";
 
 const root = process.cwd();
 const parkDir = join(root, ".static-build-park");
+
+/** Nur den öffentlichen Teil bauen – siehe Kopfkommentar. */
+const publicOnly = process.env.PUBLIC_ONLY === "true";
 
 /** Was im Export nicht mitgebaut werden darf – Pfad relativ zum Projekt. */
 const excluded = [
@@ -33,7 +67,14 @@ const excluded = [
     from: join(root, "app", "status", "[ticketCode]"),
     to: join(parkDir, "status-ticketCode"),
   },
+  ...(publicOnly
+    ? [{ label: "app/intern", from: join(root, "app", "intern"), to: join(parkDir, "intern") }]
+    : []),
 ];
+
+if (publicOnly) {
+  console.log("[build-static] PUBLIC_ONLY: der interne Bereich bleibt draußen.");
+}
 
 /** Was tatsächlich beiseitegelegt wurde – nur das wird zurückgestellt. */
 const parked = [];

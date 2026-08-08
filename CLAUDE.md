@@ -157,10 +157,35 @@ npx wrangler login
 npm run cf:deploy
 ```
 
+Nachgemessen, nicht behauptet: Der Worker baut, läuft in workerd und
+beantwortet alle Routen – einschließlich `/status/[ticketCode]`, das es im
+statischen Export gar nicht geben kann. Der Kontakt-Endpunkt weist eine
+Anfrage ohne Zustimmung mit 400 ab (die serverseitige zweite Prüfung der
+Absenderegel), und die Vorgangs-Endpunkte melden ohne Datenbank 503 statt
+abzustürzen.
+
 - `wrangler.jsonc`: `nodejs_compat` ist **erforderlich** – der Kontakt-Endpunkt
   nutzt `Buffer` für den Bild-Upload.
-- Secrets nicht in `wrangler.jsonc`, sondern:
-  `npx wrangler secret put RESEND_API_KEY`, `CONTACT_FROM`, optional `CONTACT_TO`.
+- **Umgebungswerte sind zweierlei, und die Verwechslung kostet einen Abend.**
+  Alles ohne `NEXT_PUBLIC_` gehört als Secret in den Worker
+  (`RESEND_API_KEY`, `CONTACT_FROM`, optional `CONTACT_TO`, für die
+  Vorgangsverwaltung `SUPABASE_SERVICE_ROLE_KEY`, dazu `CRON_SECRET` und die
+  `NOTIFY_*`). Alles **mit** `NEXT_PUBLIC_` muss dagegen beim **Bauen** in
+  der Umgebung stehen – für diese Werte ist `wrangler secret put` wirkungslos,
+  und zwar lautlos: Next.js ersetzt sie schon beim Bauen durch den Wert.
+  Nachgemessen: Baut man mit einem erkennbaren Platzhalter, steht er
+  anschließend wörtlich in zwei ausgelieferten JavaScript-Dateien. Wer das
+  Secret später setzt, bekommt einen laufenden Worker, in dem die
+  Vorgangsverwaltung einfach unsichtbar bleibt. Die vollständige Aufteilung
+  steht in `wrangler.jsonc`.
+- **Der interne Bereich braucht eine Tür.** Die Anmeldung in `/intern`
+  schützt die Daten, nicht die Seite: Ohne Konto sieht man das Anmeldefeld,
+  aber der Rechnungs-Editor und der Zertifikatsaussteller laufen rein im
+  Browser und stünden jedem offen, der die Adresse kennt. Vor dem Worker
+  gehört deshalb **Cloudflare Access** (Zero Trust → Access → Applications,
+  Pfad `/intern/*`, Richtlinie auf die eigene E-Mail). Erst danach ist es
+  sinnvoll, `PUBLIC_ONLY` im Pages-Workflow einzuschalten – sonst gibt es
+  den internen Bereich nirgends mehr.
 - Der Rate-Limiter in `app/api/kontakt/route.ts` ist prozesslokal. Auf Workern
   verteilt sich der Traffic über Isolates, er wirkt also nur als grobe Bremse.
   Für harte Limits KV oder Durable Objects nachrüsten.
@@ -175,6 +200,40 @@ npm run build:static  # → ./out, alle Seiten statisch, ohne /api
 danach zurück (`output: "export"` verträgt keine POST-Route-Handler). Ohne
 Serverfunktion öffnet das Formular einen fertigen E-Mail-Entwurf – gesteuert
 über `NEXT_PUBLIC_STATIC_EXPORT`.
+
+### Der interne Bereich: eine Codebasis, zwei Builds
+
+`/intern` und die drei Werkzeuge darunter werden im statischen Export
+**mitgeliefert** – auf GitHub Pages antworten sie mit 200. Die Vorgänge
+schützt die Datenbank und das Rechnungsarchiv liegt im Browser des
+Betriebs, es ist also kein Datenleck; wohl aber Angriffsfläche und
+Ladelast, die kein Besucher braucht.
+
+`PUBLIC_ONLY=true npm run build:static` legt `app/intern` zusätzlich
+beiseite – dieselbe Mechanik, mit der schon `app/api` und
+`app/status/[ticketCode]` ausgeklammert werden. Nachgemessen: vier Seiten
+und zwei JavaScript-Bündel weniger, und der Quellbaum kommt unverändert
+zurück.
+
+**Der Schalter steht aus, und das ist eine Entscheidung, kein Versäumnis.**
+Rechnung und Zertifikat laufen vollständig im Browser und funktionieren auf
+GitHub Pages heute. Wer sie herausnimmt, bevor der Betrieb einen eigenen
+Zugang hat, tauscht ein benutztes Werkzeug gegen ein theoretisches Risiko.
+Reihenfolge:
+
+1. Internen Zugang aufsetzen: `npm run cf:build && npm run cf:deploy`
+   (voller Server, damit auch `/api/werkstatt` läuft), davor eine
+   Zugangsbeschränkung – Cloudflare Access oder ein Passwort.
+2. Erst dann in `.github/workflows/nextjs.yml` die vorbereitete Zeile
+   `PUBLIC_ONLY: "true"` einkommentieren.
+
+**Warum kein eigenes Repository für den internen Teil.** Er teilt sich mit
+der öffentlichen Seite den Gerätekatalog (die Rechnung zieht ihre Preise
+aus `lib/data/devices.ts`, damit sie nicht vom Sofortpreis-Rechner
+abweicht), den QR-Encoder, den Zertifikatscode und die Design-Tokens. Zwei
+Repositories hießen zwei Fassungen davon – und Drift ist genau der Fehler,
+gegen den die halbe Prüfmaschinerie dieses Projekts gebaut ist. Getrennt
+wird der Deploy, nicht der Code.
 
 ## Deployment (GitHub Pages)
 

@@ -81,6 +81,17 @@ jobs:
           # Aktiviert den basePath der Projektseite in next.config.ts.
           # Der Name kommt aus GITHUB_REPOSITORY, das die Action selbst setzt.
           GITHUB_PAGES: "true"
+          # Nimmt app/intern aus dem öffentlichen Export – Rechnung,
+          # Zertifikat und Werkstatt werden dann gar nicht erst ausgeliefert.
+          #
+          # Steht aus, und zwar mit Absicht: Rechnung und Zertifikat laufen
+          # rein im Browser und funktionieren auf GitHub Pages heute. Wer sie
+          # hier herausnimmt, bevor der Betrieb einen eigenen Zugang hat,
+          # nimmt ihm ein Werkzeug weg, das er benutzt.
+          #
+          # Einschalten, sobald der interne Worker steht und eine
+          # Zugangsbeschränkung davor hat (siehe scripts/build-static.mjs):
+          # PUBLIC_ONLY: "true"
 
       # Zweiter Lauf: Jetzt liegt ./out vor, also greifen zusätzlich die
       # Prüfungen am fertigen Export – eigener Canonical je Seite, og:image
