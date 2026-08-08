@@ -1,5 +1,6 @@
 /*
-  Prüft die beiden Instrumente auf /check gegen das, was sie behaupten.
+  Prüft die Instrumente auf /check und die Bruchmechanik auf /ersatzteile
+  gegen das, was sie behaupten.
 
   Der Beschleunigungsschreiber rechnet Zahlen aus, die ein Kunde mit nach
   Hause nimmt („aus 1,20 m, das sind 1.400 g auf Fliesen"). Solche Zahlen
@@ -7,6 +8,8 @@
   Werte halten kann. Das Stethoskop rechnet keine Physik, aber es bildet
   Frequenzen auf Bildspalten ab – und wenn diese Abbildung Lücken oder
   Überlappungen hat, zeigt der Wasserfall etwas, das nicht gemessen wurde.
+  Beim Klirrfaktor und beim Drosselschreiber hängt alles daran, dass gegen
+  den richtigen Bezugswert verglichen wird.
 
   Aufruf: npm run verify:instruments
 */
@@ -45,6 +48,15 @@ import {
   remainingStrength,
   stressConcentration,
 } from "../lib/motion/crack.ts";
+import {
+  NOTICEABLE,
+  RUN_SECONDS,
+  TARGET_MS,
+  WINDOW_SECONDS,
+  median,
+  summarize,
+  work,
+} from "../lib/perf/throttle.ts";
 import {
   SPECTRUM_MAX_HZ,
   SPECTRUM_MIN_HZ,
@@ -559,6 +571,101 @@ console.log("\nBruchmechanik – Inglis 1913\n");
       `${flaws.length} Beispiele, aufsteigend von ${span[0].toFixed(1)}× bis ${Math.round(span[1])}×`,
     );
   }
+}
+
+/* ---- 11. Drosselschreiber ----------------------------------------------- */
+
+console.log("\nDrosselung – Arbeitspaket und Auswertung\n");
+{
+  const before = failures;
+
+  // Dasselbe Paket muss zweimal dasselbe ergeben, sonst misst man Zufall.
+  if (work(50_000, 7) !== work(50_000, 7)) {
+    fail("Das Arbeitspaket liefert bei gleicher Eingabe unterschiedliche Ergebnisse.");
+  } else if (work(50_000, 7) === work(50_000, 8)) {
+    fail("Verschiedene Startwerte ergeben dasselbe – die Schleife rechnet nichts.");
+  } else {
+    ok("das Arbeitspaket ist bestimmt und hängt am Startwert");
+  }
+
+  // Ganzzahlig und 32 Bit: Ein Ergebnis mit Nachkommastellen hieße, dass die
+  // Maschine in Gleitkomma gerechnet hat und das Ergebnis auseinanderläuft.
+  const value = work(1000, 1);
+  if (!Number.isInteger(value) || value < 0 || value > 0xffffffff) {
+    fail(`Das Arbeitspaket liefert ${value} – erwartet ist eine 32-Bit-Zahl ohne Vorzeichen.`);
+  } else {
+    ok("das Ergebnis bleibt eine vorzeichenlose 32-Bit-Zahl");
+  }
+
+  // Doppelte Arbeit muss ungefähr doppelt so lange dauern. Ohne das wäre die
+  // Kalibrierung sinnlos – sie rechnet linear hoch.
+  const zeit = (n) => {
+    const t0 = performance.now();
+    work(n, 1);
+    return performance.now() - t0;
+  };
+  zeit(2_000_000); // einlaufen lassen, sonst misst man den Übersetzer
+  const einfach = Math.min(zeit(2_000_000), zeit(2_000_000), zeit(2_000_000));
+  const doppelt = Math.min(zeit(4_000_000), zeit(4_000_000), zeit(4_000_000));
+  const faktor = doppelt / einfach;
+  console.log(`        ${einfach.toFixed(2)} ms → ${doppelt.toFixed(2)} ms (Faktor ${faktor.toFixed(2)})`);
+  if (faktor < 1.6 || faktor > 2.5) {
+    fail(`Doppelte Arbeit dauert ${faktor.toFixed(2)}-mal so lange – die Kalibrierung träfe daneben.`);
+  } else {
+    ok("doppelte Arbeit dauert etwa doppelt so lange");
+  }
+
+  // Median – die Auswertung hängt daran.
+  if (median([3, 1, 2]) !== 2) fail("Median einer ungeraden Liste ist falsch.");
+  if (median([1, 2, 3, 4]) !== 2.5) fail("Median einer geraden Liste ist falsch.");
+  if (median([]) !== 0) fail("Median einer leeren Liste wirft statt null zu liefern.");
+
+  /** Baut einen Verlauf: konstante Grundzeit, dann linear ansteigend. */
+  const verlauf = (endeFaktor) => {
+    const out = [];
+    for (let at = 0; at <= RUN_SECONDS; at += 0.05) {
+      // Erst flach, ab der Hälfte ansteigend – der typische Knick.
+      const t = Math.max(0, (at - RUN_SECONDS / 2) / (RUN_SECONDS / 2));
+      out.push({ at, ms: TARGET_MS * (1 + t * (endeFaktor - 1)) });
+    }
+    return out;
+  };
+
+  const ohne = summarize(verlauf(1));
+  if (!ohne || Math.abs(ohne.ratio - 1) > 1e-9) {
+    fail(`Ein flacher Verlauf ergibt Verhältnis ${ohne ? ohne.ratio.toFixed(4) : "nichts"} statt 1.`);
+  } else {
+    ok("ein flacher Verlauf ergibt genau 1,0");
+  }
+
+  const mit = summarize(verlauf(2));
+  if (!mit) {
+    fail("Ein ansteigender Verlauf lässt sich nicht auswerten.");
+  } else {
+    // Das letzte Fenster liegt nicht ganz am Ende, deshalb etwas unter 2.
+    const erwartet = 2 - (WINDOW_SECONDS / 2 / (RUN_SECONDS / 2)) * 1;
+    if (Math.abs(mit.ratio - erwartet) > 0.05) {
+      fail(`Verdopplung ergibt ${mit.ratio.toFixed(3)}, erwartet ${erwartet.toFixed(3)}.`);
+    } else if (Math.abs(mit.remaining - 1 / mit.ratio) > 1e-12) {
+      fail("Verbliebene Leistung ist nicht der Kehrwert des Verhältnisses.");
+    } else {
+      ok(`eine Verdopplung wird als ${mit.ratio.toFixed(2)}× erkannt`);
+    }
+    if (mit.ratio < NOTICEABLE) {
+      fail("Eine Verdopplung läge unterhalb der Meldeschwelle.");
+    }
+  }
+
+  // Zu wenig Daten dürfen keine Zahl ergeben, sondern nichts.
+  if (summarize([{ at: 0, ms: 40 }]) !== null) {
+    fail("Eine einzelne Messung liefert trotzdem ein Ergebnis.");
+  }
+  if (summarize(verlauf(1).slice(0, 20)) !== null) {
+    fail("Ein zu kurzer Verlauf liefert trotzdem ein Ergebnis.");
+  }
+  if (failures === before) ok("zu wenig Daten ergeben nichts statt einer Zahl");
+
+  if (NOTICEABLE <= 1) fail("Die Meldeschwelle liegt bei oder unter 1 – dann meldet jedes Rauschen.");
 }
 
 /* ---- Ergebnis ----------------------------------------------------------- */

@@ -2,7 +2,9 @@ import { Reveal } from "@/components/ui/Reveal";
 import { DeviceCheck } from "@/components/check/DeviceCheck";
 import { Distortion } from "@/components/check/Distortion";
 import { DropForensics } from "@/components/check/DropForensics";
+import { PixelWake } from "@/components/check/PixelWake";
 import { Stethoscope } from "@/components/check/Stethoscope";
+import { ThermalTrace } from "@/components/check/ThermalTrace";
 import { JsonLd, breadcrumbJsonLd, pageMeta } from "@/lib/seo";
 
 export const metadata = pageMeta({
@@ -35,23 +37,24 @@ export default function CheckPage() {
       </div>
 
       {/*
-        Zwei Werkzeuge, die bewusst außerhalb des Befunds stehen.
+        Fünf Werkzeuge, die bewusst außerhalb des Befunds stehen.
 
         Der Check oben zählt zwölf Prüfpunkte zu einem Ergebnis zusammen. Diese
-        drei lassen sich nicht bestehen oder nicht bestehen – sie liefern
+        fünf lassen sich nicht bestehen oder nicht bestehen – sie liefern
         Messwerte, und die Deutung bleibt beim Menschen. Sie in die Liste zu
         hängen, hieße, ein Spektrum in ein Häkchen zu übersetzen, und genau
         diese Übersetzung wäre die Behauptung, die hier niemand aufstellen
         will.
       */}
       <Reveal className="mt-24 max-w-2xl" printHide>
-        <p className="text-eyebrow">Drei Instrumente</p>
+        <p className="text-eyebrow">Fünf Instrumente</p>
         <h2 className="text-headline mt-4">Messen statt raten.</h2>
         <p className="mt-5 text-lg leading-relaxed text-ink-soft">
-          Diese drei geben keinen Befund und tauchen oben in der Auswertung
-          nicht auf. Sie zeigen, was die Sensoren dieses Geräts tatsächlich
-          hergeben – mit ihren Grenzen daneben. Was daraus folgt, entscheiden
-          Sie.
+          Diese fünf geben keinen Befund und tauchen oben in der Auswertung
+          nicht auf. Sie zeigen, was dieses Gerät tatsächlich hergibt – mit
+          ihren Grenzen daneben. Was daraus folgt, entscheiden Sie. Das
+          letzte Paar kommt sogar ganz ohne Berechtigung aus: kein Mikrofon,
+          kein Sensor, nur Rechnen und Licht.
         </p>
       </Reveal>
 
@@ -65,6 +68,14 @@ export default function CheckPage() {
 
       <Reveal className="mt-20" printHide>
         <DropForensics />
+      </Reveal>
+
+      <Reveal className="mt-20" printHide>
+        <ThermalTrace />
+      </Reveal>
+
+      <Reveal className="mt-20" printHide>
+        <PixelWake />
       </Reveal>
     </section>
   );
