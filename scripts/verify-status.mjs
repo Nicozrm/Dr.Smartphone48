@@ -33,6 +33,12 @@ import {
 import { CONTACT_CHANNELS } from "../lib/tickets/types.ts";
 import { TICKET_CODE_PATTERN, generateTicketCode } from "../lib/tickets/code.ts";
 import { WORKSHOP_TOPIC, ticketTopic } from "../lib/realtime/topics.ts";
+import {
+  PICKUP_DAYS,
+  STALE_DAYS,
+  attentionItems,
+  valueInProgress,
+} from "../lib/workshop/attention.ts";
 
 let failures = 0;
 const fail = (text) => {
@@ -237,6 +243,101 @@ if (anonPolicy.test(sql)) {
   fail("Es gibt eine Policy für `anon` auf den Vorgangstabellen – die Kundensicht läuft über den Server.");
 } else {
   ok("RLS überall aktiv, keine Policy für anonyme Zugriffe auf die Vorgangstabellen");
+}
+
+/* ---- Was quer liegt ------------------------------------------------------ */
+
+console.log("\nAufmerksamkeit – welche Vorgänge gehen nicht von selbst weiter\n");
+{
+  const TAG = 24 * 60 * 60 * 1000;
+  const jetzt = Date.parse("2026-08-08T12:00:00Z");
+  const vor = (tage) => new Date(jetzt - tage * TAG).toISOString();
+
+  const bau = (id, status, opts = {}) => ({
+    id,
+    ticketCode: id,
+    customer: "Muster",
+    device: "iPhone 15",
+    status,
+    repairItems: [],
+    totalPrice: opts.preis ?? 100,
+    estimatedReadyAt: opts.termin ?? null,
+    createdAt: vor(30),
+    statusChangedAt: opts.bewegt ?? vor(0),
+    hasInternalNotes: false,
+  });
+
+  // Abgeschlossene Vorgänge tauchen nie auf – auch nicht mit altem Datum.
+  const fertig = attentionItems([bau("A", "completed", { bewegt: vor(99) })], jetzt);
+  if (fertig.length !== 0) fail("Ein abgeschlossener Vorgang wird als offen gemeldet.");
+  else ok("abgeschlossene Vorgänge erscheinen nicht");
+
+  // Überfälliger Termin.
+  const spaet = attentionItems([bau("B", "repairing", { termin: vor(2) })], jetzt);
+  if (spaet[0]?.reason !== "ueberfaellig" || spaet[0].days !== 2) {
+    fail(`Überfälliger Termin wird als „${spaet[0]?.reason}" mit ${spaet[0]?.days} Tagen gemeldet.`);
+  } else {
+    ok("zugesagter Termin vorbei → überfällig, mit der Zahl der Tage");
+  }
+
+  // Ein Termin in der Zukunft ist kein Befund.
+  const kuenftig = attentionItems(
+    [bau("C", "repairing", { termin: new Date(jetzt + 3 * TAG).toISOString() })],
+    jetzt,
+  );
+  if (kuenftig.length !== 0) fail("Ein künftiger Termin wird als überfällig gemeldet.");
+  else ok("ein Termin in der Zukunft ist kein Befund");
+
+  // Abholung: erst ab der Schwelle.
+  const knapp = attentionItems([bau("D", "ready_for_pickup", { bewegt: vor(PICKUP_DAYS - 1) })], jetzt);
+  const drueber = attentionItems([bau("E", "ready_for_pickup", { bewegt: vor(PICKUP_DAYS) })], jetzt);
+  if (knapp.length !== 0) fail(`Abholbereit seit ${PICKUP_DAYS - 1} Tagen wird schon gemeldet.`);
+  else if (drueber[0]?.reason !== "abholung") fail(`Abholbereit seit ${PICKUP_DAYS} Tagen wird nicht gemeldet.`);
+  else ok(`Abholung meldet sich ab genau ${PICKUP_DAYS} Tagen, nicht früher`);
+
+  // Ohne Bewegung: erst ab der Schwelle.
+  const frisch = attentionItems([bau("F", "waiting_for_parts", { bewegt: vor(STALE_DAYS - 1) })], jetzt);
+  const alt = attentionItems([bau("G", "waiting_for_parts", { bewegt: vor(STALE_DAYS) })], jetzt);
+  if (frisch.length !== 0) fail(`Unbewegt seit ${STALE_DAYS - 1} Tagen wird schon gemeldet.`);
+  else if (alt[0]?.reason !== "still") fail(`Unbewegt seit ${STALE_DAYS} Tagen wird nicht gemeldet.`);
+  else ok(`ohne Bewegung meldet sich ab genau ${STALE_DAYS} Tagen`);
+
+  /*
+    Ein Vorgang darf nur einmal in der Liste stehen. Dieser ist zugleich
+    überfällig und seit Wochen unbewegt – erschiene er doppelt, wäre die
+    Liste länger als das Problem.
+  */
+  const doppelt = attentionItems(
+    [bau("H", "waiting_for_parts", { termin: vor(5), bewegt: vor(40) })],
+    jetzt,
+  );
+  if (doppelt.length !== 1) fail(`Ein Vorgang erscheint ${doppelt.length}-mal.`);
+  else if (doppelt[0].reason !== "ueberfaellig") fail("Der gebrochene Termin wiegt nicht am schwersten.");
+  else ok("ein Vorgang erscheint höchstens einmal, mit dem schwersten Grund");
+
+  // Rangfolge: Termin vor Abholung vor Stille.
+  const gemischt = attentionItems(
+    [
+      bau("I", "waiting_for_parts", { bewegt: vor(40) }),
+      bau("J", "ready_for_pickup", { bewegt: vor(10) }),
+      bau("K", "repairing", { termin: vor(1) }),
+    ],
+    jetzt,
+  );
+  if (gemischt.map((x) => x.reason).join() !== "ueberfaellig,abholung,still") {
+    fail(`Rangfolge ist ${gemischt.map((x) => x.reason).join(", ")}.`);
+  } else {
+    ok("Rangfolge: gebrochener Termin, dann Abholung, dann Stille");
+  }
+
+  // Der Wert in Arbeit zählt Abgeschlossene nicht mit.
+  const wert = valueInProgress([
+    bau("L", "repairing", { preis: 100 }),
+    bau("M", "completed", { preis: 999 }),
+    bau("N", "diagnosis", { preis: 50 }),
+  ]);
+  if (wert !== 150) fail(`Wert in Arbeit ist ${wert} statt 150.`);
+  else ok("der Wert in Arbeit lässt abgeschlossene Vorgänge weg");
 }
 
 console.log(

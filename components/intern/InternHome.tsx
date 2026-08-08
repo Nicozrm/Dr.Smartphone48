@@ -6,6 +6,15 @@ import { Icon } from "@/components/ui/Icon";
 import { WorkshopLogin } from "@/components/workshop/WorkshopLogin";
 import { useWorkshopTickets } from "@/lib/workshop/useWorkshopTickets";
 import { hasTicketBackend } from "@/lib/supabase/env";
+import { formatEuro } from "@/lib/format";
+import {
+  PICKUP_DAYS,
+  STALE_DAYS,
+  attentionItems,
+  countByStatus,
+  valueInProgress,
+  type AttentionReason,
+} from "@/lib/workshop/attention";
 import { certKeys } from "@/lib/cert/keys";
 import { loadProfile } from "@/lib/invoice/store";
 import {
@@ -21,10 +30,16 @@ import {
   schreiben wollte, musste `/intern/rechnung` auswendig können. Nicht
   verlinkt zu sein ist Absicht – nicht auffindbar zu sein war keine.
 
-  Diese Seite ersetzt keines der drei. Sie beantwortet die Frage, die man
-  morgens zuerst hat („was liegt an?"), und führt dann dorthin, wo man sie
-  bearbeitet. Das Werkstatt-Dashboard bleibt der Ort, an dem Vorgänge
-  bewegt werden; hier wird nur gezählt und verwiesen.
+  Diese Seite ersetzt keines der drei, und sie ist ausdrücklich keine
+  zweite Fassung des Dashboards. Das Dashboard beantwortet die Frage des
+  Arbeitstages – was liegt an, was kann heute raus. Diese Seite stellt die
+  Gegenfrage: **was geht nicht von selbst weiter.**
+
+  Der Unterschied ist der Grund, warum es sie gibt. Eine Zahl je Zustand
+  zeigt nicht, dass ein Vorgang seit elf Tagen auf ein Ersatzteil wartet –
+  er steht in derselben Zahl wie einer von gestern und fällt niemandem auf,
+  bis der Kunde anruft. Oben stehen deshalb die Vorgänge mit Namen, die
+  Zählung darunter ist nur noch Lagebild.
 
   Drei Dinge, die dabei zusammenpassen mussten:
 
@@ -42,6 +57,16 @@ import {
 
 /** Was „offen" heißt: alles, was noch Arbeit ist. */
 const OPEN_STATUSES = TICKET_STATUSES.filter((status) => status !== "completed");
+
+/**
+ * Wie viele offene Vorgänge geholt werden.
+ *
+ * Reichlich für eine Werkstatt. Wird die Zahl doch erreicht, sagt die Seite
+ * das – eine Auswertung, die stillschweigend nur die ersten 200 Vorgänge
+ * kennt, meldete „nichts liegt quer" und meinte „ich habe nicht überall
+ * nachgesehen".
+ */
+const LIMIT = 200;
 
 interface Werkzeug {
   href: string;
@@ -74,6 +99,28 @@ const WERKZEUGE: Werkzeug[] = [
     desc: "Reparatur unterschreiben und als QR-Code mitgeben.",
   },
 ];
+
+/**
+ * Der Satz zu einem Befund.
+ *
+ * Steht hier und nicht in `lib/workshop/attention.ts`: Dort wird
+ * entschieden, **was** auffällt, hier steht, wie es heißt – und hier liegt
+ * ohnehin schon die Beschriftung der Zustände.
+ *
+ * Die Mehrzahl wird ausgeschrieben, nicht angehängt („Tag"/„Tagen"). Die
+ * Redaktionsprüfung im Prüfstand schlägt bei angehängten Umlaut-Endungen
+ * an, und der Grund gilt hier genauso.
+ */
+function satzZu(reason: AttentionReason, days: number, status: TicketStatus): string {
+  const tage = `${days} ${days === 1 ? "Tag" : "Tagen"}`;
+  if (reason === "ueberfaellig") {
+    return days === 0
+      ? "Zugesagter Termin ist heute verstrichen"
+      : `Zugesagter Termin seit ${tage} vorbei`;
+  }
+  if (reason === "abholung") return `Abholbereit seit ${tage}`;
+  return `Seit ${tage} unverändert auf „${ticketStatusMeta[status].label}“`;
+}
 
 /* ---- Einrichtung: was fehlt, bevor es losgeht --------------------------- */
 
@@ -167,15 +214,32 @@ function OhneBackend() {
   );
 }
 
-/** Mit Datenbank: erst anmelden, dann zählen. */
+/** Mit Datenbank: erst anmelden, dann nachsehen, was quer liegt. */
 function MitBackend() {
   const maengel = useEinrichtung();
 
-  // Nur zählen, nicht anzeigen: Es geht um die Zahl je Status, nicht um die
-  // Liste. Die steht im Dashboard – hier wäre sie eine zweite Fassung
-  // derselben Ansicht, die auseinanderläuft.
+  /* Die Uhr erst im Browser stellen, und danach im Minutentakt: „seit 4
+     Tagen" darf sich nicht zwischen Server- und Clientbild unterscheiden. */
+  const [jetzt, setJetzt] = useState<number | null>(null);
+  useEffect(() => {
+    setJetzt(Date.now());
+    const timer = window.setInterval(() => setJetzt(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  /*
+    Alle offenen Vorgänge holen, aber keine Liste daraus machen: Gezeigt
+    werden nur die, die auffallen. Die vollständige Liste steht im
+    Dashboard – hier wäre sie eine zweite Fassung derselben Ansicht.
+
+    Die Sortierung ist hier nicht gleichgültig, anders als beim Dashboard.
+    „bewegung" ordnet absteigend nach der letzten Änderung, stellt also die
+    frischesten Vorgänge nach vorn – und schnitte beim Limit ausgerechnet
+    die ab, die am längsten liegen. Also „aelteste": Was zuerst angemeldet
+    wurde, kommt zuerst, und die Liegengebliebenen sind sicher dabei.
+  */
   const query = useMemo(
-    () => ({ search: "", statuses: [...OPEN_STATUSES], sort: "bewegung", limit: 200 }),
+    () => ({ search: "", statuses: [...OPEN_STATUSES], sort: "aelteste", limit: LIMIT }),
     [],
   );
   const { phase, error, data, reload } = useWorkshopTickets(query);
@@ -189,15 +253,80 @@ function MitBackend() {
   }
 
   const items = data?.items ?? [];
-  const zaehlung = new Map<TicketStatus, number>();
-  for (const item of items) {
-    zaehlung.set(item.status, (zaehlung.get(item.status) ?? 0) + 1);
-  }
+  const zaehlung = countByStatus(items);
   const offen = items.length;
   const abholbereit = zaehlung.get("ready_for_pickup") ?? 0;
+  // Erst im Browser: Ein serverseitig gerechnetes „seit 4 Tagen" wäre auf
+  // dem Zeitpunkt des Builds eingefroren – dieselbe Überlegung wie beim
+  // Update-Horizont auf /versorgung.
+  const quer = jetzt === null ? [] : attentionItems(items, jetzt);
+  const wert = valueInProgress(items);
+
+  const bereit = phase === "da";
+  const abgeschnitten = (data?.total ?? 0) > items.length;
 
   return (
     <Rahmen>
+      {/* Was quer liegt – steht oben, weil es das einzige ist, das etwas
+          von einem verlangt. Die Zählung darunter ist Lagebild. */}
+      {bereit ? (
+        <section>
+          <h2 className="text-title">Braucht Aufmerksamkeit</h2>
+          {abgeschnitten ? (
+            <p className="mt-3 text-[0.875rem] text-warn">
+              Es gibt {data?.total ?? 0} offene Vorgänge, ausgewertet wurden
+              die ersten {LIMIT}. Diese Liste ist deshalb möglicherweise
+              unvollständig.
+            </p>
+          ) : null}
+          {quer.length === 0 ? (
+            <p className="mt-4 text-lg text-ink-soft">
+              Nichts liegt quer. Kein überfälliger Termin, nichts seit über{" "}
+              {PICKUP_DAYS} Tagen abholbereit, nichts seit über {STALE_DAYS}{" "}
+              Tagen unbewegt.
+            </p>
+          ) : (
+            <>
+              <p className="mt-3 text-[0.9375rem] text-ink-soft">
+                {quer.length === 1
+                  ? "Ein Vorgang geht nicht von selbst weiter."
+                  : `${quer.length} Vorgänge gehen nicht von selbst weiter.`}
+              </p>
+              <ul className="mt-5 space-y-2">
+                {quer.map(({ ticket, reason, days }) => (
+                  <li
+                    key={ticket.ticketCode}
+                    className="rounded-[var(--radius-m)] border border-line bg-raised p-4"
+                  >
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <span className="font-mono text-[0.9375rem] text-ink-strong">
+                        {ticket.ticketCode}
+                      </span>
+                      <span className="text-ink-strong">{ticket.device}</span>
+                      <span className="text-[0.875rem] text-ink-faint">
+                        {ticket.customer}
+                      </span>
+                    </div>
+                    <p
+                      className={`mt-1 text-[0.875rem] ${
+                        reason === "ueberfaellig" ? "text-danger" : "text-warn"
+                      }`}
+                    >
+                      {satzZu(reason, days, ticket.status)}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-4 text-[0.8125rem] leading-relaxed text-ink-faint">
+                Die Schwellen ({PICKUP_DAYS} Tage bis zur Abholerinnerung,{" "}
+                {STALE_DAYS} Tage ohne Bewegung) sind gesetzt, nicht gemessen –
+                sie stehen in <code>lib/workshop/attention.ts</code>.
+              </p>
+            </>
+          )}
+        </section>
+      ) : null}
+
       <section>
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-title">Offene Vorgänge</h2>
@@ -234,11 +363,15 @@ function MitBackend() {
           <>
             <p className="mt-4 text-lg text-ink-soft">
               {offen === 1 ? "Ein Vorgang" : `${offen} Vorgänge`} in Arbeit
-              {abholbereit > 0
-                ? `, davon ${abholbereit} abholbereit`
-                : ""}
-              .
+              {abholbereit > 0 ? `, davon ${abholbereit} abholbereit` : ""}
+              {wert > 0 ? ` · ${formatEuro(wert)} in Arbeit` : ""}.
             </p>
+            {wert > 0 ? (
+              <p className="mt-1 text-[0.8125rem] text-ink-faint">
+                Kein Umsatz: nichts davon ist bezahlt, und manches wird nach
+                der Diagnose abgelehnt.
+              </p>
+            ) : null}
             <ul className="mt-6 divide-y divide-line border-y border-line">
               {OPEN_STATUSES.filter((status) => (zaehlung.get(status) ?? 0) > 0).map(
                 (status) => {
