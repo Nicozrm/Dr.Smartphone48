@@ -1,0 +1,60 @@
+# Die Prüfungen als Tor vor dem Merge.
+#
+# nextjs.yml läuft erst beim Push auf main – dort sind die Prüfungen die
+# letzte Bremse vor dem Veröffentlichen, aber kein Tor: Was dort auffällt,
+# ist bereits gemerged, und der fehlgeschlagene Lauf hält die Website auf
+# ihrem letzten Stand fest, statt den Fehler vorher zu verhindern.
+#
+# Dieser Workflow läuft deshalb an Pull Requests, mit denselben Prüfungen
+# und ohne jedes Schreibrecht.
+name: Prüfungen
+
+on:
+  pull_request:
+
+# Nur lesen. Dieser Workflow veröffentlicht nichts.
+permissions:
+  contents: read
+
+# Ein neuer Push auf denselben Zweig bricht den vorigen Lauf ab.
+concurrency:
+  group: pruefungen-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pruefen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # Die Regeln aus CLAUDE.md, ausgeführt. Vor dem Build, damit ein
+      # Verstoß nicht erst nach zwei Minuten Bauzeit auffällt.
+      - name: Prüfstand (Quelltext)
+        run: npm run verify
+
+      - name: Fachliche Prüfskripte
+        run: bash .github/scripts/verify-alle.sh
+
+      - name: Statischen Export bauen
+        run: npm run build:static
+        env:
+          GITHUB_PAGES: "true"
+
+      # Jetzt liegt ./out vor, also greifen zusätzlich die Prüfungen am
+      # fertigen Export – eigener Canonical je Seite, og:image überall,
+      # keine Seite zugleich in der Sitemap und auf noindex.
+      - name: Prüfstand (Export)
+        run: npm run verify

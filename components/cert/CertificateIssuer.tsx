@@ -253,9 +253,17 @@ export function CertificateIssuer() {
             {!certKeys.some((k) => k.id === keyId) ? (
               <div className="mt-5">
                 <p className="text-xs uppercase tracking-[0.12em] text-ink-faint">
-                  Diese Zeile nach <code>lib/cert/keys.ts</code> übernehmen
+                  Öffentliche Hälfte · diese Zeile nach{" "}
+                  <code>lib/cert/keys.ts</code> übernehmen
                 </p>
                 <pre className="cert-hex mt-2">{`{ id: ${keyId}, publicKey: "${publicKey}", since: "${new Date().toISOString().slice(0, 10)}", note: "Werkstattrechner." },`}</pre>
+                <p className="mt-2 text-sm text-ink-soft">
+                  Genau diese eine Zeile, und zwar in das Array{" "}
+                  <code>certKeys</code> – nicht in den Kommentar darüber. Ein
+                  auskommentierter Schlüssel richtet nichts ein: Der Ring
+                  bleibt leer, und die Prüfseite meldet weiterhin „Schlüssel
+                  nicht hinterlegt“.
+                </p>
               </div>
             ) : null}
             <div className="mt-5 flex flex-wrap gap-3">
@@ -279,6 +287,13 @@ export function CertificateIssuer() {
               Ohne Sicherung ist die Unterschrift des Betriebs verloren, sobald
               dieser Browserspeicher geleert wird. Bereits ausgestellte Belege
               bleiben prüfbar; neue lassen sich nicht mehr unterschreiben.
+            </p>
+            <p className="mt-3 text-sm text-warn">
+              Die Sicherungsdatei enthält die <strong>private</strong> Hälfte
+              und sieht der Zeile oben ähnlich. Sie gehört in einen Tresor –
+              niemals in dieses Repository und in keine Datei der Website. Wer
+              sie dort einfügt, veröffentlicht die Unterschrift des Betriebs;
+              der Schlüssel ist dann verbrannt und muss ersetzt werden.
             </p>
           </>
         ) : (

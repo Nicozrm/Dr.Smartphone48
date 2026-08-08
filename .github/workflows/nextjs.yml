@@ -64,8 +64,16 @@ jobs:
       - name: Prüfstand (Quelltext)
         run: npm run verify
 
-      - name: QR-Encoder gegen die Norm prüfen
-        run: npm run verify:qr
+      # Die fachlichen Prüfskripte. Sie standen bisher nur in CLAUDE.md und
+      # liefen damit genau dann, wenn jemand daran dachte – also nicht, wenn
+      # es darauf ankam. Der offengelegte Signaturschlüssel vom 8.8.2026 kam
+      # über einen Weg herein, den `verify:cert` heute abfängt; in CI lief
+      # das Skript damals nicht.
+      #
+      # Die Liste steht in keiner Workflow-Datei, sondern wird aus
+      # package.json gelesen – siehe den Kopf des Skripts.
+      - name: Fachliche Prüfskripte
+        run: bash .github/scripts/verify-alle.sh
 
       - name: Statischen Export bauen
         run: npm run build:static

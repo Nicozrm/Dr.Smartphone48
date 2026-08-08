@@ -62,6 +62,12 @@ import {
   SPECTRUM_MIN_HZ,
   landmarks,
 } from "../lib/data/acoustics.ts";
+import {
+  SIGNAL_RATIO,
+  SILENCE_RMS,
+  judgeLevel,
+  windowRms,
+} from "../lib/audio/level.ts";
 
 let failures = 0;
 const fail = (text) => {
@@ -597,20 +603,83 @@ console.log("\nDrosselung – Arbeitspaket und Auswertung\n");
     ok("das Ergebnis bleibt eine vorzeichenlose 32-Bit-Zahl");
   }
 
-  // Doppelte Arbeit muss ungefähr doppelt so lange dauern. Ohne das wäre die
-  // Kalibrierung sinnlos – sie rechnet linear hoch.
+  /*
+    Doppelte Arbeit muss ungefähr doppelt so lange dauern. Ohne das wäre die
+    Kalibrierung sinnlos – sie rechnet linear hoch.
+
+    Die Eigenschaft ist deterministisch, die Messung ist es nicht: Sie liest
+    eine Wanduhr auf fremder Hardware. Genau daran ist diese Prüfung einmal
+    umgefallen, als sie zum Tor vor dem Merge wurde – auf einem
+    GitHub-Runner kamen 2,31 ms → 6,83 ms heraus, Faktor 2,95. Das
+    Arbeitspaket skaliert deswegen nicht anders; der Runner hatte während
+    der zweiten Messreihe etwas anderes zu tun.
+
+    Der Ausweg ist nicht mehr Statistik, sondern eine andere Uhr.
+
+    Unter Last blieb die kurze Messung stabil bei 2,4 ms, während die lange
+    auf 9 bis 13 ms sprang – ein Faktor von über 5. Das ist kein Rauschen,
+    das sich wegmitteln ließe, sondern eine systematische Schieflage: Die
+    doppelte Arbeit dauert länger als eine Zeitscheibe des Betriebssystems
+    und wird deshalb fast immer mindestens einmal verdrängt, die einfache
+    passt oft noch hinein. Das Minimum aus vielen Läufen hilft dagegen
+    nicht, weil eben *jeder* lange Lauf betroffen ist.
+
+    Eine Wanduhr misst hier also die Zuteilung des Betriebssystems und
+    nicht die Arbeit. `process.cpuUsage()` misst die Rechenzeit, die dieser
+    Prozess tatsächlich verbraucht hat; Verdrängung zählt darin nicht mit.
+    Genau das ist die Größe, um die es geht – skaliert das Arbeitspaket
+    linear?
+
+    Die Arbeitspakete sind dafür zehnmal so groß wie zuvor (~25 ms statt
+    ~2,5 ms). Die Buchführung des Kerns ist grobkörnig, und eine Messung
+    dicht an ihrer Auflösung wäre wieder ein Zufallszahlengenerator.
+
+    Dazu bleiben die Vorkehrungen gegen gewöhnliches Rauschen: Es zählt das
+    Minimum statt des Mittelwerts, beide Größen werden abwechselnd
+    gemessen, und bei einem Ausreißer wird die ganze Messung wiederholt.
+
+    Die Toleranz bleibt eng. Sie zu weiten wäre der bequeme Weg und der
+    falsche: Ein Faktor von 3 wäre ein echter Befund, und eine Prüfung, die
+    ihn durchlässt, prüft nichts mehr.
+  */
   const zeit = (n) => {
-    const t0 = performance.now();
+    const t0 = process.cpuUsage();
     work(n, 1);
-    return performance.now() - t0;
+    const verbraucht = process.cpuUsage(t0);
+    return (verbraucht.user + verbraucht.system) / 1000;
   };
-  zeit(2_000_000); // einlaufen lassen, sonst misst man den Übersetzer
-  const einfach = Math.min(zeit(2_000_000), zeit(2_000_000), zeit(2_000_000));
-  const doppelt = Math.min(zeit(4_000_000), zeit(4_000_000), zeit(4_000_000));
-  const faktor = doppelt / einfach;
-  console.log(`        ${einfach.toFixed(2)} ms → ${doppelt.toFixed(2)} ms (Faktor ${faktor.toFixed(2)})`);
-  if (faktor < 1.6 || faktor > 2.5) {
-    fail(`Doppelte Arbeit dauert ${faktor.toFixed(2)}-mal so lange – die Kalibrierung träfe daneben.`);
+
+  const messen = () => {
+    let einfach = Infinity;
+    let doppelt = Infinity;
+    for (let runde = 0; runde < 5; runde++) {
+      einfach = Math.min(einfach, zeit(20_000_000));
+      doppelt = Math.min(doppelt, zeit(40_000_000));
+    }
+    return { einfach, doppelt, faktor: doppelt / einfach };
+  };
+
+  const daneben = ({ faktor }) => faktor < 1.6 || faktor > 2.5;
+
+  zeit(20_000_000); // einlaufen lassen, sonst misst man den Übersetzer
+  let messung = messen();
+  let anlaeufe = 1;
+  while (daneben(messung) && anlaeufe < 3) {
+    messung = messen();
+    anlaeufe++;
+  }
+
+  const { einfach, doppelt, faktor } = messung;
+  const anlauf = anlaeufe > 1 ? `, ${anlaeufe} Anläufe` : "";
+  console.log(
+    `        ${einfach.toFixed(2)} ms → ${doppelt.toFixed(2)} ms ` +
+      `(Faktor ${faktor.toFixed(2)}${anlauf})`,
+  );
+  if (daneben(messung)) {
+    fail(
+      `Doppelte Arbeit dauert ${faktor.toFixed(2)}-mal so lange – die ` +
+        `Kalibrierung träfe daneben. ${anlaeufe} Anläufe, jedes Mal daneben.`,
+    );
   } else {
     ok("doppelte Arbeit dauert etwa doppelt so lange");
   }
@@ -666,6 +735,100 @@ console.log("\nDrosselung – Arbeitspaket und Auswertung\n");
   if (failures === before) ok("zu wenig Daten ergeben nichts statt einer Zahl");
 
   if (NOTICEABLE <= 1) fail("Die Meldeschwelle liegt bei oder unter 1 – dann meldet jedes Rauschen.");
+}
+
+/* ---- 12. Mikrofon-Pegel -------------------------------------------------- */
+
+console.log("\nMikrofon-Pegel – aufnehmen oder schweigen\n");
+{
+  // Effektivwert gegen von Hand gerechnete Fälle.
+  const stille = new Float32Array(1024);
+  if (windowRms(stille) !== 0) fail("Stille ergibt einen Effektivwert über null.");
+
+  // Ein Rechteck mit Amplitude a hat den Effektivwert a.
+  const rechteck = Float32Array.from({ length: 1024 }, (_, i) => (i % 2 ? 0.5 : -0.5));
+  if (!near(windowRms(rechteck), 0.5, 1e-12)) {
+    fail(`Rechteck 0,5 ergibt ${windowRms(rechteck)} statt 0,5.`);
+  }
+
+  // Ein Sinus mit Amplitude a hat den Effektivwert a/√2.
+  const sinus = Float32Array.from({ length: 4096 }, (_, i) =>
+    Math.sin((2 * Math.PI * 8 * i) / 4096),
+  );
+  if (!near(windowRms(sinus), 1 / Math.SQRT2, 1e-6)) {
+    fail(`Sinus ergibt ${windowRms(sinus).toFixed(6)} statt ${(1 / Math.SQRT2).toFixed(6)}.`);
+  } else {
+    ok("Effektivwert: Stille 0, Rechteck a, Sinus a/√2");
+  }
+
+  /*
+    Die Grenze der Stille ist gerechnet, nicht gegriffen: das Rauschen einer
+    Quantisierung in Schritten von 1/128 hat den Effektivwert Schritt/√12.
+    Wer den Wert ändert, muss diese Rechnung ändern.
+  */
+  const quantisierung = (1 / 128) / Math.sqrt(12);
+  if (!near(SILENCE_RMS, quantisierung * 2, 1e-12)) {
+    fail(`SILENCE_RMS ist nicht das Doppelte des Quantisierungsrauschens.`);
+  } else {
+    ok(`Grenze der Stille ${SILENCE_RMS.toFixed(5)} = 2 × (1/128)/√12`);
+  }
+
+  /*
+    Der Fall, um den es geht: Ein totes Mikrofon liefert einen Untergrund von
+    null. Würde blind das Verhältnis gerechnet, käme unendlich heraus – und
+    das tote Gerät bestünde die Prüfung am besten von allen.
+  */
+  const tot = judgeLevel({ floor: 0, peak: 0 });
+  if (tot.kind !== "silent") fail(`Ein totes Mikrofon wird als „${tot.kind}“ beurteilt.`);
+  else ok("ein totes Mikrofon (Untergrund und Spitze null) heißt „kein Signal“");
+
+  const fastTot = judgeLevel({ floor: 0, peak: SILENCE_RMS * 0.9 });
+  if (fastTot.kind !== "silent") {
+    fail("Ein Pegel unter der Wandlungsgrenze gilt als Signal.");
+  } else {
+    ok("ein Pegel unter der Grenze der Stille zählt nicht als Aufnahme");
+  }
+
+  // Ein arbeitendes Mikrofon: leiser Untergrund, deutlicher Ausschlag.
+  const gut = judgeLevel({ floor: 0.002, peak: 0.2 });
+  if (gut.kind !== "signal") fail(`Eine deutliche Aufnahme wird als „${gut.kind}“ beurteilt.`);
+  else ok(`deutlicher Ausschlag → „nimmt auf“ (${Math.round(gut.ratio)}-fach)`);
+
+  // Etwas kommt an, aber ohne Ausschlag – kein Mangelbefund, sondern eine
+  // Bitte um Wiederholung.
+  const flau = judgeLevel({ floor: 0.05, peak: 0.05 * (SIGNAL_RATIO - 1) });
+  if (flau.kind !== "flat") fail(`Eine Aufnahme ohne Ausschlag wird als „${flau.kind}“ beurteilt.`);
+  else ok("Signal ohne Ausschlag gilt weder als bestanden noch als Mangel");
+
+  // Die Grenze selbst muss auf der bestehenden Seite liegen.
+  const genau = judgeLevel({ floor: 0.01, peak: 0.01 * SIGNAL_RATIO });
+  if (genau.kind !== "signal") fail("Genau am Verhältnis SIGNAL_RATIO gilt die Aufnahme nicht.");
+  else ok(`genau ${SIGNAL_RATIO}-facher Ausschlag zählt noch als Aufnahme`);
+
+  /*
+    Ein lautes Zimmer hebt den Untergrund. Das darf ein arbeitendes Mikrofon
+    nicht durchfallen lassen – wohl aber in die Bitte um Wiederholung führen,
+    denn ohne Ausschlag ist nichts belegt.
+  */
+  const laut = judgeLevel({ floor: 0.08, peak: 0.9 });
+  if (laut.kind !== "signal") fail("In lauter Umgebung wird ein klarer Ausschlag nicht erkannt.");
+  else ok("lauter Untergrund mit klarem Ausschlag bleibt „nimmt auf“");
+
+  // Kein Fall darf ohne Beurteilung bleiben.
+  const arten = new Set(
+    [
+      [0, 0],
+      [0, 1],
+      [0.001, 0.001],
+      [0.5, 0.5],
+      [0.001, 0.9],
+      [0.9, 0.9],
+    ].map(([floor, peak]) => judgeLevel({ floor, peak }).kind),
+  );
+  for (const art of arten) {
+    if (!["signal", "silent", "flat"].includes(art)) fail(`Unbekannte Beurteilung „${art}“.`);
+  }
+  ok(`${arten.size} verschiedene Beurteilungen, alle benannt`);
 }
 
 /* ---- Ergebnis ----------------------------------------------------------- */
