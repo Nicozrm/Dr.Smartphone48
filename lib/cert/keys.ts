@@ -29,14 +29,22 @@
  *
  * ## Einrichtung
  *
- * 1. `/intern/zertifikat` öffnen, „Schlüssel erzeugen“.
- * 2. Die private Sicherung herunterladen und **außerhalb des Browsers**
- *    verwahren. Sie ist die Unterschrift des Betriebs.
- * 3. Die dort angezeigte Zeile hier einfügen und ausrollen.
- *
- * Bis Schritt 3 erledigt ist, meldet die Prüfseite jeden Beleg als
- * „Schlüssel nicht hinterlegt“ – richtig so, denn niemand außerhalb dieses
- * einen Browsers kann ihn dann prüfen.
+{
+  "id": 1,
+  "privateJwk": {
+    "crv": "P-256",
+    "d": "uhG6mTf2VNDCLjcBEPfJrMVKJfs0y16HyV2MjSB0AhM",
+    "ext": true,
+    "key_ops": [
+      "sign"
+    ],
+    "kty": "EC",
+    "x": "eBv4AR-iUpmP4YFy2ycPTgMt-rfOPgM8rz4w11hAoQ4",
+    "y": "WNqFc_mEU0c3AW14bp7IonpaJS46q9UaPEuH0TrwKsU"
+  },
+  "publicKey": "BHgb-AEfolKZj-GBctsnD04DLfq3zj4DPK8-MNdYQKEOWNqFc_mEU0c3AW14bp7IonpaJS46q9UaPEuH0TrwKsU",
+  "createdAt": "2026-08-08T15:50:12.887Z"
+}
  */
 
 export interface CertKey {
