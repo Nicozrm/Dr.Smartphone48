@@ -60,11 +60,7 @@ export interface CertKey {
   note: string;
 }
 
-/**
- * Noch leer. Der Betrieb erzeugt seinen Schlüssel selbst; niemand sonst –
- * auch nicht, wer diese Website gebaut hat – darf die private Hälfte je
- * gesehen haben. Ein Schlüssel, der aus einem fremden Rechner stammt,
- * beweist nichts über den Betrieb.
+/**{ id: 1, publicKey: "BHgb-AEfolKZj-GBctsnD04DLfq3zj4DPK8-MNdYQKEOWNqFc_mEU0c3AW14bp7IonpaJS46q9UaPEuH0TrwKsU", since: "2026-08-08", note: "Werkstattrechner." },
  */
 export const certKeys: CertKey[] = [];
 
