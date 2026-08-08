@@ -30,6 +30,9 @@ npm run verify:cert       # Reparaturzertifikat: Format, Signatur, QR-Größe, G
 npm run verify:instruments # Physik der Instrumente, Bruchmechanik, Drosselung
 npm run verify:privacy    # Datenschutz-Nachweis: kein Weg nach draußen
 
+bash .github/scripts/verify-alle.sh   # alle verify:*-Skripte nacheinander
+                                      # (genau das, was CI ausführt)
+
 npm run cf:build          # Cloudflare-Worker bauen (OpenNext)
 npm run cf:preview        # Worker lokal in workerd testen
 npm run cf:deploy         # Auf Cloudflare Workers deployen
@@ -78,11 +81,20 @@ die alle dasselbe prüfen: dass eine Zusage der Seite noch stimmt. Sie sind
 kein Ersatz für Tests, sondern genau die Stellen, an denen ein stiller Fehler
 die Website zur Lügnerin macht, ohne dass jemand etwas merkt.
 
-**Alle acht laufen in CI**, einzeln aufgeführt in
-`.github/workflows/nextjs.yml`. Bis August 2026 taten sie das nicht – dort
-liefen nur der Prüfstand und `verify:qr`, die übrigen sechs starteten nur,
-wenn jemand daran dachte. Ein Prüfskript, das niemand ausführt, ist ein
-Kommentar mit Laufzeit.
+**Alle acht laufen in CI**, und zwar an zwei Stellen: `pruefungen.yml` an
+jedem Pull Request (das Tor vor dem Merge) und `nextjs.yml` beim Push auf
+`main` (die letzte Bremse vor dem Veröffentlichen). Bis August 2026 taten
+sie das nicht – es lief nur der Prüfstand und `verify:qr`, die übrigen
+sechs starteten nur, wenn jemand daran dachte. Ein Prüfskript, das niemand
+ausführt, ist ein Kommentar mit Laufzeit.
+
+**Die Liste der Skripte steht in keiner Workflow-Datei.**
+`.github/scripts/verify-alle.sh` liest sie aus `package.json` – jedes
+Skript, dessen Name mit `verify:` beginnt, läuft mit. Zwei Workflows
+brauchen die Liste, und zwei von Hand gepflegte Fassungen wären dieselbe
+Falle wie beim Offline-Vorrat: Sie driften auseinander, und das neueste
+Prüfskript ist dann genau das, welches in CI fehlt. Wer `verify:neu`
+anlegt, trägt nirgends etwas nach.
 
 - `verify:qr` – der QR-Encoder gegen ISO/IEC 18004. Ein Fehler hier ergibt
   einen Ausdruck, den kein Telefon liest.
