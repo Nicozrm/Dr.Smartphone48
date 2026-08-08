@@ -435,10 +435,14 @@ console.log("\nSchlüsselring\n");
 
     Ein roher P-256-Punkt ist 65 Byte, base64url also 87 Zeichen. Jede
     solche Zeichenkette in der Datei muss auch im Ring stehen.
+
+    Die Grenzen ringsum sind nötig: Ohne sie träfe das Muster auch die
+    ersten 87 Zeichen einer längeren Folge und meldete einen Schlüssel,
+    der keiner ist.
   */
   const quelle = fs.readFileSync("lib/cert/keys.ts", "utf8");
   const imRing = new Set(certKeys.map((k) => k.publicKey));
-  const verwaist = [...quelle.matchAll(/[A-Za-z0-9_-]{87}/g)]
+  const verwaist = [...quelle.matchAll(/(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{87}(?![A-Za-z0-9_-])/g)]
     .map((m) => m[0])
     .filter((wert) => !imRing.has(wert));
 

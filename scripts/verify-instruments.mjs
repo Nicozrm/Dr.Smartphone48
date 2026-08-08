@@ -597,20 +597,83 @@ console.log("\nDrosselung – Arbeitspaket und Auswertung\n");
     ok("das Ergebnis bleibt eine vorzeichenlose 32-Bit-Zahl");
   }
 
-  // Doppelte Arbeit muss ungefähr doppelt so lange dauern. Ohne das wäre die
-  // Kalibrierung sinnlos – sie rechnet linear hoch.
+  /*
+    Doppelte Arbeit muss ungefähr doppelt so lange dauern. Ohne das wäre die
+    Kalibrierung sinnlos – sie rechnet linear hoch.
+
+    Die Eigenschaft ist deterministisch, die Messung ist es nicht: Sie liest
+    eine Wanduhr auf fremder Hardware. Genau daran ist diese Prüfung einmal
+    umgefallen, als sie zum Tor vor dem Merge wurde – auf einem
+    GitHub-Runner kamen 2,31 ms → 6,83 ms heraus, Faktor 2,95. Das
+    Arbeitspaket skaliert deswegen nicht anders; der Runner hatte während
+    der zweiten Messreihe etwas anderes zu tun.
+
+    Der Ausweg ist nicht mehr Statistik, sondern eine andere Uhr.
+
+    Unter Last blieb die kurze Messung stabil bei 2,4 ms, während die lange
+    auf 9 bis 13 ms sprang – ein Faktor von über 5. Das ist kein Rauschen,
+    das sich wegmitteln ließe, sondern eine systematische Schieflage: Die
+    doppelte Arbeit dauert länger als eine Zeitscheibe des Betriebssystems
+    und wird deshalb fast immer mindestens einmal verdrängt, die einfache
+    passt oft noch hinein. Das Minimum aus vielen Läufen hilft dagegen
+    nicht, weil eben *jeder* lange Lauf betroffen ist.
+
+    Eine Wanduhr misst hier also die Zuteilung des Betriebssystems und
+    nicht die Arbeit. `process.cpuUsage()` misst die Rechenzeit, die dieser
+    Prozess tatsächlich verbraucht hat; Verdrängung zählt darin nicht mit.
+    Genau das ist die Größe, um die es geht – skaliert das Arbeitspaket
+    linear?
+
+    Die Arbeitspakete sind dafür zehnmal so groß wie zuvor (~25 ms statt
+    ~2,5 ms). Die Buchführung des Kerns ist grobkörnig, und eine Messung
+    dicht an ihrer Auflösung wäre wieder ein Zufallszahlengenerator.
+
+    Dazu bleiben die Vorkehrungen gegen gewöhnliches Rauschen: Es zählt das
+    Minimum statt des Mittelwerts, beide Größen werden abwechselnd
+    gemessen, und bei einem Ausreißer wird die ganze Messung wiederholt.
+
+    Die Toleranz bleibt eng. Sie zu weiten wäre der bequeme Weg und der
+    falsche: Ein Faktor von 3 wäre ein echter Befund, und eine Prüfung, die
+    ihn durchlässt, prüft nichts mehr.
+  */
   const zeit = (n) => {
-    const t0 = performance.now();
+    const t0 = process.cpuUsage();
     work(n, 1);
-    return performance.now() - t0;
+    const verbraucht = process.cpuUsage(t0);
+    return (verbraucht.user + verbraucht.system) / 1000;
   };
-  zeit(2_000_000); // einlaufen lassen, sonst misst man den Übersetzer
-  const einfach = Math.min(zeit(2_000_000), zeit(2_000_000), zeit(2_000_000));
-  const doppelt = Math.min(zeit(4_000_000), zeit(4_000_000), zeit(4_000_000));
-  const faktor = doppelt / einfach;
-  console.log(`        ${einfach.toFixed(2)} ms → ${doppelt.toFixed(2)} ms (Faktor ${faktor.toFixed(2)})`);
-  if (faktor < 1.6 || faktor > 2.5) {
-    fail(`Doppelte Arbeit dauert ${faktor.toFixed(2)}-mal so lange – die Kalibrierung träfe daneben.`);
+
+  const messen = () => {
+    let einfach = Infinity;
+    let doppelt = Infinity;
+    for (let runde = 0; runde < 5; runde++) {
+      einfach = Math.min(einfach, zeit(20_000_000));
+      doppelt = Math.min(doppelt, zeit(40_000_000));
+    }
+    return { einfach, doppelt, faktor: doppelt / einfach };
+  };
+
+  const daneben = ({ faktor }) => faktor < 1.6 || faktor > 2.5;
+
+  zeit(20_000_000); // einlaufen lassen, sonst misst man den Übersetzer
+  let messung = messen();
+  let anlaeufe = 1;
+  while (daneben(messung) && anlaeufe < 3) {
+    messung = messen();
+    anlaeufe++;
+  }
+
+  const { einfach, doppelt, faktor } = messung;
+  const anlauf = anlaeufe > 1 ? `, ${anlaeufe} Anläufe` : "";
+  console.log(
+    `        ${einfach.toFixed(2)} ms → ${doppelt.toFixed(2)} ms ` +
+      `(Faktor ${faktor.toFixed(2)}${anlauf})`,
+  );
+  if (daneben(messung)) {
+    fail(
+      `Doppelte Arbeit dauert ${faktor.toFixed(2)}-mal so lange – die ` +
+        `Kalibrierung träfe daneben. ${anlaeufe} Anläufe, jedes Mal daneben.`,
+    );
   } else {
     ok("doppelte Arbeit dauert etwa doppelt so lange");
   }
