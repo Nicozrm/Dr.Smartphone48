@@ -10,6 +10,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { judgeLevel, windowRms } from "@/lib/audio/level";
 import { site } from "@/lib/site";
 
 /*
@@ -568,38 +569,52 @@ function MicCard({ report }: { report: ReportFn }) {
   const [level, setLevel] = useState(0);
   const [live, setLive] = useState(false);
   const peakRef = useRef(0);
+  const floorRef = useRef(Infinity);
+  const [hint, setHint] = useState("");
   const cleanupRef = useRef<() => void>(() => {});
 
   const begin = async () => {
+    setHint("");
     if (!navigator.mediaDevices?.getUserMedia) {
       setStatus("na");
       report("mic", { status: "na", summary: "Mikrofonzugriff nicht möglich" });
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        // Ohne Aufbereitung messen – wie beim Frequenzgang-Test und beim
+        // Stethoskop. Die Verstärkungsregelung würde ein schwaches Mikrofon
+        // geradeziehen und damit genau den Befund beseitigen, den dieser
+        // Test sucht. Begründung in lib/audio/level.ts.
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+      });
       setLive(true);
       setStatus("running");
       peakRef.current = 0;
+      floorRef.current = Infinity;
       const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const ctx = new AC();
       const src = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 1024;
       src.connect(analyser);
-      const buf = new Uint8Array(analyser.fftSize);
+      // Gleitkomma statt Byte: Der Untergrund, gegen den verglichen wird,
+      // liegt in der Größenordnung der 8-Bit-Quantisierung und verschwände
+      // sonst in ihr.
+      const buf = new Float32Array(analyser.fftSize);
       let raf = 0;
       const tick = () => {
-        analyser.getByteTimeDomainData(buf);
-        let sum = 0;
-        for (let i = 0; i < buf.length; i++) {
-          const v = (buf[i] - 128) / 128;
-          sum += v * v;
-        }
-        const rms = Math.sqrt(sum / buf.length);
-        const norm = Math.min(1, rms * 3.2);
-        peakRef.current = Math.max(peakRef.current, norm);
-        setLevel(norm);
+        analyser.getFloatTimeDomainData(buf);
+        const rms = windowRms(buf);
+        peakRef.current = Math.max(peakRef.current, rms);
+        floorRef.current = Math.min(floorRef.current, rms);
+        // Nur für den Ausschlag im Bild: Der Balken soll sich bewegen, er
+        // ist kein Messwert. Die Beurteilung rechnet mit rms, nicht hiermit.
+        setLevel(Math.min(1, rms * 3.2));
         raf = requestAnimationFrame(tick);
       };
       raf = requestAnimationFrame(tick);
@@ -617,14 +632,33 @@ function MicCard({ report }: { report: ReportFn }) {
   const finish = () => {
     cleanupRef.current();
     setLive(false);
-    const peak = peakRef.current;
-    if (peak > 0.12) {
+    const verdict = judgeLevel({
+      floor: Number.isFinite(floorRef.current) ? floorRef.current : 0,
+      peak: peakRef.current,
+    });
+
+    if (verdict.kind === "signal") {
       setStatus("pass");
-      report("mic", { status: "pass", summary: `Signal erkannt (Spitze ${Math.round(peak * 100)} %)` });
-    } else {
-      setStatus("fail");
-      report("mic", { status: "fail", summary: "Kaum Signal – Mikrofon prüfen", advise: "Lautsprecher / Mikrofon" });
+      report("mic", {
+        status: "pass",
+        summary: `Nimmt auf – Ausschlag ${Math.round(verdict.ratio)}-fach über dem Untergrund`,
+      });
+      return;
     }
+    if (verdict.kind === "flat") {
+      // Kein Mangelbefund: Wer nichts gesagt hat, hat kein defektes Gerät.
+      // Auch kein Ergebnis – der Test bleibt ungelaufen, sonst zählte eine
+      // Aufnahme ohne Aussage im Fortschritt als erledigt.
+      setStatus("idle");
+      setHint("Kein Ausschlag über dem Grundrauschen. Bitte noch einmal – sprechen Sie lauter oder schnipsen Sie näher am Gerät.");
+      return;
+    }
+    setStatus("fail");
+    report("mic", {
+      status: "fail",
+      summary: "Kein Signal – Mikrofon prüfen",
+      advise: "Lautsprecher / Mikrofon",
+    });
   };
 
   useEffect(() => () => cleanupRef.current(), []);
@@ -634,7 +668,7 @@ function MicCard({ report }: { report: ReportFn }) {
     <Card
       icon="phone"
       title="Mikrofon"
-      desc="Sprechen oder schnipsen Sie – der Pegel zeigt live, ob das Mikrofon sauber aufnimmt."
+      desc="Sprechen oder schnipsen Sie. Geprüft wird, ob das Mikrofon aufnimmt – nicht, wie empfindlich es ist: Dafür bräuchte es eine bekannte Schallquelle in bekanntem Abstand."
       status={status}
     >
       {live ? (
@@ -664,11 +698,14 @@ function MicCard({ report }: { report: ReportFn }) {
           </div>
         </div>
       ) : (
-        <div className="flex flex-wrap items-center gap-3">
-          <ActionButton onClick={begin}>
-            {status === "idle" ? "Mikrofon testen" : "Erneut prüfen"}
-            <Icon name="arrow-right" size={15} />
-          </ActionButton>
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <ActionButton onClick={begin}>
+              {status === "idle" && !hint ? "Mikrofon testen" : "Erneut prüfen"}
+              <Icon name="arrow-right" size={15} />
+            </ActionButton>
+          </div>
+          {hint ? <p className="mt-3 text-[0.875rem] text-ink-soft">{hint}</p> : null}
         </div>
       )}
     </Card>

@@ -689,6 +689,45 @@ das Werkzeug zuverlässig nichts, und niemand käme auf die Idee, dass es daran
 liegt. `echoCancellation`, `noiseSuppression` und `autoGainControl` stehen
 deshalb alle drei auf `false`, wie schon beim Frequenzgang-Test daneben.
 
+**Die Regel gilt für jede Mikrofonmessung, auch im Geräte-Check.** Der
+Pegeltest oben auf der Seite war lange die Ausnahme – er öffnete den Kanal
+mit `{ audio: true }`, also mit voller Aufbereitung. Von den dreien ist
+dort die **Verstärkungsregelung** die schlimmste: Ihre ganze Aufgabe ist
+es, leise Aufnahmen laut zu machen, also genau den Befund zu beseitigen,
+den der Test sucht. Ein Mikrofon mit Staub im Schacht oder einem
+angelaufenen Kontakt wurde geradegezogen und als „in Ordnung“ gemeldet.
+
+Das war ausgerechnet an der Stelle falsch, an der es am meisten wiegt: Das
+Stethoskop daneben liefert Messwerte für einen Menschen, der Pegeltest
+liefert ein Häkchen in den zusammengefassten Befund.
+
+**Und er hat keinen festen Grenzwert mehr.** Ohne Verstärkungsregelung
+hängt der Pegel an Mikrofonempfindlichkeit, Abstand, Stimme und Umgebung –
+eine feste Schwelle („über 12 % ist in Ordnung“) wäre für ein Telefon am
+Küchentisch geraten. Verglichen wird deshalb der lauteste Moment mit dem
+leisesten **derselben Aufnahme**, dasselbe Verfahren wie beim
+Drosselschreiber, der sich ebenfalls erst auf das Gerät einmisst.
+
+Drei Dinge, die dabei zusammenhängen (`lib/audio/level.ts`):
+
+- **Erst die Frage nach Stille, dann das Verhältnis.** Ein totes Mikrofon
+  liefert einen Untergrund von null; blind gerechnet käme unendlich heraus
+  und das tote Gerät bestünde am besten von allen. `verify:instruments`
+  prüft genau diesen Fall.
+- **Die Grenze der Stille ist gerechnet**, nicht gegriffen: Das Rauschen
+  einer Quantisierung in Schritten von 1/128 hat den Effektivwert
+  Schritt/√12. Wer den Wert anfasst, ändert die Rechnung im Prüfskript mit.
+- **Gemessen wird in Gleitkomma**, nicht als Byte. Der Untergrund liegt in
+  der Größenordnung der 8-Bit-Quantisierung und verschwände in ihr.
+
+**Keine Aussage über die Empfindlichkeit.** Der Test unterscheidet ein
+Mikrofon, das aufnimmt, von einem, das schweigt – nicht ein gutes von
+einem schwachen. Dafür bräuchte es eine bekannte Schallquelle in bekanntem
+Abstand, also einen Messplatz. Das steht auf der Karte dabei. Und eine
+Aufnahme ohne Ausschlag ist **kein Mangelbefund**, sondern eine Bitte um
+Wiederholung: Wer nichts gesagt hat, hat kein defektes Gerät. Sie zählt
+deshalb auch nicht als gelaufener Test.
+
 **Die Frequenzachse ist logarithmisch, und das ist keine Kosmetik.** Linear
 aufgetragen läge die halbe Bildbreite zwischen 12 und 24 kHz, wo bei einem
 Telefon nichts passiert, während sich Netzbrummen und Vibrationsmotor die

@@ -62,6 +62,12 @@ import {
   SPECTRUM_MIN_HZ,
   landmarks,
 } from "../lib/data/acoustics.ts";
+import {
+  SIGNAL_RATIO,
+  SILENCE_RMS,
+  judgeLevel,
+  windowRms,
+} from "../lib/audio/level.ts";
 
 let failures = 0;
 const fail = (text) => {
@@ -729,6 +735,100 @@ console.log("\nDrosselung – Arbeitspaket und Auswertung\n");
   if (failures === before) ok("zu wenig Daten ergeben nichts statt einer Zahl");
 
   if (NOTICEABLE <= 1) fail("Die Meldeschwelle liegt bei oder unter 1 – dann meldet jedes Rauschen.");
+}
+
+/* ---- 12. Mikrofon-Pegel -------------------------------------------------- */
+
+console.log("\nMikrofon-Pegel – aufnehmen oder schweigen\n");
+{
+  // Effektivwert gegen von Hand gerechnete Fälle.
+  const stille = new Float32Array(1024);
+  if (windowRms(stille) !== 0) fail("Stille ergibt einen Effektivwert über null.");
+
+  // Ein Rechteck mit Amplitude a hat den Effektivwert a.
+  const rechteck = Float32Array.from({ length: 1024 }, (_, i) => (i % 2 ? 0.5 : -0.5));
+  if (!near(windowRms(rechteck), 0.5, 1e-12)) {
+    fail(`Rechteck 0,5 ergibt ${windowRms(rechteck)} statt 0,5.`);
+  }
+
+  // Ein Sinus mit Amplitude a hat den Effektivwert a/√2.
+  const sinus = Float32Array.from({ length: 4096 }, (_, i) =>
+    Math.sin((2 * Math.PI * 8 * i) / 4096),
+  );
+  if (!near(windowRms(sinus), 1 / Math.SQRT2, 1e-6)) {
+    fail(`Sinus ergibt ${windowRms(sinus).toFixed(6)} statt ${(1 / Math.SQRT2).toFixed(6)}.`);
+  } else {
+    ok("Effektivwert: Stille 0, Rechteck a, Sinus a/√2");
+  }
+
+  /*
+    Die Grenze der Stille ist gerechnet, nicht gegriffen: das Rauschen einer
+    Quantisierung in Schritten von 1/128 hat den Effektivwert Schritt/√12.
+    Wer den Wert ändert, muss diese Rechnung ändern.
+  */
+  const quantisierung = (1 / 128) / Math.sqrt(12);
+  if (!near(SILENCE_RMS, quantisierung * 2, 1e-12)) {
+    fail(`SILENCE_RMS ist nicht das Doppelte des Quantisierungsrauschens.`);
+  } else {
+    ok(`Grenze der Stille ${SILENCE_RMS.toFixed(5)} = 2 × (1/128)/√12`);
+  }
+
+  /*
+    Der Fall, um den es geht: Ein totes Mikrofon liefert einen Untergrund von
+    null. Würde blind das Verhältnis gerechnet, käme unendlich heraus – und
+    das tote Gerät bestünde die Prüfung am besten von allen.
+  */
+  const tot = judgeLevel({ floor: 0, peak: 0 });
+  if (tot.kind !== "silent") fail(`Ein totes Mikrofon wird als „${tot.kind}“ beurteilt.`);
+  else ok("ein totes Mikrofon (Untergrund und Spitze null) heißt „kein Signal“");
+
+  const fastTot = judgeLevel({ floor: 0, peak: SILENCE_RMS * 0.9 });
+  if (fastTot.kind !== "silent") {
+    fail("Ein Pegel unter der Wandlungsgrenze gilt als Signal.");
+  } else {
+    ok("ein Pegel unter der Grenze der Stille zählt nicht als Aufnahme");
+  }
+
+  // Ein arbeitendes Mikrofon: leiser Untergrund, deutlicher Ausschlag.
+  const gut = judgeLevel({ floor: 0.002, peak: 0.2 });
+  if (gut.kind !== "signal") fail(`Eine deutliche Aufnahme wird als „${gut.kind}“ beurteilt.`);
+  else ok(`deutlicher Ausschlag → „nimmt auf“ (${Math.round(gut.ratio)}-fach)`);
+
+  // Etwas kommt an, aber ohne Ausschlag – kein Mangelbefund, sondern eine
+  // Bitte um Wiederholung.
+  const flau = judgeLevel({ floor: 0.05, peak: 0.05 * (SIGNAL_RATIO - 1) });
+  if (flau.kind !== "flat") fail(`Eine Aufnahme ohne Ausschlag wird als „${flau.kind}“ beurteilt.`);
+  else ok("Signal ohne Ausschlag gilt weder als bestanden noch als Mangel");
+
+  // Die Grenze selbst muss auf der bestehenden Seite liegen.
+  const genau = judgeLevel({ floor: 0.01, peak: 0.01 * SIGNAL_RATIO });
+  if (genau.kind !== "signal") fail("Genau am Verhältnis SIGNAL_RATIO gilt die Aufnahme nicht.");
+  else ok(`genau ${SIGNAL_RATIO}-facher Ausschlag zählt noch als Aufnahme`);
+
+  /*
+    Ein lautes Zimmer hebt den Untergrund. Das darf ein arbeitendes Mikrofon
+    nicht durchfallen lassen – wohl aber in die Bitte um Wiederholung führen,
+    denn ohne Ausschlag ist nichts belegt.
+  */
+  const laut = judgeLevel({ floor: 0.08, peak: 0.9 });
+  if (laut.kind !== "signal") fail("In lauter Umgebung wird ein klarer Ausschlag nicht erkannt.");
+  else ok("lauter Untergrund mit klarem Ausschlag bleibt „nimmt auf“");
+
+  // Kein Fall darf ohne Beurteilung bleiben.
+  const arten = new Set(
+    [
+      [0, 0],
+      [0, 1],
+      [0.001, 0.001],
+      [0.5, 0.5],
+      [0.001, 0.9],
+      [0.9, 0.9],
+    ].map(([floor, peak]) => judgeLevel({ floor, peak }).kind),
+  );
+  for (const art of arten) {
+    if (!["signal", "silent", "flat"].includes(art)) fail(`Unbekannte Beurteilung „${art}“.`);
+  }
+  ok(`${arten.size} verschiedene Beurteilungen, alle benannt`);
 }
 
 /* ---- Ergebnis ----------------------------------------------------------- */
