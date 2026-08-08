@@ -27,7 +27,7 @@ npm run verify:inspection # Prüfprotokoll + Bestand gegen die eigenen Zusagen
 npm run verify:support    # Update-Horizont gegen den Gerätekatalog
 npm run verify:status     # Werkstattablauf gegen das Datenbankschema
 npm run verify:cert       # Reparaturzertifikat: Format, Signatur, QR-Größe
-npm run verify:instruments # Physik der Instrumente und der Bruchmechanik
+npm run verify:instruments # Physik der Instrumente, Bruchmechanik, Drosselung
 npm run verify:privacy    # Datenschutz-Nachweis: kein Weg nach draußen
 
 npm run cf:build          # Cloudflare-Worker bauen (OpenNext)
@@ -103,7 +103,8 @@ die Website zur Lügnerin macht, ohne dass jemand etwas merkt.
   /ersatzteile. Fallgesetze und Inglis-Formel gegen unabhängig gerechnete
   Sollwerte, der Klirrfaktor gegen ein Spektrum mit bekanntem Inhalt, und die
   Frequenzachse gegen sich selbst: keine Bildspalte ohne Bin, keine Lücke,
-  jede Oktave gleich breit.
+  jede Oktave gleich breit. Dazu das Arbeitspaket des Drosselschreibers:
+  bestimmt, ganzzahlig, und doppelte Arbeit dauert doppelt so lange.
 - `verify:privacy` – der Fingerabdruck-Nachweis auf /datenschutz. Prüft im
   Quelltext, dass die beteiligten Dateien kein `fetch`, kein `sendBeacon`,
   keinen Browserspeicher und keinen Zählpixel enthalten, dass jede gelesene
@@ -174,8 +175,9 @@ app/                     App-Router-Seiten (alle statisch prerendert)
                          Röntgen, Stats, CTA)
   reparatur/             Sofortpreis-Rechner (Signature-Feature) + Werkstattablauf + FAQ
   notfall/               Notfall-Protokolle (ohne JS lesbar, offline im Cache)
-  check/                 Geräte-Check: Sensor-Diagnose im Browser, dazu drei
-                         Instrumente (Stethoskop, Klirrfaktor, Sturzschreiber)
+  check/                 Geräte-Check: Sensor-Diagnose im Browser, dazu fünf
+                         Instrumente (Stethoskop, Klirrfaktor, Sturzschreiber,
+                         Drosselschreiber, Pixel-Wecker)
   vorbereitung/          Übergabe-Assistent: was vor der Abgabe zu tun ist
   ankauf/                Restwert-Rechner mit offengelegter Rechnung
   zwilling/              Digitaler Zwilling, Akku-Coach, Reparieren-oder-neu
@@ -214,7 +216,9 @@ components/
   check/                 DeviceCheck (Display-, Sensor-, Audio-, Akku-Tests),
                          Stethoscope (Spektrum + Wasserfall),
                          Distortion (Klirrfaktor über die Lautstärke),
-                         DropForensics (Beschleunigungsschreiber)
+                         DropForensics (Beschleunigungsschreiber),
+                         ThermalTrace (Drosselung unter Last),
+                         PixelWake (hängende Bildpunkte lösen)
   handover/              HandoverAssistant (Vorbereitung zur Abgabe)
   twin/                  DigitalTwin, RepairOrReplace
   battery/               BatteryCoach (3-Jahres-Prognose)
@@ -258,6 +262,7 @@ lib/
                          Klirrfaktor)
   motion/                impact.ts (Fallgesetze, Bremsweg, Untergründe),
                          crack.ts (Spannungsüberhöhung nach Inglis)
+  perf/                  throttle.ts (Arbeitspaket, Median, Auswertung)
   privacy/               signals.ts (was ein Browser ungefragt preisgibt)
   pwa/                   precache.ts (die Vorratsliste, gegen sw.js geprüft)
   cert/                  format.ts (Binärformat + base64url), crypto.ts
@@ -707,6 +712,56 @@ begrenzt den Ablesewert des Stethoskops auf sechs Aktualisierungen je Sekunde.
 **Mikrofon und Sensor werden freigegeben.** Beide Werkzeuge räumen beim
 Verlassen der Seite auf (`stopRef` im Aufräumer). Ein Mikrofon, das nach dem
 Wegklicken weiterläuft, ist ein Fehler mit Kameralampe.
+
+### Drosselschreiber und Pixel-Wecker
+
+Die beiden einzigen Werkzeuge des Projekts, die **keine einzige Berechtigung**
+brauchen: kein Mikrofon, kein Sensor, keine Kamera. Nur Rechnen und Licht.
+
+**Der Drosselschreiber kalibriert sich auf das Gerät.** Ein festes
+Arbeitspaket wäre auf einem neuen Telefon in zwei Millisekunden erledigt und
+auf einem sechs Jahre alten in zweihundert – die Kurven ließen sich nicht
+nebeneinanderlegen. Gesucht wird deshalb erst die Menge, die auf diesem Gerät
+etwa `TARGET_MS` dauert; verglichen wird danach nur mit dem eigenen
+Anfangswert.
+
+**Auf dem Hauptstrang, nicht in einem Worker.** Ein Worker liefe womöglich auf
+einem der absichtlich langsamen Sparkerne, auf die das Betriebssystem
+Hintergrundarbeit gern schiebt – gemessen würde dann die Zuteilung statt der
+Drosselung. Der Hauptstrang ist außerdem der, dessen Tempo ein Mensch spürt.
+
+**Das Ergebnis der Schleife wird verwendet.** Eine Rechnung, deren Ergebnis
+niemand liest, darf ein optimierender Übersetzer vollständig streichen – und
+dann misst man das Nichts. `Math.imul` ist Pflicht: Ohne sie rechnet die
+Maschine in Gleitkomma, und das Ergebnis läuft auseinander.
+
+**Über dem Dreifachen ist es keine Drosselung mehr.** Thermische Drosselung
+landet zwischen dem 1,1- und dem 2-fachen. Wird die Arbeit dreimal so langsam,
+lief etwas anderes mit. Die Grenze zu ziehen ist kein Schönreden, sondern das
+Gegenteil: Ohne sie behauptete die Seite, ein überlastetes Gerät habe ein
+Wärmeproblem – eine Diagnose aus einer Störung. Beim Selbsttest im Container
+kamen 16-fache Werte heraus, und genau dort greift die Stufe.
+
+**Ein Wechsel in den Hintergrund bricht ab.** Browser bremsen
+Hintergrund-Tabs absichtlich und hart. Wer wegwechselt, misst diese Bremse –
+deshalb endet die Messung mit einer Erklärung statt mit einer Zahl.
+
+**Der Pixel-Wecker flackert klein, und das ist die bessere Umsetzung.** Alle
+verbreiteten Werkzeuge dieser Art lassen den ganzen Bildschirm blinken. Das
+hilft nicht mehr – bewegt werden muss der eine hängende Bildpunkt – und
+großflächiges Flackern zwischen etwa 3 und 50 Hz ist genau das Reizmuster,
+das bei photosensibler Epilepsie Anfälle auslöst. WCAG erlaubt schnelles
+Flackern ausdrücklich nur auf kleiner Fläche. Das verschiebbare Feld ist
+also nicht die vorsichtige Notlösung, sondern die richtige.
+
+**Gestartet wird erst nach einer ausdrücklichen Bestätigung**, und der Hinweis
+steht über dem Knopf. Dieselbe Regel wie beim Sturzschreiber: Wo ein Werkzeug
+ein Risiko trägt, steht der Satz davor, nicht danach.
+
+**Hängend ist nicht defekt.** Der Unterschied steht gleich groß daneben: Ein
+hängender Punkt leuchtet farbig und lässt sich manchmal lösen, ein defekter
+bleibt schwarz und niemals. Versprochen wird nichts – ein Werkzeug, das
+Heilung zusagt, wäre hier fehl am Platz.
 
 ### Klirrfaktor und Spannungslinse
 

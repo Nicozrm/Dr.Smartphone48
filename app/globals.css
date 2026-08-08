@@ -3384,3 +3384,83 @@ html[data-js] .nojs-only {
     display: none;
   }
 }
+
+/* ==========================================================================
+   Drosselschreiber und Pixel-Wecker (/check)
+   ========================================================================== */
+
+/* Der Fortschrittsbalken der Belastung. Dreißig Sekunden ohne Rückmeldung
+   sehen aus wie ein hängengebliebener Knopf. */
+.thermal-bar {
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.thermal-bar > div {
+  height: 100%;
+  background: var(--accent);
+  transition: width 200ms linear;
+}
+
+/* ---- Pixel-Wecker ------------------------------------------------------- */
+
+.wake-stage {
+  position: relative;
+  height: 20rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  /* Schachbrett statt einfarbig: Auf einer weißen Fläche sieht man einen
+     hängenden weißen Teilpunkt nicht, auf einer schwarzen keinen schwarzen. */
+  background-color: var(--surface-sunken);
+  background-image:
+    linear-gradient(45deg, var(--surface-raised) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--surface-raised) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--surface-raised) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--surface-raised) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.wake-box {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-s);
+  box-shadow: 0 0 0 1px var(--line-strong);
+  background: var(--surface-inverse);
+  cursor: grab;
+  /* Ohne das rutscht beim Ziehen auf dem Telefon die Seite mit. */
+  touch-action: none;
+  user-select: none;
+}
+
+.wake-box:active {
+  cursor: grabbing;
+}
+
+/* Läuft es, verschwindet der Rahmen: Eine Kante wäre selbst ein Muster, und
+   der Bildpunkt darunter soll die einzige Auffälligkeit im Feld sein. */
+.wake-box[data-running="true"] {
+  box-shadow: none;
+}
+
+.wake-hint {
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-inverse-soft);
+  pointer-events: none;
+}
+
+@media print {
+  .wake-stage,
+  .thermal-bar {
+    display: none;
+  }
+}
