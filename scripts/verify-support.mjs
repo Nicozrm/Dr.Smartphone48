@@ -27,8 +27,21 @@ import {
   monthsUntil,
 } from "../lib/data/support.ts";
 import { refurbishedDevices } from "../lib/data/refurbished.ts";
+import {
+  BATTERY_CAPACITY,
+  BATTERY_CYCLES,
+  ECODESIGN_SOURCE,
+  ECODESIGN_START,
+  PARTS_YEARS,
+  SECURITY_YEARS,
+  applies,
+  ecodesignDuties,
+  generalRights,
+  monthsToCycles,
+} from "../lib/data/repairlaw.ts";
 
 let failures = 0;
+const ok = (text) => console.log(`  ok     ${text}`);
 const fail = (text) => {
   failures++;
   console.log(`  FEHLER ${text}`);
@@ -122,6 +135,112 @@ if (alter > 12) {
   fail("Die Angaben sind über ein Jahr alt – gegen die Herstellerseiten prüfen.");
 } else if (alter > 6) {
   console.log("  HINWEIS Älter als ein halbes Jahr – bei Gelegenheit nachziehen.");
+}
+
+/* ---- Recht auf Reparatur ------------------------------------------------
+   Auf /ersatzteile stehen Rechtsansprüche. Eine falsche Jahreszahl ist dort
+   nicht bloß ein Anzeigefehler – ein Kunde beruft sich darauf. */
+
+console.log("\nRecht auf Reparatur – die Verordnung gegen den Katalog\n");
+{
+  const before = failures;
+  const stichtag = Date.parse(`${ECODESIGN_START}T00:00:00Z`);
+
+  if (Number.isNaN(stichtag)) fail(`ECODESIGN_START „${ECODESIGN_START}" ist kein Datum.`);
+  if (!/^https:\/\/eur-lex\.europa\.eu\//.test(ECODESIGN_SOURCE.url)) {
+    fail("Die Fundstelle zeigt nicht auf EUR-Lex – eine Rechtsangabe braucht die amtliche Quelle.");
+  }
+
+  // Die Stichtagslogik in beide Richtungen, direkt an der Grenze.
+  const faelle = [
+    ["2025-06", false],
+    ["2025-05-31", false],
+    ["2025-06-19", false],
+    ["2025-06-20", true],
+    ["2025-07", true],
+    ["2026-01", true],
+  ];
+  for (const [datum, erwartet] of faelle) {
+    const ergebnis = applies(datum).covered;
+    if (ergebnis !== erwartet) {
+      fail(`${datum} wird als ${ergebnis ? "erfasst" : "nicht erfasst"} gewertet, richtig wäre ${erwartet ? "erfasst" : "nicht erfasst"}.`);
+    }
+  }
+  if (failures === before) ok("der Stichtag trennt auf den Tag genau, auch bei Monatsangaben");
+
+  // Die Untergrenzen dürfen nie vor dem Erscheinen liegen und müssen den
+  // Fristen der Verordnung entsprechen.
+  const beispiel = applies("2025-09");
+  if (beispiel.partsFloor !== 2025 + PARTS_YEARS || beispiel.securityFloor !== 2025 + SECURITY_YEARS) {
+    fail(`Untergrenzen für 2025 sind ${beispiel.partsFloor}/${beispiel.securityFloor}, erwartet ${2025 + PARTS_YEARS}/${2025 + SECURITY_YEARS}.`);
+  } else if (beispiel.partsFloor <= beispiel.securityFloor) {
+    fail("Die Ersatzteilfrist ist nicht länger als die Updatefrist – in der Verordnung ist sie es.");
+  } else {
+    ok(`ab Erscheinen 2025: Teile bis mindestens ${beispiel.partsFloor}, Updates bis mindestens ${beispiel.securityFloor}`);
+  }
+
+  // Nicht erfasste Geräte dürfen keine Jahreszahl mitbringen, sonst zeigt die
+  // Seite eine Zusage an, die es nicht gibt.
+  const alt = applies("2023-09");
+  if (alt.covered || alt.partsFloor !== undefined || alt.securityFloor !== undefined) {
+    fail("Ein nicht erfasstes Gerät bekommt trotzdem Fristen zugeordnet.");
+  } else {
+    ok("nicht erfasste Geräte bekommen keine Jahreszahlen");
+  }
+
+  // Und die Wirklichkeit: Wie viel des eigenen Katalogs ist überhaupt erfasst?
+  const katalog = brands.flatMap((b) => b.models);
+  const erfasst = katalog.filter((m) => {
+    const eintrag = supportEntries.find((e) => e.model === m.id);
+    return applies(eintrag?.released ?? `${m.year}-01`).covered;
+  });
+  console.log(
+    `        ${erfasst.length} von ${katalog.length} Modellen im Katalog sind erfasst.`,
+  );
+  if (erfasst.length === katalog.length) {
+    fail("Alle Modelle gelten als erfasst – das ist bei einem Stichtag 2025 unglaubhaft.");
+  } else {
+    ok("die Mehrheit des Katalogs ist nicht erfasst, und die Seite sagt das");
+  }
+
+  // Zyklenrechnung: 800 Zyklen bei einem je Tag sind gut zwei Jahre.
+  const monate = monthsToCycles(1);
+  if (Math.abs(monate - (BATTERY_CYCLES / 365) * 12) > 1e-9) {
+    fail("Die Zyklenrechnung stimmt nicht mit ihrer eigenen Formel überein.");
+  } else if (monate < 24 || monate > 30) {
+    fail(`${BATTERY_CYCLES} Zyklen bei einem je Tag ergeben ${monate.toFixed(1)} Monate – erwartet gut zwei Jahre.`);
+  } else {
+    ok(`${BATTERY_CYCLES} Zyklen bei einem je Tag: ${(monate / 12).toFixed(1)} Jahre`);
+  }
+  if (!Number.isFinite(monthsToCycles(0))) {
+    ok("kein Laden ergibt unendlich statt einer Division durch null");
+  } else {
+    fail("Ladeverhalten 0 liefert eine endliche Zahl.");
+  }
+  if (BATTERY_CAPACITY <= 0 || BATTERY_CAPACITY >= 1) {
+    fail(`Die Restkapazität ${BATTERY_CAPACITY} ist kein Anteil zwischen 0 und 1.`);
+  }
+
+  // Jede Pflicht braucht einen Satz, der für sich steht – und kein Markdown,
+  // das wörtlich auf der Seite landete.
+  for (const duty of [...ecodesignDuties, ...generalRights]) {
+    if (!duty.detail || duty.detail.length < 60) {
+      fail(`„${duty.title}": ohne Erklärung ist die Pflicht eine Behauptung.`);
+    }
+    if (/\*\*|__/.test(duty.detail + duty.title)) {
+      fail(`„${duty.title}": Markdown im Text – er wird wörtlich gerendert.`);
+    }
+  }
+  // Die allgemeinen Rechte müssen ihre Fundstelle nennen; sie sind das, was
+  // bei nicht erfassten Geräten übrig bleibt.
+  for (const right of generalRights) {
+    if (!/§/.test(right.detail)) {
+      fail(`„${right.title}": ohne Paragrafen kann das niemand nachschlagen.`);
+    }
+  }
+  if (failures === before) {
+    ok(`${ecodesignDuties.length} Pflichten und ${generalRights.length} allgemeine Rechte, alle belegt`);
+  }
 }
 
 console.log(

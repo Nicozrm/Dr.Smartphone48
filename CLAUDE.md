@@ -88,7 +88,10 @@ die Website zur Lügnerin macht, ohne dass jemand etwas merkt.
   Bestand gegen seinen eigenen Zustandsgrad.
 - `verify:support` – jedes Modell im Katalog hat einen Update-Horizont,
   jede Angabe einen Beleg, und die Daten stehen in plausibler Reihenfolge.
-  Schlägt außerdem an, wenn `SUPPORT_CHECKED` über ein Jahr alt ist.
+  Schlägt außerdem an, wenn `SUPPORT_CHECKED` über ein Jahr alt ist. Dazu die
+  Rechtsangaben auf /ersatzteile: der Stichtag der Ökodesign-Verordnung auf
+  den Tag genau, die Fristen, und dass ein nicht erfasstes Gerät keine
+  Jahreszahl zugeordnet bekommt.
 - `verify:status` – der Werkstattablauf in `lib/tickets/status.ts` gegen das
   Postgres-Enum in `supabase/migrations/`: gleiche Zustände, gleiche
   Reihenfolge. Dazu Kontaktkanäle, die Form des Vorgangscodes, die Namen der
@@ -233,7 +236,8 @@ components/
   emergency/             RescueClock
   parts/                 DisplayCompare (echte Eingabeverzögerung),
                          PwmDemo (Flimmern als Zeitdiagramm),
-                         CrackTip (Spannungsüberhöhung am Riss)
+                         CrackTip (Spannungsüberhöhung am Riss),
+                         RepairLaw (Ökodesign-Verordnung je Gerät)
   procedure/             RepairProcedure (Werkstattablauf im Zeitraffer)
   support/               SupportHorizon (Zeitachse), SupportTable (alle Modelle)
   cert/                  CertificateSeal (das Siegel), SignatureGlyph,
@@ -256,8 +260,9 @@ lib/
                          (Bestand inkl. Zyklen, Prüfdatum, ersetzte Teile, Befund),
                          inspection.ts (die 40 Prüfpositionen), procedure.ts
                          (Werkstattschritte), support.ts (Update-Horizont je
-                         Modell), acoustics.ts (Frequenzmarken), faq.ts,
-                         reviews.ts, emergency.ts, handover.ts
+                         Modell), acoustics.ts (Frequenzmarken),
+                         repairlaw.ts (Ökodesign-Verordnung, BGB-Rechte),
+                         faq.ts, reviews.ts, emergency.ts, handover.ts
   audio/                 spectrum.ts (logarithmische Frequenzachse, Farbrampe,
                          Klirrfaktor)
   motion/                impact.ts (Fallgesetze, Bremsweg, Untergründe),
@@ -712,6 +717,38 @@ begrenzt den Ablesewert des Stethoskops auf sechs Aktualisierungen je Sekunde.
 **Mikrofon und Sensor werden freigegeben.** Beide Werkzeuge räumen beim
 Verlassen der Seite auf (`stopRef` im Aufräumer). Ein Mikrofon, das nach dem
 Wegklicken weiterläuft, ist ein Fehler mit Kameralampe.
+
+### Recht auf Reparatur (`/ersatzteile`)
+
+Seit dem 20. Juni 2025 gilt die Ökodesign-Verordnung (EU) 2023/1670. Sie
+verpflichtet Hersteller, Ersatzteile sieben Jahre lang bereitzuhalten –
+ausdrücklich auch für Betriebe, die nicht zum Hersteller gehören. Das ist die
+rechtliche Grundlage dafür, dass es diese Werkstatt geben darf, und praktisch
+keine schreibt es auf ihre Seite.
+
+**Die Einschränkung steht zuerst, nicht im Kleingedruckten.** Die Verordnung
+gilt nur für Geräte, die ab dem Stichtag in Verkehr gebracht wurden – derzeit
+**null von 25** Modellen des eigenen Katalogs. Wer das verschweigt, verkauft
+einem Kunden einen Anspruch, den er nicht hat. Der Abschnitt beginnt deshalb
+mit der Frage, ob sie für dieses Gerät greift, und zeigt bei „nein" die
+Rechte, die ohnehin gelten (Gewährleistung, Beweislastumkehr, Updatepflicht
+nach BGB – jeweils mit Paragraf, damit man nachschlagen kann).
+
+**Es gibt keine ausgerechneten Enddaten.** Die sieben Jahre laufen ab dem
+Ende des Inverkehrbringens, nicht ab dem Erscheinen – wann ein Hersteller ein
+Modell aus dem Verkauf nimmt, weiß heute niemand. Aus dem Erscheinungsjahr
+folgt deshalb nur eine **Untergrenze**, und sie heißt auf der Seite auch so.
+Ein Datum, das nach Auskunft aussieht und geraten ist, wäre genau die Sorte
+Genauigkeit, die dieses Projekt sonst vermeidet.
+
+**Das Erscheinen ist eine Näherung für das Inverkehrbringen**, und das steht
+dabei. Bei Modellen aus dem Jahr des Stichtags kann es im Einzelfall anders
+liegen; `verify:support` prüft die Stichtagslogik deshalb auf den Tag genau
+und in beide Richtungen.
+
+**Es ist eine Zusammenfassung, keine Rechtsberatung.** Der Satz steht unter
+dem Abschnitt, zusammen mit der Fundstelle bei EUR-Lex – das Prüfskript
+verlangt, dass die Quelle dorthin zeigt und nicht auf eine Sekundärseite.
 
 ### Drosselschreiber und Pixel-Wecker
 

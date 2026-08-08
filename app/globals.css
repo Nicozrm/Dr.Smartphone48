@@ -3464,3 +3464,42 @@ html[data-js] .nojs-only {
     display: none;
   }
 }
+
+/* ==========================================================================
+   Was der Hersteller liefern muss (/ersatzteile)
+   ========================================================================== */
+
+.law-verdict {
+  padding: 1.5rem 1.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--surface-raised);
+}
+
+/* Greift die Verordnung, bekommt der Kasten den Akzent – aber nur als Rand
+   und Augenbraue. Ein voll eingefärbter Kasten läse sich wie ein Erfolg, und
+   ein Rechtsanspruch ist keiner, er ist der Normalfall. */
+.law-verdict[data-covered="true"] {
+  border-color: color-mix(in oklab, var(--accent) 24%, transparent);
+  background: var(--accent-subtle);
+}
+
+.law-list {
+  border-top: 1px solid var(--line);
+}
+
+.law-list > li {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.law-tag {
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
