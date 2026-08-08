@@ -5,6 +5,7 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 import { DisplayCompare } from "@/components/parts/DisplayCompare";
 import { CrackTip } from "@/components/parts/CrackTip";
 import { PwmDemo } from "@/components/parts/PwmDemo";
+import { RepairLaw } from "@/components/parts/RepairLaw";
 import { site } from "@/lib/site";
 import { JsonLd, breadcrumbJsonLd, pageMeta } from "@/lib/seo";
 
@@ -150,6 +151,33 @@ export default function ErsatzteilePage() {
         und damit auch, warum die Qualität des Glases eine Rolle spielt und
         eine Schutzfolie mehr bringt, als sie aussieht.
       */}
+      {/*
+        Der Rechtsteil steht bewusst auf der Ersatzteilseite und nicht im
+        Impressum: Er beantwortet die Frage, die hier gestellt wird – bekomme
+        ich für dieses Gerät überhaupt noch Teile? Dass die Antwort für die
+        meisten Geräte „nein, kein Anspruch" lautet, steht zuerst.
+      */}
+      <section className="border-t border-line">
+        <div className="mx-auto max-w-6xl px-5 py-20 md:px-8 md:py-28">
+          <SectionHeading
+            eyebrow="Recht auf Reparatur"
+            title={
+              <>
+                Manches ist
+                <br />
+                keine Kulanz.
+              </>
+            }
+            lede="Seit Juni 2025 verpflichtet die Ökodesign-Verordnung der EU die Hersteller, Ersatzteile jahrelang bereitzuhalten – ausdrücklich auch für Werkstätten, die nicht zum Hersteller gehören. Sie gilt allerdings nur für neuere Geräte, und das ist der Teil, den man zuerst wissen sollte."
+          />
+          <Reveal>
+            <div className="mt-12">
+              <RepairLaw />
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
       <section className="border-t border-line">
         <div className="mx-auto max-w-6xl px-5 py-20 md:px-8 md:py-28">
           <SectionHeading
