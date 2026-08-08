@@ -168,19 +168,34 @@ Serverfunktion öffnet das Formular einen fertigen E-Mail-Entwurf – gesteuert
 
 - `.github/workflows/nextjs.yml` baut bei Push auf `main` (mit `GITHUB_PAGES=true`
   über `npm run build:static`) und deployt `./out`
-  nach GitHub Pages → `https://nicozrm.github.io/Koko/`.
+  nach GitHub Pages → `https://nicozrm.github.io/Dr.Smartphone48/`.
 - Einmalig im Repository: **Settings → Pages → Source = „GitHub Actions"**.
   Ohne diese Einstellung schlägt der Deploy-Job fehl.
 - Der Workflow setzt `GITHUB_PAGES=true`; `next.config.ts` aktiviert dann
-  `basePath: "/Koko"` (Repository-Name) und setzt `NEXT_PUBLIC_SITE_URL` auf die
+  `basePath: "/<Repository-Name>"` und setzt `NEXT_PUBLIC_SITE_URL` auf die
   Projektseite, damit Canonical, Sitemap, robots.txt und JSON-LD dorthin zeigen
   statt auf `https://drsmartphone48.de`. Lokal (ohne die Variable) gibt es
   weder basePath noch URL-Umschaltung.
-- Eigene Domain später: `repoName`/`gitHubPagesUrl` in `next.config.ts` anpassen
-  bzw. bei Root-Domain `basePath` leer lassen und eine `CNAME`-Datei
-  (via `public/CNAME`) ergänzen.
+- **Der Unterpfad ist nicht fest verdrahtet, sondern kommt aus
+  `GITHUB_REPOSITORY`.** Das hat einen Anlass: Das Repository hieß bis zum
+  8.8.2026 `Koko`, und die Umbenennung nahm die Seite vom Netz, ohne dass
+  irgendetwas fehlschlug. Der Deploy lief durch und meldete Erfolg; im
+  Export stand nur überall noch `/Koko` – Stilvorlagen, Skripte, Schriften,
+  jeder interne Link, Canonical und Vorschaubild. Wer die Seite aufrief,
+  bekam nacktes HTML, in dem kein Klick funktionierte. Ein Name, den man an
+  zwei Stellen pflegen muss, wird an einer davon vergessen.
+- **Eine Umbenennung bricht trotzdem jede gedruckte Adresse.** Der
+  Unterpfad steckt im QR-Code jedes Reparaturzertifikats und in jedem
+  Beleg, der die Werkstatt schon verlassen hat. Der Konfiguration ist das
+  egal, den Kunden nicht. Wer den Namen ändert, weiß das vorher – und
+  sobald echte Belege im Umlauf sind, ist eine eigene Domain die Antwort,
+  nicht ein weiterer Name unter `github.io`.
+- Eigene Domain später: bei Root-Domain `basePath` leer lassen und eine
+  `CNAME`-Datei (via `public/CNAME`) ergänzen; `gitHubPagesUrl` in
+  `next.config.ts` entfällt dann.
 - Lokal prüfen: `GITHUB_PAGES=true npm run build:static`, dann
-  `npx serve out` – die Seite liegt unter `/Koko/`.
+  `npx serve out` – die Seite liegt unter `/Dr.Smartphone48/`. Ohne
+  `GITHUB_REPOSITORY` gilt der Name aus `next.config.ts` als Rückfallwert.
 - **Wichtig:** Verweise auf Dateien in `public/` (Service Worker, Manifest-Icons)
   bekommen den basePath NICHT automatisch – dafür
   `process.env.NEXT_PUBLIC_BASE_PATH` voranstellen (siehe `app/manifest.ts`,
