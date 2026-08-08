@@ -496,14 +496,44 @@ function checkExport() {
   const sitemapPath = join(outDir, "sitemap.xml");
   if (existsSync(sitemapPath)) {
     const xml = readFileSync(sitemapPath, "utf8");
+
+    /*
+      Der GitHub-Pages-Build trägt den Repo-Unterpfad in jeder Adresse; der
+      gehört nicht zum Dateinamen. Woher der Unterpfad kommt, stand hier
+      früher als fester Text („/Koko") – und wurde falsch, als das
+      Repository umbenannt wurde. Schlimmer als falsch: still. Der Pfad
+      ließ sich nicht mehr kürzen, keine Datei passte mehr dazu, und die
+      Schleife übersprang per `continue` jeden Eintrag. Die Prüfung lief
+      weiter durch und prüfte nichts.
+
+      Der Unterpfad kommt jetzt aus dem Export selbst: Der Canonical der
+      Startseite ist per Definition genau die Wurzel der Seite.
+    */
+    let base = "";
+    const indexFile = join(outDir, "index.html");
+    if (existsSync(indexFile)) {
+      const m = readFileSync(indexFile, "utf8").match(/<link rel="canonical" href="([^"]*)"/);
+      if (m) base = new URL(m[1]).pathname.replace(/\/$/, "");
+    }
+
+    let geprueft = 0;
     for (const m of xml.matchAll(/<loc>([^<]+)<\/loc>/g)) {
-      const path = new URL(m[1]).pathname.replace(/^\/[^/]*\/?/, (s) =>
-        // Der GitHub-Pages-Build trägt den Repo-Unterpfad – der gehört nicht zum Dateinamen.
-        s.startsWith("/Koko") ? "/" : s,
-      );
+      let path = new URL(m[1]).pathname;
+      if (base && path.startsWith(base)) path = path.slice(base.length);
       const slug = path === "/" || path === "" ? "index" : path.replace(/^\/|\/$/g, "");
       const file = join(outDir, `${slug}.html`);
-      if (!existsSync(file)) continue;
+      if (!existsSync(file)) {
+        // Kein stilles Übergehen mehr: Eine Adresse in der Sitemap, zu der
+        // es keine Seite gibt, ist selbst ein Befund – und es ist genau das
+        // Signal, an dem der kaputte Unterpfad aufgefallen wäre.
+        report(
+          "export",
+          "out/sitemap.xml",
+          `Sitemap nennt ${m[1]}, aber out/${slug}.html gibt es nicht.`,
+        );
+        continue;
+      }
+      geprueft++;
       const html = readFileSync(file, "utf8");
       if (/<meta name="robots" content="[^"]*noindex/.test(html)) {
         report(
@@ -512,6 +542,10 @@ function checkExport() {
           "Steht in der Sitemap und trägt zugleich noindex – widersprüchliches Signal.",
         );
       }
+    }
+
+    if (geprueft === 0) {
+      report("export", "out/sitemap.xml", "Kein einziger Sitemap-Eintrag war prüfbar.");
     }
   }
   return { skipped: false };

@@ -2,7 +2,7 @@
 #
 # Der Build läuft über scripts/build-static.mjs (klammert app/api aus, weil
 # `output: "export"` keine Route Handler verträgt). GITHUB_PAGES=true schaltet
-# in next.config.ts den basePath /Koko sowie die Pages-URL für Canonical,
+# in next.config.ts den basePath der Projektseite sowie die Pages-URL für Canonical,
 # Sitemap und JSON-LD frei.
 #
 # Voraussetzung im Repository: Settings → Pages → Source = "GitHub Actions".
@@ -78,7 +78,8 @@ jobs:
       - name: Statischen Export bauen
         run: npm run build:static
         env:
-          # Aktiviert basePath /Koko in next.config.ts
+          # Aktiviert den basePath der Projektseite in next.config.ts.
+          # Der Name kommt aus GITHUB_REPOSITORY, das die Action selbst setzt.
           GITHUB_PAGES: "true"
 
       # Zweiter Lauf: Jetzt liegt ./out vor, also greifen zusätzlich die

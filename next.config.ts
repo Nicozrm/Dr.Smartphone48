@@ -10,16 +10,34 @@ import type { NextConfig } from "next";
  *   erzeugt ./out ohne basePath. Dort gibt es keine Serverfunktion – das
  *   Formular erkennt das zur Laufzeit und weicht auf E-Mail aus.
  * - **GitHub Pages:** `GITHUB_PAGES=true` erzeugt denselben Export, zusätzlich
- *   unter dem Unterpfad /Koko (Projektseite des Repos Nicozrm/Koko).
+ *   unter dem Unterpfad der Projektseite (Repository-Name).
  */
 const isGitHubPages = process.env.GITHUB_PAGES === "true";
 const isStaticExport = isGitHubPages || process.env.STATIC_EXPORT === "true";
 
+/*
+  Eigentümer und Repository bestimmen die Adresse der Projektseite. Beide
+  stehen in der Action als GITHUB_REPOSITORY ("Eigentümer/Repo"); lokal
+  gelten die Angaben dahinter.
+
+  Warum nicht fest verdrahtet: Genau das ist der Seite einmal zum Verhängnis
+  geworden. Das Repository wurde von „Koko" in „Dr.Smartphone48" umbenannt –
+  ein Klick in den Einstellungen, der die Adresse der Projektseite ändert.
+  Der Deploy lief weiter durch und meldete Erfolg, aber im Export stand
+  überall noch /Koko: Stilvorlagen, Skripte, Schriften, jeder interne Link,
+  Canonical und Vorschaubild. Wer die Seite aufrief, bekam nacktes HTML, in
+  dem kein Klick funktionierte.
+
+  Der Name kommt deshalb von dort, wo er ohnehin stimmt.
+*/
+const [repoOwner, repoNameFromEnv] = (process.env.GITHUB_REPOSITORY ?? "").split("/");
 /** Repository-Name = Unterpfad der GitHub-Projektseite. */
-const repoName = "Koko";
+const repoName = repoNameFromEnv || "Dr.Smartphone48";
+/** Im Hostnamen steht der Eigentümer klein, im Pfad das Repo wie benannt. */
+const ownerHost = (repoOwner || "Nicozrm").toLowerCase();
 const basePath = isGitHubPages ? `/${repoName}` : "";
-/** Öffentliche Adresse der Projektseite (Nutzername kleingeschrieben). */
-const gitHubPagesUrl = `https://nicozrm.github.io${basePath}`;
+/** Öffentliche Adresse der Projektseite. */
+const gitHubPagesUrl = `https://${ownerHost}.github.io${basePath}`;
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,

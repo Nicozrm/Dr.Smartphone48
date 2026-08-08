@@ -5,8 +5,9 @@
  */
 const VERSION = "v4";
 const RUNTIME_CACHE = `ds48-${VERSION}`;
-// Basis-Pfad aus der eigenen URL ableiten – funktioniert unter "/"
-// genauso wie unter "/Koko/" (GitHub Pages).
+// Basis-Pfad aus der eigenen URL ableiten – funktioniert unter "/" genauso
+// wie unter dem Unterpfad einer GitHub-Projektseite. Deshalb hat die
+// Umbenennung des Repositories diese Datei als einzige nicht getroffen.
 const BASE = self.location.pathname.replace(/\/sw\.js$/, "");
 
 // /notfall steht bewusst an erster Stelle: Es ist die einzige Seite, die
