@@ -176,6 +176,40 @@ danach zurück (`output: "export"` verträgt keine POST-Route-Handler). Ohne
 Serverfunktion öffnet das Formular einen fertigen E-Mail-Entwurf – gesteuert
 über `NEXT_PUBLIC_STATIC_EXPORT`.
 
+### Der interne Bereich: eine Codebasis, zwei Builds
+
+`/intern` und die drei Werkzeuge darunter werden im statischen Export
+**mitgeliefert** – auf GitHub Pages antworten sie mit 200. Die Vorgänge
+schützt die Datenbank und das Rechnungsarchiv liegt im Browser des
+Betriebs, es ist also kein Datenleck; wohl aber Angriffsfläche und
+Ladelast, die kein Besucher braucht.
+
+`PUBLIC_ONLY=true npm run build:static` legt `app/intern` zusätzlich
+beiseite – dieselbe Mechanik, mit der schon `app/api` und
+`app/status/[ticketCode]` ausgeklammert werden. Nachgemessen: vier Seiten
+und zwei JavaScript-Bündel weniger, und der Quellbaum kommt unverändert
+zurück.
+
+**Der Schalter steht aus, und das ist eine Entscheidung, kein Versäumnis.**
+Rechnung und Zertifikat laufen vollständig im Browser und funktionieren auf
+GitHub Pages heute. Wer sie herausnimmt, bevor der Betrieb einen eigenen
+Zugang hat, tauscht ein benutztes Werkzeug gegen ein theoretisches Risiko.
+Reihenfolge:
+
+1. Internen Zugang aufsetzen: `npm run cf:build && npm run cf:deploy`
+   (voller Server, damit auch `/api/werkstatt` läuft), davor eine
+   Zugangsbeschränkung – Cloudflare Access oder ein Passwort.
+2. Erst dann in `.github/workflows/nextjs.yml` die vorbereitete Zeile
+   `PUBLIC_ONLY: "true"` einkommentieren.
+
+**Warum kein eigenes Repository für den internen Teil.** Er teilt sich mit
+der öffentlichen Seite den Gerätekatalog (die Rechnung zieht ihre Preise
+aus `lib/data/devices.ts`, damit sie nicht vom Sofortpreis-Rechner
+abweicht), den QR-Encoder, den Zertifikatscode und die Design-Tokens. Zwei
+Repositories hießen zwei Fassungen davon – und Drift ist genau der Fehler,
+gegen den die halbe Prüfmaschinerie dieses Projekts gebaut ist. Getrennt
+wird der Deploy, nicht der Code.
+
 ## Deployment (GitHub Pages)
 
 - `.github/workflows/nextjs.yml` baut bei Push auf `main` (mit `GITHUB_PAGES=true`
