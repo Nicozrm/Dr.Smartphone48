@@ -29,22 +29,28 @@
  *
  * ## Einrichtung
  *
-{
-  "id": 1,
-  "privateJwk": {
-    "crv": "P-256",
-    "d": "uhG6mTf2VNDCLjcBEPfJrMVKJfs0y16HyV2MjSB0AhM",
-    "ext": true,
-    "key_ops": [
-      "sign"
-    ],
-    "kty": "EC",
-    "x": "eBv4AR-iUpmP4YFy2ycPTgMt-rfOPgM8rz4w11hAoQ4",
-    "y": "WNqFc_mEU0c3AW14bp7IonpaJS46q9UaPEuH0TrwKsU"
-  },
-  "publicKey": "BHgb-AEfolKZj-GBctsnD04DLfq3zj4DPK8-MNdYQKEOWNqFc_mEU0c3AW14bp7IonpaJS46q9UaPEuH0TrwKsU",
-  "createdAt": "2026-08-08T15:50:12.887Z"
-}
+ * 1. `/intern/zertifikat` öffnen, „Schlüssel erzeugen“.
+ * 2. Die private Sicherung herunterladen und **außerhalb des Browsers**
+ *    verwahren. Sie ist die Unterschrift des Betriebs.
+ * 3. Die dort angezeigte Zeile hier einfügen und ausrollen.
+ *
+ * Bis Schritt 3 erledigt ist, meldet die Prüfseite jeden Beleg als
+ * „Schlüssel nicht hinterlegt“ – richtig so, denn niemand außerhalb dieses
+ * einen Browsers kann ihn dann prüfen.
+ *
+ * ## Was hier niemals stehen darf
+ *
+ * Die Sicherungsdatei aus Schritt 2 enthält die **private** Hälfte (`d` im
+ * JWK). Sie gehört in einen Tresor, nicht in diese Datei und in kein
+ * Repository. Hier steht ausschließlich die Zeile aus Schritt 3: `id`,
+ * `publicKey`, `since`, `note`.
+ *
+ * Das ist kein hypothetischer Hinweis. Genau diese Verwechslung ist in
+ * diesem Projekt schon passiert – der Inhalt der Sicherungsdatei landete
+ * im Kommentar über `certKeys`, samt privatem Schlüssel, in einem
+ * öffentlichen Repository. `npm run verify:cert` sucht deshalb im
+ * Quelltext nach privatem Schlüsselmaterial und bricht ab, wenn es welches
+ * findet.
  */
 
 export interface CertKey {
@@ -60,7 +66,17 @@ export interface CertKey {
   note: string;
 }
 
-/**{ id: 1, publicKey: "BHgb-AEfolKZj-GBctsnD04DLfq3zj4DPK8-MNdYQKEOWNqFc_mEU0c3AW14bp7IonpaJS46q9UaPEuH0TrwKsU", since: "2026-08-08", note: "Werkstattrechner." },
+/**
+ * Noch leer. Der Betrieb erzeugt seinen Schlüssel selbst; niemand sonst –
+ * auch nicht, wer diese Website gebaut hat – darf die private Hälfte je
+ * gesehen haben. Ein Schlüssel, der aus einem fremden Rechner stammt,
+ * beweist nichts über den Betrieb.
+ *
+ * Die Einträge stehen als echter Code in diesem Array, nicht als Text in
+ * einem Kommentar darüber. Ein auskommentierter Schlüssel sieht aus wie
+ * Einrichtung und ist keine: Der Ring bleibt leer, und die Prüfseite
+ * meldet weiterhin „Schlüssel nicht hinterlegt“, ohne dass jemand den
+ * Widerspruch bemerkt.
  */
 export const certKeys: CertKey[] = [];
 
