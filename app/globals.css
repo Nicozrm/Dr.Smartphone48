@@ -3491,9 +3491,182 @@ html[data-js] .nojs-only {
   pointer-events: none;
 }
 
+/* ---- Lautsprecher entwässern -------------------------------------------- */
+
+.eject-stage {
+  display: flex;
+  align-items: center;
+  gap: 1.75rem;
+  flex-wrap: wrap;
+  padding: 1.5rem 1.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--surface-raised);
+}
+
+/*
+  Der Fortschritt als Ring, nicht als Balken.
+
+  Ein Balken zeigt an, wie weit etwas ist; ein Ring zeigt zusätzlich, dass
+  etwas rundläuft – und darum geht es hier buchstäblich. Gezeichnet mit
+  conic-gradient statt SVG: eine Eigenschaft, ein Wert, kein zweites
+  Koordinatensystem.
+*/
+.eject-ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 6.5rem;
+  height: 6.5rem;
+  border-radius: var(--radius-full);
+  background: conic-gradient(
+    var(--accent) calc(var(--p, 0) * 360deg),
+    var(--surface-sunken) 0
+  );
+  transition: background 120ms linear;
+}
+
+/* Das Loch in der Mitte. Als eigene Ebene, damit der Verlauf darunter
+   unberührt bleibt – ein zweiter Verlauf ergäbe an der Kante einen Ring. */
+.eject-ring::before {
+  content: "";
+  position: absolute;
+  inset: 0.6rem;
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+}
+
+.eject-ring__value {
+  position: relative;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.eject-meta {
+  display: grid;
+  gap: 0.875rem;
+}
+
+.eject-meta dt {
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.eject-meta dd {
+  margin-top: 0.125rem;
+  font-size: 1.0625rem;
+  color: var(--ink-strong);
+}
+
+/* ---- Bildfrequenz-Schreiber --------------------------------------------- */
+
+.frames-readout {
+  display: grid;
+  gap: 1.25rem 2rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--surface-raised);
+}
+
+@media (min-width: 40rem) {
+  .frames-readout {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.frames-readout dt {
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.frames-readout dd {
+  margin-top: 0.25rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+/* Der einzige Wert, der eine Farbe bekommt – und nur, wenn er nicht null
+   ist. Eine dauerhaft eingefärbte Kennzahl liest sich als Bewertung, und
+   bewertet wird hier nichts. */
+.frames-readout dd[data-warn="true"] {
+  color: var(--warn);
+}
+
+.frames-hist {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 7rem;
+  padding: 0 0.25rem;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+/*
+  Ein leeres Fach bekommt keinen Balken.
+
+  Hier stand `min-height: 1px`, damit jedes Fach sichtbar bleibt – das Ergebnis
+  war eine gestrichelte Linie über die ganze Achse. In der rechten Hälfte trug
+  sie zudem die Warnfarbe und behauptete damit, es habe überall ausgelassene
+  Bilder gegeben. Ein leeres Fach ist eine Aussage: Dort war nichts.
+*/
+.frames-hist__bar {
+  flex: 1;
+  border-radius: 1px 1px 0 0;
+  background: var(--accent);
+}
+
+/* Fächer jenseits der Ausgelassen-Schwelle tragen die Warnfarbe: Dort steht
+   nicht mehr Streuung, sondern ein Bild, das gefehlt hat. */
+.frames-hist__bar[data-late="true"] {
+  background: var(--warn);
+}
+
+/*
+  Die Achsenbeschriftung sitzt an ihrem Wert, nicht an ihrem Platz.
+
+  Zuvor verteilte `justify-content: space-between` drei Marken gleichmäßig –
+  die mittlere landete bei 50 % der Breite, während der Median bei einem
+  Drittel steht (die Achse reicht bis zum Dreifachen). Die Beschriftung zeigte
+  damit auf eine Stelle, an der nichts war. Jetzt trägt jede Marke ihre
+  Position als Prozentwert.
+*/
+.frames-axis {
+  position: relative;
+  height: 1.1rem;
+  margin-top: 0.5rem;
+  font-size: 0.6875rem;
+  color: var(--ink-faint);
+}
+
+.frames-axis > span {
+  position: absolute;
+  top: 0;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+/* Die äußeren Marken schlagen nach innen um, sonst ragen sie aus der Figur. */
+.frames-axis > span[data-edge="start"] {
+  transform: none;
+}
+
+.frames-axis > span[data-edge="end"] {
+  transform: translateX(-100%);
+}
+
 @media print {
   .wake-stage,
-  .thermal-bar {
+  .thermal-bar,
+  .eject-stage,
+  .frames-hist {
     display: none;
   }
 }

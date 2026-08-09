@@ -128,7 +128,14 @@ anlegt, trägt nirgends etwas nach.
   Sollwerte, der Klirrfaktor gegen ein Spektrum mit bekanntem Inhalt, und die
   Frequenzachse gegen sich selbst: keine Bildspalte ohne Bin, keine Lücke,
   jede Oktave gleich breit. Dazu das Arbeitspaket des Drosselschreibers:
-  bestimmt, ganzzahlig, und doppelte Arbeit dauert doppelt so lange.
+  bestimmt, ganzzahlig, und doppelte Arbeit dauert doppelt so lange. Der
+  Bildfrequenz-Schreiber kommt mit einer eigenen Klasse von Fehlern: Die
+  Toleranzbänder der bekannten Raten dürfen sich nicht überlappen (sonst
+  entscheidet die Array-Reihenfolge statt der Messung), zwischen zwei Bändern
+  wird keine Rate behauptet, und die Verteilung muss so viele Werte zeigen,
+  wie gemessen wurden. Beim Entwässerungston werden Band, Rückweg und
+  Hüllkurve nachgerechnet – ein Durchlauf muss dort enden, wo der nächste
+  anfängt.
 - `verify:privacy` – der Fingerabdruck-Nachweis auf /datenschutz. Prüft im
   Quelltext, dass die beteiligten Dateien kein `fetch`, kein `sendBeacon`,
   keinen Browserspeicher und keinen Zählpixel enthalten, dass jede gelesene
@@ -284,9 +291,10 @@ app/                     App-Router-Seiten (alle statisch prerendert)
                          Röntgen, Stats, CTA)
   reparatur/             Sofortpreis-Rechner (Signature-Feature) + Werkstattablauf + FAQ
   notfall/               Notfall-Protokolle (ohne JS lesbar, offline im Cache)
-  check/                 Geräte-Check: Sensor-Diagnose im Browser, dazu fünf
+  check/                 Geräte-Check: Sensor-Diagnose im Browser, dazu sieben
                          Instrumente (Stethoskop, Klirrfaktor, Sturzschreiber,
-                         Drosselschreiber, Pixel-Wecker)
+                         Drosselschreiber, Pixel-Wecker, Bildfrequenz-
+                         Schreiber, Lautsprecher-Entwässerung)
   vorbereitung/          Übergabe-Assistent: was vor der Abgabe zu tun ist
   ankauf/                Restwert-Rechner mit offengelegter Rechnung
   zwilling/              Digitaler Zwilling, Akku-Coach, Reparieren-oder-neu
@@ -327,7 +335,9 @@ components/
                          Distortion (Klirrfaktor über die Lautstärke),
                          DropForensics (Beschleunigungsschreiber),
                          ThermalTrace (Drosselung unter Last),
-                         PixelWake (hängende Bildpunkte lösen)
+                         PixelWake (hängende Bildpunkte lösen),
+                         FrameRate (Bildfrequenz und Frame-Pacing),
+                         SpeakerEject (Wasser aus der Lautsprecherkammer)
   handover/              HandoverAssistant (Vorbereitung zur Abgabe)
   twin/                  DigitalTwin, RepairOrReplace
   battery/               BatteryCoach (3-Jahres-Prognose)
@@ -370,7 +380,11 @@ lib/
                          repairlaw.ts (Ökodesign-Verordnung, BGB-Rechte),
                          faq.ts, reviews.ts, emergency.ts, handover.ts
   audio/                 spectrum.ts (logarithmische Frequenzachse, Farbrampe,
-                         Klirrfaktor)
+                         Klirrfaktor), level.ts (Pegel gegen den eigenen
+                         Untergrund), eject.ts (Entwässerungston: Band,
+                         Hüllkurve, Stützstellen)
+  display/               framerate.ts (Bilddauern → Rate, Streuung, zu späte
+                         Bilder, Verteilung)
   motion/                impact.ts (Fallgesetze, Bremsweg, Untergründe),
                          crack.ts (Spannungsüberhöhung nach Inglis)
   perf/                  throttle.ts (Arbeitspaket, Median, Auswertung)
@@ -794,15 +808,19 @@ Anbieter austauschbar bleibt. Ein Adapter ohne Zugangsdaten meldet
 Benachrichtigt wird nur bei drei Zuständen und nur, wenn der Kunde einen Weg
 gewählt hat – Vorauswahl ist „keine Nachrichten“.
 
-### Zwei Instrumente auf `/check`
+### Die Instrumente auf `/check`
 
 Der Geräte-Check oben auf der Seite zählt zwölf Prüfpunkte zu einem Befund
-zusammen. Darunter stehen zwei Werkzeuge, die das ausdrücklich **nicht** tun:
-Stethoskop und Beschleunigungsschreiber liefern Messwerte, und die Deutung
-bleibt beim Menschen. Sie in die Liste zu hängen hieße, ein Spektrum in ein
-Häkchen zu übersetzen – und genau diese Übersetzung wäre die Behauptung, die
-hier niemand aufstellen will. Wer ein drittes Instrument ergänzt, hält es
-ebenfalls aus dem Befund heraus.
+zusammen. Darunter stehen sieben Werkzeuge, die das ausdrücklich **nicht**
+tun: Sie liefern Messwerte, und die Deutung bleibt beim Menschen. Sie in die
+Liste zu hängen hieße, ein Spektrum in ein Häkchen zu übersetzen – und genau
+diese Übersetzung wäre die Behauptung, die hier niemand aufstellen will. Wer
+ein weiteres Instrument ergänzt, hält es ebenfalls aus dem Befund heraus.
+
+Die Entwässerung ist dabei der Sonderfall: Sie misst gar nichts, sie **tut**
+etwas. Erst recht gehört sie damit aus einem Befund heraus – ein Häkchen bei
+„Lautsprecher“ nach einem Ton, dessen Wirkung niemand nachgemessen hat, wäre
+die Behauptung in Reinform.
 
 **Stethoskop: die Aufbereitung muss aus.** `getUserMedia` liefert
 voreingestellt einen für Sprache aufbereiteten Kanal. Besonders die
@@ -981,6 +999,81 @@ ein Risiko trägt, steht der Satz davor, nicht danach.
 hängender Punkt leuchtet farbig und lässt sich manchmal lösen, ein defekter
 bleibt schwarz und niemals. Versprochen wird nichts – ein Werkzeug, das
 Heilung zusagt, wäre hier fehl am Platz.
+
+### Bildfrequenz-Schreiber und Lautsprecher-Entwässerung
+
+Zwei Werkzeuge ohne jede Berechtigung – das eine misst, das andere greift ein.
+Beide rechnen in `lib/`, damit `verify:instruments` sie ohne Browser prüfen
+kann.
+
+**Die Aussage des Bildfrequenz-Schreibers ist einseitig, und das steht dabei.**
+Gemessen werden die Abstände zwischen den `requestAnimationFrame`-Aufrufen,
+also das, was der Browser liefert. Ein gemessenes 120 beweist ein Panel, das
+120 kann; ein gemessenes 60 beweist gar nichts – Stromsparmodus, wenig
+Ladung, ein warmes Gerät oder eine Systemeinstellung senken die Rate, ohne
+dass das Panel etwas dafür kann. Wer die Seite umformuliert, hält beide
+Richtungen auseinander: „kann 120“ ist belegbar, „kann nur 60“ nicht.
+
+**Der Median, nicht der Mittelwert**, und daneben die Streuung. Ein Gerät mit
+119 sauberen Bildern und einem sehr späten misst sich als „120 Hz“ und
+ruckelt trotzdem sichtbar; die mittlere Rate allein verschweigt also genau
+das, was ein Mensch bemerkt. Deshalb steht die Zahl der zu späten Bilder als
+eigener Wert daneben – und nur sie bekommt eine Farbe, und auch die nur, wenn
+sie nicht null ist.
+
+**Die Liste der bekannten Raten darf sich nicht überlappen.** Gerundet wird
+auf ±4 %. Standen dort zwei Raten enger beieinander als die doppelte
+Toleranz – anfangs 45 und 48 Hz –, dann entschied in der Überlappung nicht
+die Messung, sondern die Reihenfolge im Array. `verify:instruments` rechnet
+nach, dass sich keine zwei Bänder berühren, dass jede Rate ihr eigenes Band
+einfängt und dass genau zwischen zwei Bändern **keine** Rate behauptet wird.
+Aus demselben Grund gibt `nearestRate` null zurück, statt immer den nächsten
+Eintrag zu liefern.
+
+**Das Diagramm verschluckt seine Ausreißer nicht.** Werte oberhalb der Achse
+landen im letzten Fach statt zu verschwinden – ein Diagramm, das rechts
+abschneidet, zeigt ein ruhigeres Gerät, als vor einem liegt, und der
+Ausreißer ist hier gerade der Befund. Das Prüfskript zählt nach, dass die
+Summe der Fächer der Zahl der Messwerte entspricht. Ebenso bekommt ein leeres
+Fach **keinen** Balken: Ein `min-height: 1px` ergab eine gestrichelte Linie
+über die ganze Achse, die in der rechten Hälfte die Warnfarbe trug und damit
+überall ausgelassene Bilder behauptete.
+
+**Gemessen wird an React vorbei.** Der Fortschritt wird direkt am Element
+gesetzt. Liefe er über `useState`, maße das Werkzeug die Kosten seiner
+eigenen Anzeige – ein Instrument, das sich selbst misst. Und ein Wechsel in
+den Hintergrund bricht ab, wie beim Drosselschreiber: Dort drosselt der
+Browser absichtlich, und gemessen wäre dann diese Drossel.
+
+**Die Entwässerung widerspricht `/notfall` – deshalb steht der Unterschied
+dabei.** Auf /notfall gilt bei Wasserschaden: nicht einschalten, nicht laden.
+Dieses Werkzeug verlangt das Gegenteil, denn ohne laufendes Gerät kein Ton.
+Beides nebeneinanderzustellen, ohne die Fälle zu trennen, wäre ein
+Widerspruch, den ein Kunde ausbadet. Der Hinweis trennt sie ausdrücklich:
+Wasser in der Lautsprecherkammer bei laufendem Gerät (hier richtig) gegen ein
+Gerät, das nass geworden ist (dort richtig, und hier ausdrücklich falsch).
+Der Hinweis steht **über** dem Knopf und hinter einer Bestätigung – dieselbe
+Regel wie beim Sturzschreiber und beim Pixel-Wecker.
+
+**Ein Band, kein fester Ton.** Welche Frequenz eine Kammer am besten leert,
+hängt an Volumen, Kanal und Öffnung; das Modell kennt die Seite nicht. Der
+Ton läuft deshalb dreieckig von 110 auf 260 Hz und **zurück**. Der Rückweg
+ist kein Zierrat: Endete ein Durchlauf oben und begänne der nächste unten,
+spränge die Frequenz – und ein Sprung ist ein Knacken. Aus demselben Grund
+fährt die Hüllkurve an beiden Enden auf null. `verify:instruments` prüft
+beides, dazu dass 165 Hz (die Frequenz, mit der Apple dieselbe Aufgabe löst)
+im Band liegt und der Durchlaufzähler nie außerhalb von 1…8 läuft.
+
+**Voll ausgesteuert wird nicht.** Ein Sinus bei 1.0 treibt manche Endstufen
+in die Begrenzung, und eine begrenzte Sinuswelle ist ein Rechteck – lauter,
+aber mit weniger Membranweg dort, wo er zählt.
+
+**Der Ablauf wird im Voraus geplant, nicht je Bild gesetzt.** Frequenz- und
+Lautstärkeverlauf liegen als `setValueCurveAtTime` im Audio-Thread; ein
+Verlauf, den der Hauptstrang nachzieht, stottert genau dann, wenn die Seite
+sonst etwas zu tun hat. Und der Oszillator wird beim Verlassen der Seite
+abgeräumt – ein Ton, der weiterläuft, ist derselbe Fehler wie ein Mikrofon
+mit Kameralampe.
 
 ### Klirrfaktor und Spannungslinse
 

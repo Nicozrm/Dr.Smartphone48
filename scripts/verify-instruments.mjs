@@ -68,6 +68,29 @@ import {
   judgeLevel,
   windowRms,
 } from "../lib/audio/level.ts";
+import {
+  CYCLES,
+  CYCLE_SECONDS,
+  SWEEP_HIGH,
+  SWEEP_LOW,
+  TOTAL_SECONDS,
+  curve,
+  fullCurve,
+  cycleAt,
+  envelopeAt,
+  frequencyAt,
+  progressAt,
+} from "../lib/audio/eject.ts";
+import {
+  KNOWN_RATES,
+  LATE_FACTOR,
+  SNAP_TOLERANCE,
+  histogram,
+  intervalsFrom,
+  nearestRate,
+  reading,
+  summarise,
+} from "../lib/display/framerate.ts";
 
 let failures = 0;
 const fail = (text) => {
@@ -829,6 +852,312 @@ console.log("\nMikrofon-Pegel – aufnehmen oder schweigen\n");
     if (!["signal", "silent", "flat"].includes(art)) fail(`Unbekannte Beurteilung „${art}“.`);
   }
   ok(`${arten.size} verschiedene Beurteilungen, alle benannt`);
+}
+
+/* ---- 13. Lautsprecher-Entwässerung -------------------------------------- */
+
+console.log("\nEntwässerung – der Ton, der auf der Seite versprochen wird\n");
+
+{
+  /*
+    Auf der Seite steht: „Der Ton läuft achtmal von 110 auf 260 Hz und
+    zurück.“ Genau das wird hier nachgerechnet – Zahl der Durchläufe, beide
+    Endpunkte, und dass ein Durchlauf dort endet, wo der nächste anfängt.
+  */
+  if (!near(TOTAL_SECONDS, CYCLE_SECONDS * CYCLES, 1e-9)) {
+    fail(`Gesamtdauer ${TOTAL_SECONDS} s passt nicht zu ${CYCLES} × ${CYCLE_SECONDS} s.`);
+  } else {
+    ok(`${CYCLES} Durchläufe × ${CYCLE_SECONDS} s = ${TOTAL_SECONDS} s`);
+  }
+
+  if (!near(frequencyAt(0), SWEEP_LOW, 1e-9)) {
+    fail(`Ein Durchlauf beginnt bei ${frequencyAt(0)} Hz statt bei ${SWEEP_LOW}.`);
+  } else if (!near(frequencyAt(CYCLE_SECONDS), SWEEP_LOW, 1e-9)) {
+    /* Der Rückweg ist der Grund, warum die Kurve dreieckig ist: Endet ein
+       Durchlauf oben und beginnt der nächste unten, springt die Frequenz –
+       und ein Sprung ist ein Knacken. */
+    fail(
+      `Ein Durchlauf endet bei ${frequencyAt(CYCLE_SECONDS)} Hz; der nächste beginnt bei ${SWEEP_LOW} und springt.`,
+    );
+  } else {
+    ok(`Anfang und Ende eines Durchlaufs liegen beide auf ${SWEEP_LOW} Hz`);
+  }
+
+  if (!near(frequencyAt(CYCLE_SECONDS / 2), SWEEP_HIGH, 1e-9)) {
+    fail(
+      `Die Bandmitte erreicht ${frequencyAt(CYCLE_SECONDS / 2).toFixed(1)} Hz statt ${SWEEP_HIGH}.`,
+    );
+  } else {
+    ok(`die Spitze des Durchlaufs trifft ${SWEEP_HIGH} Hz`);
+  }
+
+  /* Das Band muss die Frequenz enthalten, mit der Apple dieselbe Aufgabe
+     löst – sonst trägt der Absatz auf der Seite seine Begründung nicht. */
+  if (!(SWEEP_LOW < 165 && 165 < SWEEP_HIGH)) {
+    fail(`165 Hz liegt nicht im Band ${SWEEP_LOW}–${SWEEP_HIGH} Hz.`);
+  } else {
+    ok(`165 Hz liegt im Band ${SWEEP_LOW}–${SWEEP_HIGH} Hz`);
+  }
+
+  let ausserhalb = 0;
+  let lautZuViel = 0;
+  let lautNegativ = 0;
+  for (let i = 0; i <= 2000; i++) {
+    const t = (i / 2000) * CYCLE_SECONDS;
+    const hz = frequencyAt(t);
+    const g = envelopeAt(t);
+    if (hz < SWEEP_LOW - 1e-9 || hz > SWEEP_HIGH + 1e-9) ausserhalb++;
+    if (g > 1 + 1e-9) lautZuViel++;
+    if (g < -1e-9) lautNegativ++;
+  }
+  if (ausserhalb) fail(`${ausserhalb} Stützstellen liegen außerhalb des Bandes.`);
+  else if (lautZuViel) fail(`${lautZuViel} Stützstellen übersteuern (Faktor > 1).`);
+  else if (lautNegativ) fail(`${lautNegativ} Stützstellen haben eine negative Lautstärke.`);
+  else ok("2001 Stützstellen: Frequenz im Band, Lautstärke zwischen 0 und 1");
+
+  /* Ohne die Ausblendung an beiden Enden knackt es, und das Knacken belastet
+     die Membran an ihrem Anschlag statt sie zu bewegen. */
+  if (envelopeAt(0) !== 0 || envelopeAt(CYCLE_SECONDS) !== 0) {
+    fail(
+      `Die Hüllkurve beginnt mit ${envelopeAt(0)} und endet mit ${envelopeAt(CYCLE_SECONDS)} – bei null wäre kein Knacken.`,
+    );
+  } else if (!near(envelopeAt(CYCLE_SECONDS / 2), 1, 1e-9)) {
+    fail(`In der Mitte steht die Lautstärke auf ${envelopeAt(CYCLE_SECONDS / 2)} statt auf 1.`);
+  } else {
+    ok("die Hüllkurve fährt an beiden Enden auf null und in der Mitte auf voll");
+  }
+
+  /* Die Anzeige zählt Durchläufe von 1 bis CYCLES – nie 0, nie einen zu viel.
+     Ein „Durchlauf 9 / 8“ wäre ein kleiner Fehler mit großer Wirkung: Er
+     stellt die ganze Anzeige in Frage. */
+  let zaehlerFalsch = 0;
+  let fortschrittFalsch = 0;
+  for (let i = 0; i <= 1000; i++) {
+    const t = (i / 1000) * TOTAL_SECONDS;
+    const c = cycleAt(t);
+    if (!Number.isInteger(c) || c < 1 || c > CYCLES) zaehlerFalsch++;
+    const p = progressAt(t);
+    if (p < 0 || p > 1) fortschrittFalsch++;
+  }
+  if (zaehlerFalsch) fail(`${zaehlerFalsch} Zeitpunkte liefern einen Durchlauf außerhalb 1…${CYCLES}.`);
+  else if (fortschrittFalsch) fail(`${fortschrittFalsch} Zeitpunkte liefern einen Fortschritt außerhalb 0…1.`);
+  else ok(`Durchlauf bleibt in 1…${CYCLES}, Fortschritt in 0…1`);
+
+  if (progressAt(TOTAL_SECONDS) !== 1 || cycleAt(TOTAL_SECONDS) !== CYCLES) {
+    fail("Am Ende steht der Fortschritt nicht auf 1 bzw. der Durchlauf nicht auf dem letzten.");
+  } else {
+    ok("am Ende: Fortschritt 1, letzter Durchlauf");
+  }
+
+  /* Die Stützstellen gehen so in den Audio-Thread. Eine unsortierte oder
+     unvollständige Kurve ergäbe dort einen anderen Ton als den geprüften. */
+  const punkte = curve();
+  const sortiert = punkte.every((p, i) => i === 0 || p.t > punkte[i - 1].t);
+  if (!sortiert) fail("Die Stützstellen der Kurve laufen nicht durchgehend vorwärts.");
+  else if (punkte[0].t !== 0 || !near(punkte[punkte.length - 1].t, CYCLE_SECONDS, 1e-9)) {
+    fail("Die Kurve deckt nicht genau einen Durchlauf ab.");
+  } else {
+    ok(`${punkte.length} Stützstellen decken genau einen Durchlauf ab`);
+  }
+
+  /*
+    Die volle Kurve.
+
+    Sie ist der Grund, warum es sie gibt: Acht aneinandergereihte
+    `setValueCurveAtTime` wirft Chromium als „überlappend“ zurück, und zwar
+    vor dem Zustandswechsel – die Schaltfläche blieb einfach stehen, ohne
+    Fehlermeldung. Geprüft wird deshalb, dass eine einzige Kurve die volle
+    Dauer abdeckt und an jeder Naht auf null steht.
+  */
+  const voll = fullCurve();
+  if (voll[0].t !== 0 || !near(voll[voll.length - 1].t, TOTAL_SECONDS, 1e-9)) {
+    fail("Die volle Kurve deckt nicht die gesamte Behandlungsdauer ab.");
+  } else if (!voll.every((p, i) => i === 0 || p.t > voll[i - 1].t)) {
+    fail("Die volle Kurve läuft nicht durchgehend vorwärts.");
+  } else {
+    ok(`${voll.length} Stützstellen decken alle ${TOTAL_SECONDS} s in einer Kurve ab`);
+  }
+
+  /* An jeder Naht zwischen zwei Durchläufen muss die Hüllkurve auf null
+     stehen – sonst knackt es achtmal. Die Nahtstellen aus dem Index, nicht
+     aus der Zeit: t % CYCLE_SECONDS trifft sie nach acht Durchläufen knapp
+     daneben, und knapp daneben ist die Hüllkurve nicht mehr null. */
+  const proDurchlauf = (voll.length - 1) / CYCLES;
+  let lauteNaht = null;
+  for (let i = 0; i <= CYCLES; i++) {
+    const p = voll[i * proDurchlauf];
+    if (p.gain !== 0) lauteNaht = `${p.t.toFixed(3)} s (Lautstärke ${p.gain})`;
+  }
+  if (lauteNaht) fail(`An einer Naht steht die Hüllkurve nicht auf null: ${lauteNaht}`);
+  else ok(`alle ${CYCLES + 1} Nahtstellen liegen auf null`);
+
+  let vollAusserhalb = 0;
+  for (const p of voll) {
+    if (p.hz < SWEEP_LOW - 1e-9 || p.hz > SWEEP_HIGH + 1e-9) vollAusserhalb++;
+    if (p.gain < 0 || p.gain > 1) vollAusserhalb++;
+  }
+  if (vollAusserhalb) fail(`${vollAusserhalb} Stützstellen der vollen Kurve liegen außerhalb ihrer Grenzen.`);
+  else ok("die volle Kurve bleibt überall im Band und zwischen 0 und 1");
+}
+
+/* ---- 14. Bildfrequenz-Schreiber ----------------------------------------- */
+
+console.log("\nBildfrequenz – Rate, Streuung und das ausgelassene Bild\n");
+
+{
+  const gleichmaessig = (hz, n) => Array.from({ length: n }, () => 1000 / hz);
+
+  // Ein perfekt gleichmäßiger Bildschirm muss glatt durchgehen.
+  for (const hz of [60, 90, 120, 144]) {
+    const s = summarise(gleichmaessig(hz, 200));
+    if (s.nearest !== hz) {
+      fail(`${hz} Hz gleichmäßig wird als ${s.nearest ?? s.hz.toFixed(1)} gemeldet.`);
+    } else if (s.late !== 0) {
+      fail(`${hz} Hz gleichmäßig meldet ${s.late} zu späte Bilder.`);
+    } else if (s.jitterMs > 1e-9) {
+      fail(`${hz} Hz gleichmäßig meldet eine Streuung von ${s.jitterMs}.`);
+    } else {
+      ok(`${hz} Hz gleichmäßig: ${hz} Hz, keine Streuung, kein zu spätes Bild`);
+    }
+  }
+
+  /*
+    Der eigentliche Zweck des Werkzeugs: 119 saubere Bilder und ein sehr
+    spätes messen sich als „120 Hz“ und ruckeln trotzdem sichtbar. Genau
+    dieses eine Bild muss die Auswertung finden.
+  */
+  const mitRuckler = gleichmaessig(120, 200);
+  mitRuckler[80] = (1000 / 120) * 4;
+  mitRuckler[150] = (1000 / 120) * 2.5;
+  const geruckelt = summarise(mitRuckler);
+  if (geruckelt.nearest !== 120) {
+    fail(`Mit zwei Rucklern kippt die Rate auf ${geruckelt.nearest ?? geruckelt.hz}.`);
+  } else if (geruckelt.late !== 2) {
+    fail(`Zwei ausgelassene Bilder werden als ${geruckelt.late} gezählt.`);
+  } else if (!near(geruckelt.worstMs, (1000 / 120) * 4, 1e-9)) {
+    fail("Der schlechteste Wert ist nicht der schlechteste.");
+  } else {
+    ok("120 Hz mit zwei Rucklern: Rate bleibt 120, beide Ruckler gefunden");
+  }
+
+  /* Die Schwelle selbst: knapp darunter ist Rauschen, knapp darüber ein
+     ausgelassenes Bild. Wer LATE_FACTOR verstellt, verstellt beides. */
+  const knapp = gleichmaessig(60, 101);
+  knapp[50] = (1000 / 60) * (LATE_FACTOR - 0.05);
+  const drueber = gleichmaessig(60, 101);
+  drueber[50] = (1000 / 60) * (LATE_FACTOR + 0.05);
+  if (summarise(knapp).late !== 0) fail(`Knapp unter ${LATE_FACTOR}× gilt ein Bild schon als zu spät.`);
+  else if (summarise(drueber).late !== 1) fail(`Knapp über ${LATE_FACTOR}× gilt ein Bild nicht als zu spät.`);
+  else ok(`die Schwelle liegt sauber bei ${LATE_FACTOR}× der üblichen Bilddauer`);
+
+  /*
+    Die wichtigste Eigenschaft von nearestRate: Sie darf schweigen. Ohne den
+    Rückgabewert null bekäme jede krumme Messung das Etikett der nächsten
+    Zeile aus einer Liste verpasst – erfundene Genauigkeit in Reinform.
+  */
+  const krumm = 200;
+  if (nearestRate(krumm) !== null) {
+    fail(`${krumm} Hz wird ${nearestRate(krumm)} Hz zugeordnet, obwohl nichts in der Nähe liegt.`);
+  } else {
+    ok(`${krumm} Hz bekommt keine Zuordnung, sondern seinen Messwert`);
+  }
+
+  /*
+    Zwei Raten dürfen sich nicht in die Quere kommen.
+
+    Überlappen die Toleranzbänder zweier Einträge, entscheidet in der
+    Überlappung nicht die Messung, sondern die Reihenfolge in der Liste – und
+    dieselbe gemessene Frequenz bekäme je nach Sortierung ein anderes
+    Etikett. Genau das war der Fall, solange 45 und 48 Hz in der Liste
+    standen (6,7 % auseinander bei 2 × 4 % Toleranz).
+  */
+  const sortiertRaten = [...KNOWN_RATES].sort((a, b) => a - b);
+  let ueberlappung = null;
+  for (let i = 1; i < sortiertRaten.length; i++) {
+    const unten = sortiertRaten[i - 1];
+    const oben = sortiertRaten[i];
+    if (unten * (1 + SNAP_TOLERANCE) >= oben * (1 - SNAP_TOLERANCE)) {
+      ueberlappung = [unten, oben];
+      break;
+    }
+  }
+  if (ueberlappung) {
+    fail(
+      `Die Bänder um ${ueberlappung[0]} und ${ueberlappung[1]} Hz überlappen – dort entscheidet die Listenreihenfolge statt der Messung.`,
+    );
+  } else {
+    ok(`${KNOWN_RATES.length} Raten, keine zwei Bänder berühren sich`);
+  }
+
+  let rastFehler = null;
+  for (const rate of KNOWN_RATES) {
+    for (const richtung of [-1, 1]) {
+      const innen = rate * (1 + richtung * SNAP_TOLERANCE * 0.9);
+      if (nearestRate(innen) !== rate) {
+        rastFehler = `${innen.toFixed(1)} Hz rastet nicht auf ${rate} Hz ein.`;
+      }
+    }
+  }
+  if (rastFehler) fail(rastFehler);
+  else ok(`jede Rate fängt ihr Band von ±${(SNAP_TOLERANCE * 100).toFixed(0)} % ein`);
+
+  /* Und in der Lücke zwischen zwei Bändern schweigt die Zuordnung. */
+  let lueckeFehler = null;
+  for (let i = 1; i < sortiertRaten.length; i++) {
+    const mitte = (sortiertRaten[i - 1] + sortiertRaten[i]) / 2;
+    if (nearestRate(mitte) !== null) {
+      lueckeFehler = `Genau zwischen ${sortiertRaten[i - 1]} und ${sortiertRaten[i]} Hz wird ${nearestRate(mitte)} Hz behauptet.`;
+    }
+  }
+  if (lueckeFehler) fail(lueckeFehler);
+  else ok("genau zwischen zwei Raten wird keine Rate behauptet");
+
+  // Abstände: aus n Zeitstempeln werden n-1 Abstände, nicht n.
+  const stempel = [0, 10, 25, 40, 60];
+  const abstaende = intervalsFrom(stempel);
+  if (abstaende.length !== stempel.length - 1) {
+    fail(`Aus ${stempel.length} Zeitstempeln werden ${abstaende.length} Abstände.`);
+  } else if (abstaende.join(",") !== "10,15,15,20") {
+    fail(`Die Abstände lauten ${abstaende.join(",")} statt 10,15,15,20.`);
+  } else {
+    ok("aus n Zeitstempeln werden n-1 Abstände, und sie stimmen");
+  }
+
+  /*
+    Das Diagramm darf nichts verschlucken. Ein Ausreißer, der rechts aus der
+    Achse liefe und dabei verschwände, zeigte ein ruhigeres Gerät, als vor
+    einem liegt – und der Ausreißer ist hier gerade der Befund.
+  */
+  const werte = [...gleichmaessig(60, 60), 200, 500, 1200];
+  const faecher = histogram(werte, 48, (1000 / 60) * 3);
+  const summe = faecher.reduce((a, b) => a + b, 0);
+  if (summe !== werte.length) {
+    fail(`Das Diagramm zeigt ${summe} von ${werte.length} Werten – ${werte.length - summe} sind verschwunden.`);
+  } else if (faecher[faecher.length - 1] < 3) {
+    fail("Die drei Ausreißer landen nicht im letzten Fach.");
+  } else {
+    ok(`alle ${werte.length} Werte im Diagramm, die Ausreißer im letzten Fach`);
+  }
+
+  // Leere Messung: keine Zahl, kein Absturz, keine Behauptung.
+  const leer = summarise([]);
+  if (leer.count !== 0 || leer.hz !== 0 || leer.nearest !== null) {
+    fail("Eine leere Messung liefert trotzdem Werte.");
+  } else if (/\d+\s*Hz/.test(reading(leer))) {
+    fail(`Ohne Messung wird eine Rate genannt: „${reading(leer)}“`);
+  } else {
+    ok("ohne verwertbare Bilder wird keine Rate behauptet");
+  }
+
+  // Unbrauchbare Abstände dürfen die Rechnung nicht vergiften.
+  const dreck = summarise([0, -5, NaN, Infinity, ...gleichmaessig(60, 20)]);
+  if (dreck.nearest !== 60) {
+    fail(`Mit Nullen und NaN dazwischen kippt die Rate auf ${dreck.nearest ?? dreck.hz}.`);
+  } else if (dreck.count !== 20) {
+    fail(`${dreck.count} statt 20 verwertbare Abstände.`);
+  } else {
+    ok("Nullen, negative Werte, NaN und Infinity fliegen raus");
+  }
 }
 
 /* ---- Ergebnis ----------------------------------------------------------- */
