@@ -91,6 +91,23 @@ import {
   reading,
   summarise,
 } from "../lib/display/framerate.ts";
+import {
+  COLS,
+  MIN_COVERAGE,
+  ROWS,
+  cellIndex,
+  coverage,
+  enclosedGaps,
+  evaluate,
+  reading as digitizerReading,
+} from "../lib/display/digitizer.ts";
+import {
+  coversP3,
+  gamutLabel,
+  gamutReading,
+  megapixels,
+  physicalPixels,
+} from "../lib/display/panel.ts";
 
 let failures = 0;
 const fail = (text) => {
@@ -1158,6 +1175,240 @@ console.log("\nBildfrequenz – Rate, Streuung und das ausgelassene Bild\n");
   } else {
     ok("Nullen, negative Werte, NaN und Infinity fliegen raus");
   }
+}
+
+/* ---- 15. Digitizer-Prüfstand -------------------------------------------- */
+
+console.log("\nDigitizer – „nicht geprüft“ ist nicht „meldet nicht“\n");
+
+{
+  const alle = () => new Set(Array.from({ length: COLS * ROWS }, (_, i) => i));
+  const at = (c, r) => r * COLS + c;
+
+  /*
+    Der wichtigste Einzelfall überhaupt: Wer nichts angefasst hat, hat kein
+    totes Display. Ein Verfahren, das unbestrichene Felder für Löcher hält,
+    meldete hier 96 tote Zonen – und der Kunde ginge mit einem
+    Kostenvoranschlag über ein neues Display nach Hause.
+  */
+  const leer = enclosedGaps(new Set());
+  if (leer.length !== 0) {
+    fail(`Ein unberührtes Raster meldet ${leer.length} tote Felder statt keins.`);
+  } else if (coverage(new Set()) !== 0) {
+    fail("Ein unberührtes Raster meldet eine bestrichene Fläche.");
+  } else {
+    ok("ein unberührtes Raster meldet keine einzige tote Zone");
+  }
+
+  const voll = alle();
+  if (enclosedGaps(voll).length !== 0 || coverage(voll) !== 1) {
+    fail("Ein vollständig bestrichenes Raster meldet Lücken oder nicht 100 %.");
+  } else {
+    ok("vollständig bestrichen: 100 %, keine Lücke");
+  }
+
+  /* Ein einzelnes Loch mitten im bestrichenen Gebiet ist der Befund, um den
+     es geht – es muss gefunden werden, und zwar genau dieses eine. */
+  const einLoch = alle();
+  einLoch.delete(at(5, 3));
+  const gefunden = enclosedGaps(einLoch);
+  if (gefunden.length !== 1 || gefunden[0] !== at(5, 3)) {
+    fail(`Ein eingeschlossenes Loch wird als ${JSON.stringify(gefunden)} gemeldet.`);
+  } else {
+    ok("ein eingeschlossenes Loch wird genau dort gefunden, wo es liegt");
+  }
+
+  /* Dasselbe Loch am Rand ist keins: Dort kann der Finger auch einfach
+     aufgehört haben. */
+  for (const [c, r, wo] of [
+    [0, 3, "linker Rand"],
+    [COLS - 1, 3, "rechter Rand"],
+    [5, 0, "obere Kante"],
+    [5, ROWS - 1, "untere Kante"],
+    [0, 0, "Ecke"],
+  ]) {
+    const amRand = alle();
+    amRand.delete(at(c, r));
+    if (enclosedGaps(amRand).length !== 0) {
+      fail(`Eine ausgelassene Stelle am ${wo} wird als tote Zone gemeldet.`);
+      break;
+    }
+  }
+  ok("ausgelassene Stellen an Rand und Ecke gelten nicht als tote Zone");
+
+  /* Ein Ring aus bestrichenen Feldern schließt alles darin ein – auch eine
+     größere Fläche, nicht nur ein einzelnes Feld. */
+  const ring = new Set();
+  for (let c = 2; c <= 8; c++) {
+    ring.add(at(c, 2));
+    ring.add(at(c, 6));
+  }
+  for (let r = 2; r <= 6; r++) {
+    ring.add(at(2, r));
+    ring.add(at(8, r));
+  }
+  const innen = enclosedGaps(ring);
+  const erwartet = (8 - 2 - 1) * (6 - 2 - 1);
+  if (innen.length !== erwartet) {
+    fail(`Ein Ring schließt ${innen.length} Felder ein, erwartet waren ${erwartet}.`);
+  } else {
+    ok(`ein Ring aus bestrichenen Feldern schließt alle ${erwartet} Felder darin ein`);
+  }
+
+  /* Ein Loch mit einem Ausgang zum Rand ist keins – die Flutfüllung muss
+     durch die Öffnung hindurchkommen. */
+  const offen = alle();
+  for (let r = 3; r < ROWS; r++) offen.delete(at(5, r));
+  if (enclosedGaps(offen).length !== 0) {
+    fail("Eine zum Rand offene Lücke wird als eingeschlossen gemeldet.");
+  } else {
+    ok("eine zum Rand offene Lücke gilt nicht als eingeschlossen");
+  }
+
+  /* Kein gemeldetes Loch darf bestrichen sein – sonst zeigt die Fläche einen
+     Warnhinweis auf einem Feld, das gerade eben noch reagiert hat. */
+  const zufall = new Set();
+  let seed = 20260809;
+  const rnd = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32);
+  for (let i = 0; i < COLS * ROWS; i++) if (rnd() < 0.7) zufall.add(i);
+  const widerspruch = enclosedGaps(zufall).filter((i) => zufall.has(i));
+  if (widerspruch.length) {
+    fail(`${widerspruch.length} gemeldete Löcher sind in Wahrheit bestrichen.`);
+  } else {
+    ok("kein gemeldetes Loch liegt auf einem bestrichenen Feld");
+  }
+
+  /* Die Feldnummer muss die Ränder hineinklemmen: Ein Punkt genau auf der
+     Kante ergäbe sonst eine Nummer, die es nicht gibt – und die Ecke, die am
+     ehesten kaputt ist, wäre die einzige ohne Feld. */
+  const ecken = [
+    [0, 0, 0],
+    [100, 0, COLS - 1],
+    [0, 100, (ROWS - 1) * COLS],
+    [100, 100, COLS * ROWS - 1],
+  ];
+  let klemmFehler = null;
+  for (const [x, y, soll] of ecken) {
+    const got = cellIndex(x, y, 100, 100);
+    if (got !== soll) klemmFehler = `(${x},${y}) → ${got} statt ${soll}`;
+  }
+  let ausserhalb = 0;
+  for (let x = 0; x <= 100; x += 0.5) {
+    for (const y of [0, 50, 100]) {
+      const i = cellIndex(x, y, 100, 100);
+      if (!Number.isInteger(i) || i < 0 || i >= COLS * ROWS) ausserhalb++;
+    }
+  }
+  if (klemmFehler) fail(`Die Ränder werden nicht hineingeklemmt: ${klemmFehler}`);
+  else if (ausserhalb) fail(`${ausserhalb} Punkte ergeben eine Feldnummer außerhalb des Rasters.`);
+  else ok("jeder Punkt einschließlich der Kanten trifft ein gültiges Feld");
+
+  /* Unter der Mindestfläche gibt es keinen Befund, sondern die Bitte,
+     weiterzufahren. Entwarnung nach halber Prüfung wäre schlimmer als kein
+     Werkzeug. */
+  /*
+    Die Schwelle wird gegen feste Flächen geprüft, nicht gegen sich selbst.
+
+    Der erste Anlauf baute seine Probe aus MIN_COVERAGE („zehn Prozent
+    weniger als die Schwelle“) und konnte damit gar nicht anschlagen: Senkt
+    jemand die Schwelle, sinkt die Probe mit, und der Test bleibt grün. Beim
+    Selbsttest fiel genau das auf – von vier absichtlich eingebauten Fehlern
+    meldete dieser als einziger nichts. Ein Test, dessen Sollwert vom
+    Prüfling stammt, prüft nichts.
+  */
+  if (!(MIN_COVERAGE > 0.5 && MIN_COVERAGE <= 0.95)) {
+    fail(
+      `Die Mindestfläche steht auf ${Math.round(MIN_COVERAGE * 100)} %. Darunter gäbe es Entwarnung nach halber Prüfung, darüber käme man nie zu einem Befund.`,
+    );
+  } else {
+    ok(`die Mindestfläche liegt mit ${Math.round(MIN_COVERAGE * 100)} % zwischen Leichtsinn und Unerreichbarkeit`);
+  }
+
+  const halb = new Set();
+  for (let i = 0; i < (COLS * ROWS) / 2; i++) halb.add(i);
+  const knapp = evaluate(halb, 1);
+  if (knapp.conclusive) {
+    fail("Bei nur halb bestrichener Fläche wird schon geurteilt.");
+  } else if (!/zu wenig/.test(digitizerReading(knapp))) {
+    fail(`Der Befund bei zu wenig Fläche lautet „${digitizerReading(knapp)}“.`);
+  } else {
+    ok("bei halb bestrichener Fläche gibt es keinen Befund, sondern die Bitte weiterzufahren");
+  }
+
+  const sauber = evaluate(alle(), 5);
+  if (!sauber.conclusive || sauber.gaps.length !== 0 || sauber.maxPoints !== 5) {
+    fail("Eine vollständige Prüfung liefert nicht das erwartete Ergebnis.");
+  } else if (/tot|defekt/i.test(digitizerReading(sauber))) {
+    fail(`Ein sauberer Befund spricht von Defekt: „${digitizerReading(sauber)}“`);
+  } else {
+    ok("eine vollständige, saubere Prüfung meldet keine Lücke und behauptet keinen Defekt");
+  }
+}
+
+/* ---- 16. Farbraum-Beweis ------------------------------------------------ */
+
+console.log("\nFarbraum – die Auskunft und was aus ihr folgt\n");
+
+{
+  const probe = (over) => ({
+    cssWidth: 393,
+    cssHeight: 852,
+    dpr: 3,
+    gamut: "p3",
+    highDynamicRange: true,
+    colorDepth: 24,
+    ...over,
+  });
+
+  const px = physicalPixels(probe());
+  if (px.width !== 1179 || px.height !== 2556) {
+    fail(`393 × 852 bei dreifacher Skalierung ergibt ${px.width} × ${px.height}.`);
+  } else if (megapixels(probe()) !== 3) {
+    fail(`1179 × 2556 sind ${megapixels(probe())} statt 3,0 Millionen Bildpunkte.`);
+  } else {
+    ok("393 × 852 × 3 → 1179 × 2556, 3 Millionen Bildpunkte");
+  }
+
+  const eins = physicalPixels(probe({ dpr: 1, cssWidth: 1920, cssHeight: 1080 }));
+  if (eins.width !== 1920 || eins.height !== 1080) {
+    fail("Ohne Skalierung weichen gerechnete und gemeldete Punkte voneinander ab.");
+  } else {
+    ok("ohne Skalierung sind gerechnete und gemeldete Punkte dieselben");
+  }
+
+  /* Jeder Farbraum bekommt eine Beschriftung – auch der unbekannte. Ein
+     leerer Wert in der Tabelle sieht aus wie ein Fehler der Seite und nicht
+     wie eine fehlende Auskunft des Browsers. */
+  let ohneNamen = null;
+  for (const g of ["srgb", "p3", "rec2020", "unbekannt"]) {
+    const label = gamutLabel(g);
+    if (!label || !label.trim()) ohneNamen = g;
+  }
+  if (ohneNamen) fail(`Der Farbraum „${ohneNamen}“ bleibt ohne Beschriftung.`);
+  else ok("alle vier Farbraum-Fälle sind benannt, auch der unbekannte");
+
+  if (!coversP3("p3") || !coversP3("rec2020")) {
+    fail("P3 oder Rec. 2020 gilt nicht als mindestens P3.");
+  } else if (coversP3("srgb") || coversP3("unbekannt")) {
+    fail("sRGB oder eine fehlende Angabe gilt als P3.");
+  } else {
+    ok("nur P3 und Rec. 2020 gelten als mehr als sRGB");
+  }
+
+  /*
+    Die Aussage darf in keiner Richtung zu weit gehen. Weder „Ihr Panel kann
+    kein P3“ (die Auskunft des Browsers beweist das nicht) noch „Ihr Panel
+    kann P3“ (dafür müsste jemand die Felder ansehen). Beide Sätze müssen
+    deshalb auf die Felder verweisen statt selbst zu urteilen.
+  */
+  let zuWeit = null;
+  for (const g of ["srgb", "p3", "rec2020", "unbekannt"]) {
+    const text = gamutReading(probe({ gamut: g }));
+    if (!/Feld/.test(text)) zuWeit = `${g}: „${text}“ verweist nicht auf die Felder`;
+    if (/\bkann kein\b|\bbeweist\b/.test(text)) zuWeit = `${g}: „${text}“ urteilt selbst`;
+  }
+  if (zuWeit) fail(zuWeit);
+  else ok("jede der vier Auskünfte verweist auf die Felder, statt selbst zu urteilen");
 }
 
 /* ---- Ergebnis ----------------------------------------------------------- */

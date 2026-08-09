@@ -135,7 +135,10 @@ anlegt, trägt nirgends etwas nach.
   wird keine Rate behauptet, und die Verteilung muss so viele Werte zeigen,
   wie gemessen wurden. Beim Entwässerungston werden Band, Rückweg und
   Hüllkurve nachgerechnet – ein Durchlauf muss dort enden, wo der nächste
-  anfängt.
+  anfängt. Beim Digitizer steht die Flutfüllung auf dem Prüfstand, und zwar
+  an ihren Einzelfällen: unberührtes Raster, Loch in der Mitte, Loch am Rand,
+  Ring, zum Rand offene Lücke. Beim Farbraum werden die vier Auskunftssätze
+  gelesen – keiner darf selbst urteilen, jeder muss auf die Felder verweisen.
 - `verify:privacy` – der Fingerabdruck-Nachweis auf /datenschutz. Prüft im
   Quelltext, dass die beteiligten Dateien kein `fetch`, kein `sendBeacon`,
   keinen Browserspeicher und keinen Zählpixel enthalten, dass jede gelesene
@@ -291,10 +294,11 @@ app/                     App-Router-Seiten (alle statisch prerendert)
                          Röntgen, Stats, CTA)
   reparatur/             Sofortpreis-Rechner (Signature-Feature) + Werkstattablauf + FAQ
   notfall/               Notfall-Protokolle (ohne JS lesbar, offline im Cache)
-  check/                 Geräte-Check: Sensor-Diagnose im Browser, dazu sieben
+  check/                 Geräte-Check: Sensor-Diagnose im Browser, dazu neun
                          Instrumente (Stethoskop, Klirrfaktor, Sturzschreiber,
                          Drosselschreiber, Pixel-Wecker, Bildfrequenz-
-                         Schreiber, Lautsprecher-Entwässerung)
+                         Schreiber, Farbraum-Beweis, Digitizer-Prüfstand,
+                         Lautsprecher-Entwässerung)
   vorbereitung/          Übergabe-Assistent: was vor der Abgabe zu tun ist
   ankauf/                Restwert-Rechner mit offengelegter Rechnung
   zwilling/              Digitaler Zwilling, Akku-Coach, Reparieren-oder-neu
@@ -337,6 +341,8 @@ components/
                          ThermalTrace (Drosselung unter Last),
                          PixelWake (hängende Bildpunkte lösen),
                          FrameRate (Bildfrequenz und Frame-Pacing),
+                         ColorGamut (sRGB gegen P3, sichtbar),
+                         Digitizer (tote Zonen im Touchscreen),
                          SpeakerEject (Wasser aus der Lautsprecherkammer)
   handover/              HandoverAssistant (Vorbereitung zur Abgabe)
   twin/                  DigitalTwin, RepairOrReplace
@@ -384,7 +390,9 @@ lib/
                          Untergrund), eject.ts (Entwässerungston: Band,
                          Hüllkurve, Stützstellen)
   display/               framerate.ts (Bilddauern → Rate, Streuung, zu späte
-                         Bilder, Verteilung)
+                         Bilder, Verteilung), digitizer.ts (Raster,
+                         Flutfüllung, eingeschlossene Lücken), panel.ts
+                         (Farbraum, gerechnete Bildpunkte)
   motion/                impact.ts (Fallgesetze, Bremsweg, Untergründe),
                          crack.ts (Spannungsüberhöhung nach Inglis)
   perf/                  throttle.ts (Arbeitspaket, Median, Auswertung)
@@ -811,16 +819,17 @@ gewählt hat – Vorauswahl ist „keine Nachrichten“.
 ### Die Instrumente auf `/check`
 
 Der Geräte-Check oben auf der Seite zählt zwölf Prüfpunkte zu einem Befund
-zusammen. Darunter stehen sieben Werkzeuge, die das ausdrücklich **nicht**
+zusammen. Darunter stehen neun Werkzeuge, die das ausdrücklich **nicht**
 tun: Sie liefern Messwerte, und die Deutung bleibt beim Menschen. Sie in die
 Liste zu hängen hieße, ein Spektrum in ein Häkchen zu übersetzen – und genau
 diese Übersetzung wäre die Behauptung, die hier niemand aufstellen will. Wer
 ein weiteres Instrument ergänzt, hält es ebenfalls aus dem Befund heraus.
 
-Die Entwässerung ist dabei der Sonderfall: Sie misst gar nichts, sie **tut**
-etwas. Erst recht gehört sie damit aus einem Befund heraus – ein Häkchen bei
-„Lautsprecher“ nach einem Ton, dessen Wirkung niemand nachgemessen hat, wäre
-die Behauptung in Reinform.
+Zwei sind dabei Sonderfälle. Die Entwässerung misst gar nichts, sie **tut**
+etwas – ein Häkchen bei „Lautsprecher“ nach einem Ton, dessen Wirkung niemand
+nachgemessen hat, wäre die Behauptung in Reinform. Und beim Farbraum ist das
+Messgerät das Auge: Was jemand vor dem Bildschirm sieht, kann die Seite nicht
+wissen und deshalb auch nicht in einen Befund schreiben.
 
 **Stethoskop: die Aufbereitung muss aus.** `getUserMedia` liefert
 voreingestellt einen für Sprache aufbereiteten Kanal. Besonders die
@@ -999,6 +1008,77 @@ ein Risiko trägt, steht der Satz davor, nicht danach.
 hängender Punkt leuchtet farbig und lässt sich manchmal lösen, ein defekter
 bleibt schwarz und niemals. Versprochen wird nichts – ein Werkzeug, das
 Heilung zusagt, wäre hier fehl am Platz.
+
+### Digitizer-Prüfstand und Farbraum-Beweis
+
+**„Nicht geprüft“ ist nicht „meldet nicht“ – daran hängt der ganze
+Prüfstand.** Ein nicht bestrichenes Feld sagt zunächst gar nichts: Es kann
+eine tote Zone sein oder eine Stelle, über die der Finger nie lief. Wer die
+beiden gleichsetzt, meldet jemandem, der langsam über die Mitte wischt, „30 %
+tot“ – und schickt ihn mit einem Kostenvoranschlag über ein neues Display
+nach Hause.
+
+Unterschieden wird an der Form: Wer eine Fläche bestreicht, hört irgendwo
+auf, und alles Ausgelassene hängt am Rand. Eine tote Zone liegt dagegen
+**mitten im** bestrichenen Gebiet. Gesucht wird deshalb mit einer
+Flutfüllung vom Rand her; gemeldet wird nur, was vollständig eingeschlossen
+ist. `verify:instruments` prüft die Einzelfälle, die dabei zählen – allen
+voran den wichtigsten: **ein unberührtes Raster meldet null tote Zonen**,
+nicht 96.
+
+**Das Verfahren ist absichtlich zu vorsichtig.** Eine tote Zone, die bis an
+den Rand reicht, sieht aus wie eine ausgelassene Ecke und wird nicht
+gefunden. Lieber ein übersehenes Loch als ein erfundenes – das steht auch auf
+der Seite, unter „Was der Prüfstand übersieht“.
+
+**Unter 60 % bestrichener Fläche gibt es keinen Befund.** Nicht „in
+Ordnung“, sondern die Bitte weiterzufahren: Ein Werkzeug, das nach halber
+Prüfung Entwarnung gibt, ist schlimmer als keins. Die Schwelle wird gegen
+**feste** Flächen geprüft, nicht gegen sich selbst – der erste Anlauf baute
+seine Probe aus `MIN_COVERAGE` („zehn Prozent weniger als die Schwelle“) und
+konnte deshalb gar nicht anschlagen. Beim Selbsttest meldete er als einziger
+von vier eingebauten Fehlern nichts. **Ein Test, dessen Sollwert vom Prüfling
+stammt, prüft nichts.**
+
+**Kein `setPointerCapture`.** Naheliegend, um Bewegungen außerhalb der Fläche
+mitzubekommen, und hier falsch: Der Fang leitet alle weiteren Zeiger auf
+dasselbe Element um und verfälscht damit genau die Zahl, um die es geht.
+Stattdessen `touch-action: none`. Und `getCoalescedEvents()` – ohne die
+Zwischenpunkte reißt eine schnelle Bewegung Löcher in die Spur, und die
+Auswertung fände Lücken, die der Digitizer sehr wohl gemeldet hat.
+
+**Das stumme Feld trägt Farbe und Muster.** Es ist die einzige Stelle, an der
+eine Rot-Grün-Schwäche zwischen „bestrichen“ und „meldet nicht“ entscheiden
+müsste, und die Felder stehen einzeln, ohne Beschriftung daneben.
+
+**Beim Farbraum ist das Messgerät das Auge.** `matchMedia("(color-gamut:
+p3)")` beantwortet die Frage scheinbar direkt, ist aber eine Auskunft des
+Systems über sich selbst: Manche Browser melden den Farbraum des Fensters
+statt den des Panels, in einer Fernsitzung beschreibt die Angabe den falschen
+Bildschirm. Nebeneinandergestellte Felder – dieselbe Farbe einmal in sRGB,
+einmal in `color(display-p3 …)` – zeigen dagegen, was ankommt. Deshalb steht
+beides da, und wo sie sich widersprechen, gilt das Auge.
+
+Daraus folgt die Regel für die Texte: **Keiner der Sätze darf selbst
+urteilen.** Weder „Ihr Panel kann kein P3“ (die Auskunft beweist das nicht)
+noch „Ihr Panel kann P3“ (dafür müsste jemand hinsehen). Jeder der vier Fälle
+verweist auf die Felder; das Prüfskript liest die Sätze und schlägt an, wenn
+einer das nicht tut oder ein Urteil enthält. Die Sätze tragen aus demselben
+Grund **keine Ortsangabe** („die Felder unten“): Eine Umstellung im Aufbau
+machte daraus stillschweigend eine falsche Angabe.
+
+**Die Paare sind reine Primärfarben**, weil der Abstand zwischen sRGB und P3
+genau dort am größten ist, wo eine Farbe an den Rand ihres Raums stößt. Ein
+abgetöntes Orange liegt in beiden Räumen, sähe auch auf einem P3-Panel gleich
+aus und ließe den Beweis scheitern, obwohl das Panel besteht. Und die beiden
+Hälften stoßen **ohne Fuge** aneinander: Ein Steg dazwischen macht aus dem
+leichtesten Vergleich, den das Auge kennt, einen Gedächtnisvergleich.
+
+**Eine Pixeldichte fehlt bewusst.** Sie wäre die naheliegendste Zahl eines
+Display-Steckbriefs und ist im Browser nicht zu haben – die physische
+Diagonale gibt kein Web-API preis, `devicePixelRatio` ist ein
+Skalierungsfaktor und kein Maß. Man müsste sie aus einer Modelltabelle raten
+und ihr zwei Nachkommastellen geben.
 
 ### Bildfrequenz-Schreiber und Lautsprecher-Entwässerung
 

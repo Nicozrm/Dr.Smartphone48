@@ -1,6 +1,8 @@
 import { Reveal } from "@/components/ui/Reveal";
 import { DeviceCheck } from "@/components/check/DeviceCheck";
 import { Distortion } from "@/components/check/Distortion";
+import { ColorGamut } from "@/components/check/ColorGamut";
+import { Digitizer } from "@/components/check/Digitizer";
 import { DropForensics } from "@/components/check/DropForensics";
 import { FrameRate } from "@/components/check/FrameRate";
 import { PixelWake } from "@/components/check/PixelWake";
@@ -39,29 +41,30 @@ export default function CheckPage() {
       </div>
 
       {/*
-        Sieben Werkzeuge, die bewusst außerhalb des Befunds stehen.
+        Neun Werkzeuge, die bewusst außerhalb des Befunds stehen.
 
         Der Check oben zählt zwölf Prüfpunkte zu einem Ergebnis zusammen. Diese
-        sieben lassen sich nicht bestehen oder nicht bestehen – sie liefern
+        neun lassen sich nicht bestehen oder nicht bestehen – sie liefern
         Messwerte, und die Deutung bleibt beim Menschen. Sie in die Liste zu
         hängen, hieße, ein Spektrum in ein Häkchen zu übersetzen, und genau
         diese Übersetzung wäre die Behauptung, die hier niemand aufstellen
         will.
 
-        Die Entwässerung ist der Sonderfall: Sie misst gar nichts, sie tut
-        etwas. Erst recht gehört sie damit aus einem Befund heraus – ein
-        Häkchen bei „Lautsprecher“ nach einem Ton, dessen Wirkung niemand
-        nachgemessen hat, wäre die Behauptung in Reinform.
+        Zwei sind Sonderfälle. Die Entwässerung misst gar nichts, sie tut
+        etwas – ein Häkchen bei „Lautsprecher“ nach einem Ton, dessen Wirkung
+        niemand nachgemessen hat, wäre die Behauptung in Reinform. Und beim
+        Farbraum ist das Messgerät das Auge; die Seite kann nicht wissen, was
+        jemand davor sieht.
       */}
       <Reveal className="mt-24 max-w-2xl" printHide>
-        <p className="text-eyebrow">Sieben Instrumente</p>
+        <p className="text-eyebrow">Neun Instrumente</p>
         <h2 className="text-headline mt-4">Messen statt raten.</h2>
         <p className="mt-5 text-lg leading-relaxed text-ink-soft">
-          Diese sieben geben keinen Befund und tauchen oben in der Auswertung
+          Diese neun geben keinen Befund und tauchen oben in der Auswertung
           nicht auf. Sie zeigen, was dieses Gerät tatsächlich hergibt – mit
-          ihren Grenzen daneben. Was daraus folgt, entscheiden Sie. Vier davon
-          kommen ganz ohne Berechtigung aus: kein Mikrofon, kein Sensor, nur
-          Rechnen, Licht und ein tiefer Ton.
+          ihren Grenzen daneben. Was daraus folgt, entscheiden Sie. Sechs
+          davon kommen ganz ohne Berechtigung aus: kein Mikrofon, kein Sensor,
+          nur Rechnen, Licht und ein tiefer Ton.
         </p>
       </Reveal>
 
@@ -87,6 +90,14 @@ export default function CheckPage() {
 
       <Reveal className="mt-20" printHide>
         <FrameRate />
+      </Reveal>
+
+      <Reveal className="mt-20" printHide>
+        <ColorGamut />
+      </Reveal>
+
+      <Reveal className="mt-20" printHide>
+        <Digitizer />
       </Reveal>
 
       <Reveal className="mt-20" printHide>
