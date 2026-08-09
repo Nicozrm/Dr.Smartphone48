@@ -406,6 +406,61 @@ function checkPageMeta() {
 }
 
 /* ================================================================== */
+/* 4b. Das interne Netz: keine Seite bleibt eine Insel                */
+/* ================================================================== */
+
+/*
+  Bis August 2026 waren die drei internen Werkzeuge Inseln: kein Weg zurück
+  zur Übersicht, kein Weg zueinander. Wer nach dem Schreiben einer Rechnung
+  ein Zertifikat ausstellen wollte, tippte die Adresse.
+
+  Behoben ist das mit `InternNav` – und behoben bleibt es nur, wenn die
+  nächste interne Seite die Leiste ebenfalls trägt. Genau das ist der
+  Fehler, den niemand bemerkt: Die neue Seite funktioniert ja, sie hängt
+  bloß an keinem Faden.
+
+  Geprüft wird zweierlei: dass die Leiste da ist, und dass sie auf den
+  eigenen Pfad zeigt. Ein kopiertes `current` markiert sonst die falsche
+  Seite – falsch, und dazu die Sorte Fehler, die man beim Ansehen für einen
+  Klickfehler hält.
+*/
+
+function checkInternNet() {
+  checksRun++;
+  for (const file of walk("app/intern", ["page.tsx"])) {
+    const src = readFileSync(file, "utf8");
+
+    // Route aus dem Dateipfad: app/intern/rechnung/page.tsx -> /intern/rechnung
+    const route =
+      "/" +
+      rel(file)
+        .replace(/^app\//, "")
+        .replace(/\/page\.tsx$/, "")
+        .replace(/\/?page\.tsx$/, "");
+
+    if (!/<InternNav\b/.test(src)) {
+      report(
+        "intern-netz",
+        rel(file),
+        `Ohne <InternNav /> ist ${route} eine Insel – kein Weg zurück, kein Weg zu den anderen Werkzeugen.`,
+      );
+      continue;
+    }
+
+    const m = src.match(/<InternNav[^>]*\bcurrent=\{?"([^"]+)"/);
+    if (!m) {
+      report("intern-netz", rel(file), "<InternNav /> ohne current – die Leiste markiert nichts.");
+    } else if (m[1] !== route) {
+      report(
+        "intern-netz",
+        `${rel(file)}:${lineOf(src, m.index)}`,
+        `<InternNav current="${m[1]}" /> auf der Seite ${route} – die Leiste markiert die falsche Seite.`,
+      );
+    }
+  }
+}
+
+/* ================================================================== */
 /* 5. Offline-Vorrat: zwei Listen, eine Wahrheit                      */
 /* ================================================================== */
 
@@ -615,6 +670,7 @@ const CHECKS = [
   ["Redaktion", checkEditorial],
   ["Shader", checkShaders],
   ["Metadaten", checkPageMeta],
+  ["Intern-Netz", checkInternNet],
   ["Offline-Vorrat", checkPrecache],
 ];
 

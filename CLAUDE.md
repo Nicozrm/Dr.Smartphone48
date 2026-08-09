@@ -63,6 +63,7 @@ Geprüft wird:
 | Redaktion | keine Markdown-Betonung in `lib/data/`-Textwerten, keine feste Garantiedauer außerhalb `site.ts` |
 | Shader | kein Backtick im GLSL-Literal, keine GLSL-Schlüsselwörter als Bezeichner |
 | Metadaten | jede Route nutzt `pageMeta()` |
+| Intern-Netz | jede Seite unter `app/intern` trägt `<InternNav>`, und deren `current` zeigt auf den eigenen Pfad |
 | Offline-Vorrat | `public/sw.js` und `lib/pwa/precache.ts` nennen dieselben Seiten in derselben Reihenfolge, /notfall zuerst, gleicher Nachrichtenname |
 | Export | eigener Canonical je Seite, `og:image` überall, nichts zugleich in Sitemap und auf `noindex` |
 
@@ -304,6 +305,8 @@ app/                     App-Router-Seiten (alle statisch prerendert)
   ersatzteile/ werkstatt/ kontakt/
   impressum/ datenschutz/ agb/ offline/ not-found.tsx
   pruefen/               Reparaturzertifikat prüfen (öffentlich, ohne Server)
+  intern/                Einstieg für den Betrieb: was quer liegt, Werkzeuge,
+                         offene Einrichtung (nicht verlinkt, noindex)
   intern/rechnung/       Rechnungswerkzeug (nicht verlinkt, noindex, kein Server)
   intern/zertifikat/     Zertifikat ausstellen (nicht verlinkt, noindex, kein Server)
   intern/werkstatt/      Vorgangs-Dashboard (nicht verlinkt, noindex, Anmeldung)
@@ -351,6 +354,8 @@ components/
                          CheckpointGrid, VerifyView (Prüfseite),
                          CertificateIssuer (Werkstattwerkzeug)
   invoice/               InvoiceBuilder (Editor) + InvoiceSheet (das Blatt, DIN 5008)
+  intern/                InternHome (Übersicht), InternNav (die Leiste über
+                         allen internen Seiten – Server-Komponente, kein JS)
   privacy/               Fingerprint (der Nachweis auf /datenschutz)
   pwa/                   ServiceWorkerRegister, OfflineStock (der Kassensturz)
 lib/
@@ -376,6 +381,8 @@ lib/
                          crack.ts (Spannungsüberhöhung nach Inglis)
   perf/                  throttle.ts (Arbeitspaket, Median, Auswertung)
   privacy/               signals.ts (was ein Browser ungefragt preisgibt)
+  intern/                pages.ts (die internen Seiten – einmal, für Leiste
+                         und Kacheln)
   pwa/                   precache.ts (die Vorratsliste, gegen sw.js geprüft)
   cert/                  format.ts (Binärformat + base64url), crypto.ts
                          (ECDSA P-256, Gerätebindung), keys.ts (öffentlicher
@@ -395,7 +402,9 @@ lib/
   realtime/              topics.ts, useStatusChannel.ts
   api/                   respond.ts (Antwortform), rate-limit.ts, client.ts
                          (jede Adresse genau einmal)
-  workshop/              useWorkshopTickets.ts, useShortcuts.ts
+  workshop/              useWorkshopTickets.ts, useShortcuts.ts,
+                         attention.ts (was quer liegt), deeplink.ts (der
+                         Sprung von der Übersicht in die Akte)
 supabase/
   migrations/            Schema, RLS, Realtime – in dieser Reihenfolge
   README.md              Einrichtung, Personal freischalten, Aufbewahrung

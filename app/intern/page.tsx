@@ -1,4 +1,6 @@
 import { InternHome } from "@/components/intern/InternHome";
+import { InternNav } from "@/components/intern/InternNav";
+import { hasTicketBackend } from "@/lib/supabase/env";
 import { pageMeta } from "@/lib/seo";
 
 /*
@@ -36,6 +38,11 @@ export const metadata = {
 export default function InternPage() {
   return (
     <section className="pb-24 pt-28 md:pt-32">
+      {/* Die Leiste steht in der Seite, nicht in der Komponente – wie bei
+          den drei Werkzeugen daneben. `hasTicketBackend()` liest nur
+          Umgebungswerte, die beim Bauen ersetzt werden, und ist deshalb
+          auch serverseitig auswertbar. */}
+      <InternNav current="/intern" hasBackend={hasTicketBackend()} />
       <InternHome />
     </section>
   );

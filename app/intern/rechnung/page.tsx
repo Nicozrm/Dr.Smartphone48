@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { pageMeta } from "@/lib/seo";
 import { InvoiceBuilder } from "@/components/invoice/InvoiceBuilder";
+import { InternNav } from "@/components/intern/InternNav";
 
 /*
   Internes Werkzeug. Nicht in der Navigation, nicht in der Sitemap, nicht im
@@ -24,6 +25,9 @@ export const metadata: Metadata = {
 export default function RechnungPage() {
   return (
     <div className="inv-page pt-16">
+      {/* Die Leiste steht außerhalb des Blatts – beim Drucken blendet der
+          Druck-Block in globals.css alles aus, was nicht das Blatt ist. */}
+      <InternNav current="/intern/rechnung" />
       <InvoiceBuilder />
     </div>
   );

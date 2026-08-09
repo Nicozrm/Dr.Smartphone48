@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CertificateIssuer } from "@/components/cert/CertificateIssuer";
+import { InternNav } from "@/components/intern/InternNav";
 import { pageMeta } from "@/lib/seo";
 
 /*
@@ -25,6 +26,7 @@ export const metadata: Metadata = {
 export default function ZertifikatPage() {
   return (
     <div className="pt-28">
+      <InternNav current="/intern/zertifikat" />
       <CertificateIssuer />
     </div>
   );

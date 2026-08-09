@@ -16,6 +16,7 @@ import {
   type AttentionReason,
 } from "@/lib/workshop/attention";
 import { workshopHref } from "@/lib/workshop/deeplink";
+import { INTERN_TOOLS } from "@/lib/intern/pages";
 import { certKeys } from "@/lib/cert/keys";
 import { loadProfile } from "@/lib/invoice/store";
 import {
@@ -68,38 +69,6 @@ const OPEN_STATUSES = TICKET_STATUSES.filter((status) => status !== "completed")
  * nachgesehen".
  */
 const LIMIT = 200;
-
-interface Werkzeug {
-  href: string;
-  title: string;
-  desc: string;
-}
-
-/*
-  Ohne Symbole, und das ist kein Auslassen.
-
-  Der Satz in components/ui/Icon.tsx kennt kein Werkzeug für „Rechnung" –
-  und die naheliegenden Ersatzgriffe (ein Brief, ein Haken) bedeuten etwas
-  anderes. Ein Symbol, das man erst erklären muss, trägt weniger als das
-  Wort, das darunter ohnehin steht. Also nur das Wort und der Pfeil.
-*/
-const WERKZEUGE: Werkzeug[] = [
-  {
-    href: "/intern/werkstatt",
-    title: "Werkstatt",
-    desc: "Vorgänge ansehen, Status setzen, Vermerke schreiben.",
-  },
-  {
-    href: "/intern/rechnung",
-    title: "Rechnung",
-    desc: "Beleg schreiben, drucken, als E-Rechnung ausgeben.",
-  },
-  {
-    href: "/intern/zertifikat",
-    title: "Zertifikat",
-    desc: "Reparatur unterschreiben und als QR-Code mitgeben.",
-  },
-];
 
 /**
  * Der Satz zu einem Befund.
@@ -418,8 +387,8 @@ function MitBackend() {
 
 function Werkzeuge({ ohneWerkstatt = false }: { ohneWerkstatt?: boolean }) {
   const liste = ohneWerkstatt
-    ? WERKZEUGE.filter((w) => w.href !== "/intern/werkstatt")
-    : WERKZEUGE;
+    ? INTERN_TOOLS.filter((w) => !w.needsBackend)
+    : INTERN_TOOLS;
 
   return (
     <section>

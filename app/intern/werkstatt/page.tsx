@@ -1,4 +1,5 @@
 import { WorkshopDashboard } from "@/components/workshop/WorkshopDashboard";
+import { InternNav } from "@/components/intern/InternNav";
 import { pageMeta } from "@/lib/seo";
 
 /*
@@ -26,8 +27,13 @@ export const metadata = pageMeta({
 
 export default function WerkstattPage() {
   return (
-    <section className="mx-auto max-w-7xl px-5 pb-24 pt-28 md:px-8 md:pt-32">
-      <WorkshopDashboard />
-    </section>
+    <>
+      <div className="pt-28 md:pt-32">
+        <InternNav current="/intern/werkstatt" />
+      </div>
+      <section className="mx-auto max-w-7xl px-5 pb-24 md:px-8">
+        <WorkshopDashboard />
+      </section>
+    </>
   );
 }
