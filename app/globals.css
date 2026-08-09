@@ -167,6 +167,34 @@
     rgba(36, 86, 230, 0.028) 42%,
     rgba(36, 86, 230, 0) 76%
   );
+
+  /*
+    Dieselbe Lichtquelle über einer dunklen Fläche.
+
+    Weiß mit 0.95 ist auf Off-White eine Ahnung und auf Graphit ein grauer
+    Schleier – die Stärke hängt an der Fläche, nicht am Theme. Der Dunkelmodus
+    wusste das längst und setzte eigene Werte; die Kennzahlen-Sektion der
+    Startseite ist aber auch im **Hellmodus** dunkel und bekam trotzdem das
+    helle Ambiente. Ergebnis war ein hellgrau ausgewaschenes Band quer über
+    die Seite, auf dem die Auszeichnung fast verschwand.
+
+    Deshalb stehen die schwachen Werte hier als eigene Tokens: Der
+    Dunkelmodus verweist darauf, und `.lightfall` auf einer inversen Fläche
+    nimmt sie unabhängig vom Theme.
+  */
+  --light-ambient-inverse: radial-gradient(
+    120% 78% at 50% -12%,
+    rgba(150, 170, 220, 0.13) 0%,
+    rgba(150, 170, 220, 0.05) 34%,
+    rgba(150, 170, 220, 0) 72%
+  );
+  --light-accent-inverse: radial-gradient(
+    62% 52% at 50% 0%,
+    rgba(92, 134, 255, 0.16) 0%,
+    rgba(92, 134, 255, 0.05) 42%,
+    rgba(92, 134, 255, 0) 76%
+  );
+
   /* Specular: der wandernde Glanz auf Glas. Folgt dem Zeiger über --gx/--gy. */
   --light-specular: radial-gradient(
     38% 34% at var(--gx, 50%) var(--gy, 32%),
@@ -301,19 +329,11 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
 
   /* Licht auf OLED: das Ambiente wird kühl und schwach, sonst entsteht der
-     graue Schleier, den man auf schwarzen Flächen sofort sieht. */
-  --light-ambient: radial-gradient(
-    120% 78% at 50% -12%,
-    rgba(150, 170, 220, 0.13) 0%,
-    rgba(150, 170, 220, 0.05) 34%,
-    rgba(150, 170, 220, 0) 72%
-  );
-  --light-accent: radial-gradient(
-    62% 52% at 50% 0%,
-    rgba(92, 134, 255, 0.16) 0%,
-    rgba(92, 134, 255, 0.05) 42%,
-    rgba(92, 134, 255, 0) 76%
-  );
+     graue Schleier, den man auf schwarzen Flächen sofort sieht. Die Werte
+     stehen als eigene Tokens in :root – im Dunkelmodus ist jede Fläche eine
+     inverse, also gelten sie hier für alles. */
+  --light-ambient: var(--light-ambient-inverse);
+  --light-accent: var(--light-accent-inverse);
   --light-specular: radial-gradient(
     38% 34% at var(--gx, 50%) var(--gy, 32%),
     rgba(255, 255, 255, 0.22) 0%,
@@ -849,6 +869,19 @@ html[data-js] .nojs-only {
     z-index: -1;
     pointer-events: none;
     background-image: var(--light-accent), var(--light-ambient);
+  }
+
+  /*
+    Eine dunkle Sektion trägt ihr eigenes Licht mit.
+
+    Die Stärke des Ambientes gehört zur Fläche, nicht zum Theme: Auf
+    Off-White ist Weiß mit 0.95 eine Ahnung, auf Graphit ein Schleier. Die
+    Kennzahlen-Sektion ist in beiden Themes dunkel und bekam im Hellmodus
+    trotzdem das helle Ambiente – ein hellgraues Band quer über die Seite.
+    Hier hängt die Wahl deshalb an der Fläche.
+  */
+  .lightfall.bg-inverse::before {
+    background-image: var(--light-accent-inverse), var(--light-ambient-inverse);
   }
 }
 

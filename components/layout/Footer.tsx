@@ -146,10 +146,21 @@ export function Footer() {
           <p className="text-[0.8125rem] font-medium uppercase tracking-[0.12em] text-ink-inverse-soft/70">
             Öffnungszeiten
           </p>
+          {/*
+            Tag und Zeit stehen nebeneinander, nicht an den Rändern ihrer
+            Spalte.
+
+            Zuvor trieb `justify-between` beide in eine Zelle von rund 360 px
+            Breite auseinander – zwischen „Samstag" und „Nach Vereinbarung"
+            lag dann ein Drittel der Fußzeile Weißraum, und wer die Zeile las,
+            musste jedes Paar erst wieder zusammensuchen. Eine feste
+            Beschriftungsspalte hält beides beieinander und stellt die Zeiten
+            zusätzlich untereinander auf eine Kante.
+          */}
           <dl className="mt-4 grid gap-x-10 gap-y-2 sm:grid-cols-3">
             {site.openingHours.map((o) => (
-              <div key={o.days} className="flex items-baseline justify-between gap-4 text-[0.875rem]">
-                <dt>{o.days}</dt>
+              <div key={o.days} className="flex items-baseline gap-4 text-[0.875rem]">
+                <dt className="min-w-[8.5rem] shrink-0">{o.days}</dt>
                 <dd className="font-mono text-ink-inverse">{o.hours}</dd>
               </div>
             ))}
