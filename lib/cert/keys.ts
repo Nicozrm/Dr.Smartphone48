@@ -78,7 +78,9 @@ export interface CertKey {
  * meldet weiterhin „Schlüssel nicht hinterlegt“, ohne dass jemand den
  * Widerspruch bemerkt.
  */
-export const certKeys: CertKey[] = [];
+export const certKeys: CertKey[] = [
+  { id: 1, publicKey: "BHwT2EXvexnMNVYxu-ei2PAdSxB6eyLHJmwKi29WAZ_U0WZRBhTpjgigxMG3e-M_gx4SEcC4rXqehWGVjay0dks", since: "2026-08-09", note: "Werkstattrechner." },
+];
 
 export function findKey(id: number): CertKey | undefined {
   return certKeys.find((key) => key.id === id);
