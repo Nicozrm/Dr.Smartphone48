@@ -24,7 +24,8 @@ import { useEffect, useRef } from "react";
  *    einmal über die Fläche. Reine CSS-Animation, läuft im Compositor.
  * 4. Kamerafahrt. Beim Scrollen wandert das Gerät rund ein Prozent der
  *    Bildhöhe langsamer als die Seite. Man sieht keine Bewegung, man sieht
- *    Tiefe.
+ *    Tiefe. Langsamer heißt: Der Weg zeigt nach **unten** – das Gerät bleibt
+ *    hinter dem Bildlauf zurück. Siehe MAX_DRIFT.
  *
  * Bewegung 1, 2 und 4 laufen über CSS-Variablen, die JS je Bild schreibt;
  * die eigentlichen Transformationen stehen in CSS. Bei
@@ -47,6 +48,25 @@ export function HeroDevice({ className = "" }: { className?: string }) {
     let visible = true;
 
     const MAX_TILT = 2.4;
+    /*
+      Der Weg der Kamerafahrt, in Pixeln, und er zeigt nach unten.
+
+      Hier stand `-scrollY * 0.06`, also ein Weg nach oben – und damit das
+      Gegenteil dessen, was darüber steht: Ein Gerät, das sich zusätzlich
+      nach oben schiebt, läuft **schneller** als die Seite, nicht langsamer.
+
+      Der Schaden war nicht die falsche Richtung, sondern wohin sie führte.
+      `.hero-crop` schneidet oben hart ab (align-items: flex-start), die
+      weiche Kante liegt unten. Nach 800 px Bildlauf lag das Gerät also rund
+      50 px zu hoch – und weg waren die gerundeten Ecken (Radius 47 px) und
+      die Insel. Übrig blieb ein schwarzes Rechteck mit harten Flanken, genau
+      an der Stelle, an der die Seite ihr einziges Objekt zeigt.
+
+      Nach unten ist der Beschnitt harmlos: Der Fuß steckt ohnehin schon in
+      der Maske. Gedeckelt wird trotzdem, sonst sinkt das Gerät bei langen
+      Seiten aus dem Anschnitt heraus.
+    */
+    const MAX_DRIFT = 40;
 
     const write = () => {
       stage.style.setProperty("--rx", `${cur.rx.toFixed(3)}deg`);
@@ -99,7 +119,7 @@ export function HeroDevice({ className = "" }: { className?: string }) {
       const r = stage.getBoundingClientRect();
       // Nur solange die Bühne im Bild ist. Danach ist jede Rechnung verschenkt.
       if (r.bottom < 0 || r.top > window.innerHeight) return;
-      to.sy = -window.scrollY * 0.06;
+      to.sy = Math.min(window.scrollY * 0.06, MAX_DRIFT);
       kick();
     };
 

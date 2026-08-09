@@ -197,7 +197,23 @@ export function Reviews() {
           <div className="flex flex-col items-center text-center">
             <span className="text-eyebrow">Bewertungen</span>
             <div className="mt-6 flex items-baseline gap-4">
-              <span className="font-mono text-[4rem] font-semibold leading-none tracking-tight text-ink-strong md:text-[5.5rem]">
+              {/*
+                Diese eine Zahl steht nicht in der Schreibmaschinenschrift.
+
+                Sonst gilt hier die Regel umgekehrt: Messwerte, Preise und
+                Kennzahlen sind einheitlich `font-mono`, weil eine feste
+                Laufweite sie untereinander vergleichbar macht. Genau die
+                feste Laufweite ist bei „5,0" in 88 px aber das Problem – das
+                Komma bekommt eine volle Zeichenzelle, und aus der Note wird
+                „5 , 0" mit zwei Löchern. Vergleichen muss man hier nichts:
+                Es ist eine einzelne Zahl im Schaugrad, also gilt die Regel
+                des Schaugrads (siehe .text-display: enge Laufweite,
+                Zeilenabstand unter 1).
+
+                Die Zeile darunter bleibt Schreibmaschine – sie ist Angabe,
+                nicht Aussage.
+              */}
+              <span className="text-[4rem] font-semibold leading-none tracking-[-0.038em] text-ink-strong md:text-[5.5rem]">
                 {reviewSummary.rating.toLocaleString("de-DE", { minimumFractionDigits: 1 })}
               </span>
               <span className="text-left">
