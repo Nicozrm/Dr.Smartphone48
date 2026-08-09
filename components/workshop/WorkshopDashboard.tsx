@@ -9,6 +9,7 @@ import { TicketDetail } from "./TicketDetail";
 import { ShortcutHelp } from "./ShortcutHelp";
 import { useWorkshopTickets } from "@/lib/workshop/useWorkshopTickets";
 import { useShortcuts, type Shortcut } from "@/lib/workshop/useShortcuts";
+import { parseDeepLink } from "@/lib/workshop/deeplink";
 import { logout } from "@/lib/api/client";
 import { hasTicketBackend } from "@/lib/supabase/env";
 import { ticketStatusMeta, TICKET_STATUSES, type TicketStatus } from "@/lib/tickets/status";
@@ -46,6 +47,35 @@ export function WorkshopDashboard() {
   const [now, setNow] = useState<number | null>(null);
 
   const searchRef = useRef<HTMLInputElement>(null);
+
+  /*
+    Der Sprung aus der Übersicht: `?vorgang=<Code>` öffnet eine Akte,
+    `?status=<Zustand>` zeigt einen Zustand allein.
+
+    Einmal beim Laden, nicht fortlaufend. Die Adresse ist hier ein
+    Startwert, kein zweiter Zustandsspeicher – wer danach filtert oder
+    sucht, soll nicht gegen die Adresse anarbeiten müssen. Aus demselben
+    Grund wird sie auch nicht zurückgeschrieben.
+
+    `window.location` statt `useSearchParams`: Letzteres verlangt im
+    statischen Export eine Suspense-Grenze und macht die Seite zur
+    Client-Bailout. Dieselbe Lösung wie im Übergabe-Assistenten.
+
+    Bei einem Vorgang werden zusätzlich alle Zustände eingeschaltet. Die
+    Voreinstellung blendet abgeschlossene aus – ein Sprung, der genau
+    dorthin zeigt, liefe sonst ins Leere und die Akte schlösse sich sofort
+    wieder.
+  */
+  useEffect(() => {
+    const link = parseDeepLink(window.location.search, TICKET_STATUSES);
+    if (link.vorgang) {
+      setStatuses([...TICKET_STATUSES]);
+      setSearch(link.vorgang);
+      setSelected(link.vorgang);
+    } else if (link.status) {
+      setStatuses([link.status]);
+    }
+  }, []);
 
   const query = useMemo(
     () => ({ search, statuses, sort, limit: 100 }),

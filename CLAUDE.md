@@ -59,6 +59,7 @@ Geprüft wird:
 | Prüfung | Worauf |
 |---|---|
 | Kontrast | alle Ink×Flächen-Paare in beiden Themes ≥ 4.5:1, Statusfarben, `--accent-contrast` auf `--accent`, kein `text-white` auf `bg-accent` |
+| Prädikate | exportierte Prüffunktionen (`hasTicketBackend` …) werden aufgerufen, nicht als Wert abgefragt – eine Funktion ist immer wahr |
 | Redaktion | keine Markdown-Betonung in `lib/data/`-Textwerten, keine feste Garantiedauer außerhalb `site.ts` |
 | Shader | kein Backtick im GLSL-Literal, keine GLSL-Schlüsselwörter als Bezeichner |
 | Metadaten | jede Route nutzt `pageMeta()` |

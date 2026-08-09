@@ -15,6 +15,7 @@ import {
   valueInProgress,
   type AttentionReason,
 } from "@/lib/workshop/attention";
+import { workshopHref } from "@/lib/workshop/deeplink";
 import { certKeys } from "@/lib/cert/keys";
 import { loadProfile } from "@/lib/invoice/store";
 import {
@@ -181,7 +182,11 @@ function useEinrichtung(): Mangel[] {
 /* ---- Die Seite ---------------------------------------------------------- */
 
 export function InternHome() {
-  if (!hasTicketBackend) return <OhneBackend />;
+  // Aufgerufen, nicht abgefragt: `hasTicketBackend` ist eine Funktion, und
+  // eine Funktionsreferenz ist immer wahr. `!hasTicketBackend` wäre damit
+  // stets falsch – der Zweig darunter liefe nie, und der statische Export
+  // zeigte statt der ehrlichen Auskunft einen Anmeldeversuch ins Leere.
+  if (!hasTicketBackend()) return <OhneBackend />;
   return <MitBackend />;
 }
 
@@ -294,9 +299,10 @@ function MitBackend() {
               </p>
               <ul className="mt-5 space-y-2">
                 {quer.map(({ ticket, reason, days }) => (
-                  <li
-                    key={ticket.ticketCode}
-                    className="rounded-[var(--radius-m)] border border-line bg-raised p-4"
+                  <li key={ticket.ticketCode}>
+                  <Link
+                    href={workshopHref({ vorgang: ticket.ticketCode })}
+                    className="press block rounded-[var(--radius-m)] border border-line bg-raised p-4 transition-colors hover:border-line-strong"
                   >
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                       <span className="font-mono text-[0.9375rem] text-ink-strong">
@@ -314,6 +320,7 @@ function MitBackend() {
                     >
                       {satzZu(reason, days, ticket.status)}
                     </p>
+                  </Link>
                   </li>
                 ))}
               </ul>
@@ -378,7 +385,11 @@ function MitBackend() {
                   const meta = ticketStatusMeta[status];
                   const anzahl = zaehlung.get(status) ?? 0;
                   return (
-                    <li key={status} className="flex items-center gap-4 py-3">
+                    <li key={status}>
+                    <Link
+                      href={workshopHref({ status })}
+                      className="flex items-center gap-4 py-3 transition-colors hover:text-accent"
+                    >
                       <Icon name={meta.icon} size={18} />
                       <span className="flex-1 text-ink-strong">{meta.label}</span>
                       {status === "ready_for_pickup" ? (
@@ -389,6 +400,7 @@ function MitBackend() {
                       <span className="font-mono text-lg tabular-nums text-ink-strong">
                         {anzahl}
                       </span>
+                    </Link>
                     </li>
                   );
                 },

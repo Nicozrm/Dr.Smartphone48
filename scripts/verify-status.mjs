@@ -39,6 +39,7 @@ import {
   attentionItems,
   valueInProgress,
 } from "../lib/workshop/attention.ts";
+import { parseDeepLink, workshopHref } from "../lib/workshop/deeplink.ts";
 
 let failures = 0;
 const fail = (text) => {
@@ -338,6 +339,74 @@ console.log("\nAufmerksamkeit – welche Vorgänge gehen nicht von selbst weiter
   ]);
   if (wert !== 150) fail(`Wert in Arbeit ist ${wert} statt 150.`);
   else ok("der Wert in Arbeit lässt abgeschlossene Vorgänge weg");
+}
+
+/* ---- Der Sprung aus der Übersicht ---------------------------------------- */
+
+console.log("\nSprung – von der Übersicht in die Akte\n");
+{
+  const bekannt = [...TICKET_STATUSES];
+
+  // Hin und zurück: Was gebaut wird, muss auch wieder gelesen werden.
+  const code = "K7M2-B94X";
+  const hin = workshopHref({ vorgang: code });
+  const zurueck = parseDeepLink(hin.slice(hin.indexOf("?")), bekannt);
+  if (zurueck.vorgang !== code) {
+    fail(`Ein gebauter Vorgangs-Sprung liest sich als „${zurueck.vorgang}" zurück.`);
+  } else {
+    ok("Vorgangscode übersteht den Weg durch die Adresse");
+  }
+
+  for (const status of bekannt) {
+    const href = workshopHref({ status });
+    const back = parseDeepLink(href.slice(href.indexOf("?")), bekannt);
+    if (back.status !== status) {
+      fail(`Zustand „${status}" liest sich als „${back.status}" zurück.`);
+      break;
+    }
+  }
+  ok(`alle ${bekannt.length} Zustände überstehen den Weg durch die Adresse`);
+
+  /*
+    Was aus der Adresse kommt, kommt von außen. Ein unbekannter Zustand
+    würde die Filterliste auf einen Wert setzen, den die Datenbank nicht
+    kennt – die Antwort wäre leer, und das Dashboard sähe aus, als gäbe es
+    keine Vorgänge mehr.
+  */
+  const muell = [
+    "?status=geloescht",
+    "?status=",
+    "?status=OPEN",
+    "?vorgang=abc",
+    "?vorgang=IIII-OOOO",
+    "?vorgang=" + "A".repeat(200),
+    "?vorgang=K7M2-B94X'; DROP TABLE tickets;--",
+  ];
+  let durchgerutscht = 0;
+  for (const q of muell) {
+    const link = parseDeepLink(q, bekannt);
+    if (link.status !== undefined || link.vorgang !== undefined) {
+      durchgerutscht++;
+      fail(`„${q}" wurde angenommen: ${JSON.stringify(link)}`);
+    }
+  }
+  if (durchgerutscht === 0) ok(`${muell.length} unbrauchbare Adressen werden verworfen`);
+
+  // Ein Vorgang und ein Zustand zugleich: Der Vorgang gewinnt, sonst
+  // könnte der Filter genau die Akte ausblenden, die geöffnet werden soll.
+  const beides = workshopHref({ vorgang: code, status: "repairing" });
+  if (beides.includes("status=")) {
+    fail("Vorgang und Zustand stehen zugleich in der Adresse.");
+  } else {
+    ok("Vorgang und Zustand zugleich: der Vorgang gewinnt");
+  }
+
+  // Ohne Angabe die nackte Adresse.
+  if (workshopHref({}) !== "/intern/werkstatt") {
+    fail(`Ein leerer Sprung ergibt „${workshopHref({})}".`);
+  } else {
+    ok("ohne Angabe die nackte Adresse");
+  }
 }
 
 console.log(

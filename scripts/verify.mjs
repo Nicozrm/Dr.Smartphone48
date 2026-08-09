@@ -165,6 +165,62 @@ function checkContrast() {
 }
 
 /* ================================================================== */
+/* 1b. Prädikate, die wie Werte aussehen                              */
+/*                                                                    */
+/* Eine Funktion ist immer wahr. `if (!hasTicketBackend)` ist deshalb  */
+/* stets falsch – und TypeScript sagt nichts, weil das Negieren einer  */
+/* Funktion erlaubt ist.                                              */
+/* ================================================================== */
+
+/**
+ * Exportierte Prädikatfunktionen, die man leicht für Konstanten hält.
+ *
+ * Der Anlass ist frisch: In `components/intern/InternHome.tsx` stand
+ * `if (!hasTicketBackend)` statt `if (!hasTicketBackend())`. Der Zweig
+ * darunter wäre nie gelaufen – auf dem statischen Export hätte die Seite
+ * einen Anmeldeversuch ins Leere gezeigt statt der Auskunft, dass es hier
+ * keine Datenbank gibt. Übersetzung, Lint und Typprüfung liefen durch.
+ *
+ * Wer eine weitere solche Funktion exportiert, trägt sie hier ein.
+ */
+const PREDICATES = ["hasTicketBackend", "hasPublicBackend", "isTicketCode"];
+
+function checkPredicateCalls() {
+  checksRun++;
+  const files = [
+    ...walk("app", [".tsx", ".ts"]),
+    ...walk("components", [".tsx", ".ts"]),
+    ...walk("lib", [".ts", ".tsx"]),
+  ];
+
+  for (const file of files) {
+    const src = readFileSync(file, "utf8");
+    const code = src
+      .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/\S/g, " "))
+      .replace(/\/\/[^\n]*/g, (m) => m.replace(/\S/g, " "));
+
+    for (const name of PREDICATES) {
+      // Jede Nennung, die nicht unmittelbar eine Klammer öffnet. Import,
+      // Export und Definition sind ausgenommen – dort steht der Name
+      // zu Recht ohne Aufruf.
+      const pattern = new RegExp(`\\b${name}\\b(?!\\s*\\()`, "g");
+      for (const m of code.matchAll(pattern)) {
+        const line = code.slice(0, m.index).split("\n").pop() ?? "";
+        if (/^\s*(import|export)\b/.test(line)) continue;
+        if (/\bfunction\s*$/.test(line.slice(0, line.length))) continue;
+        if (line.includes("from \"")) continue;
+        report(
+          "praedikat",
+          `${rel(file)}:${lineOf(src, m.index)}`,
+          `${name} wird ohne Aufruf verwendet – eine Funktion ist immer wahr. ` +
+            `Gemeint ist vermutlich ${name}().`,
+        );
+      }
+    }
+  }
+}
+
+/* ================================================================== */
 /* 2. Redaktion                                                       */
 /*                                                                    */
 /* CLAUDE.md: keine erfundenen Zahlen, Garantie nur aus site.ts,      */
@@ -555,6 +611,7 @@ function checkExport() {
 
 const CHECKS = [
   ["Kontrast", checkContrast],
+  ["Prädikate", checkPredicateCalls],
   ["Redaktion", checkEditorial],
   ["Shader", checkShaders],
   ["Metadaten", checkPageMeta],
