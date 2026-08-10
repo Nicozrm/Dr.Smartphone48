@@ -11,6 +11,7 @@ import {
 import Link from "next/link";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { judgeLevel, windowRms } from "@/lib/audio/level";
+import { evaluate } from "@/lib/display/digitizer";
 import { site } from "@/lib/site";
 
 /*
@@ -339,11 +340,13 @@ function TouchCard({ report }: { report: ReportFn }) {
   const [status, setStatus] = useState<Status>("idle");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [live, setLive] = useState(false);
+  const [hint, setHint] = useState("");
   const state = useRef({ maxPoints: 1, cells: new Set<number>(), cols: 8, rows: 5 });
 
   const start = () => {
     setLive(true);
     setStatus("running");
+    setHint("");
     state.current = { maxPoints: 1, cells: new Set<number>(), cols: 8, rows: 5 };
   };
 
@@ -401,24 +404,53 @@ function TouchCard({ report }: { report: ReportFn }) {
     };
   }, [live]);
 
+  /*
+    Ausgewertet wird wie beim Digitizer-Prüfstand weiter unten auf der Seite,
+    und zwar mit derselben Funktion.
+
+    Hier stand zuvor: unter 75 % bestrichener Fläche „warn“ mit der Empfehlung
+    „Display“. Das setzte „nicht geprüft“ mit „meldet nicht“ gleich – wer
+    langsam über die Mitte wischt und die Ränder auslässt, bekam einen
+    Displayschaden bescheinigt. Der Fehler wog hier schwerer als beim
+    Instrument darunter, denn dieses Ergebnis fließt in den zusammengefassten
+    Befund ein und damit in eine Empfehlung.
+
+    Jetzt gilt dieselbe Unterscheidung wie dort: Verdächtig ist nur, was von
+    bestrichener Fläche eingeschlossen ist. Und zu wenig bestrichen heißt
+    „noch einmal“ – nicht bestanden und nicht durchgefallen, sondern
+    ungelaufen, wie beim Mikrofon ohne Ausschlag.
+  */
   const finish = () => {
     const { cells, cols, rows, maxPoints } = state.current;
-    const coverage = cells.size / (cols * rows);
+    const result = evaluate(cells, maxPoints, cols, rows);
     setLive(false);
-    if (coverage >= 0.75) {
+
+    if (!result.conclusive) {
+      setStatus("idle");
+      setHint(
+        `Erst ${Math.round(result.coverage * 100)} % der Fläche bestrichen – das reicht für eine Aussage nicht. Bitte noch einmal, und dabei bis in die Ecken fahren.`,
+      );
+      return;
+    }
+
+    if (result.gaps.length === 0) {
       setStatus("pass");
       report("touch", {
         status: "pass",
-        summary: `${maxPoints} Finger erkannt · Fläche vollständig`,
+        summary: `${maxPoints} Finger erkannt · keine stumme Stelle`,
       });
-    } else {
-      setStatus("warn");
-      report("touch", {
-        status: "warn",
-        summary: `Nur ${Math.round(coverage * 100)} % der Fläche erreicht`,
-        advise: "Display",
-      });
+      return;
     }
+
+    setStatus("warn");
+    report("touch", {
+      status: "warn",
+      summary:
+        result.gaps.length === 1
+          ? "Eine Stelle mitten im geprüften Gebiet hat nicht gemeldet"
+          : `${result.gaps.length} Stellen mitten im geprüften Gebiet haben nicht gemeldet`,
+      advise: "Display",
+    });
   };
 
   return (
@@ -444,11 +476,14 @@ function TouchCard({ report }: { report: ReportFn }) {
           </div>
         </div>
       ) : (
-        <div className="flex flex-wrap items-center gap-3">
-          <ActionButton onClick={start}>
-            {status === "idle" ? "Test starten" : "Erneut prüfen"}
-            <Icon name="arrow-right" size={15} />
-          </ActionButton>
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <ActionButton onClick={start}>
+              {status === "idle" && !hint ? "Test starten" : "Erneut prüfen"}
+              <Icon name="arrow-right" size={15} />
+            </ActionButton>
+          </div>
+          {hint ? <p className="mt-3 text-[0.875rem] text-ink-soft">{hint}</p> : null}
         </div>
       )}
     </Card>

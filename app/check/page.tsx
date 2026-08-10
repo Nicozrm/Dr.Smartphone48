@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import { Reveal } from "@/components/ui/Reveal";
 import { DeviceCheck } from "@/components/check/DeviceCheck";
 import { Distortion } from "@/components/check/Distortion";
@@ -18,7 +19,109 @@ export const metadata = pageMeta({
     "Prüfen Sie Ihr Smartphone direkt im Browser: Display, Touch, Sensoren, Mikrofon, Lautsprecher, Akku und Netz. Ehrlicher Befund in unter einer Minute – ohne App, ohne Anmeldung.",
 });
 
+/**
+ * Die Instrumente – **eine** Liste, aus der sowohl das Verzeichnis als auch
+ * die Abschnitte entstehen.
+ *
+ * Das ist keine Formsache. Neun Instrumente ergeben auf dem Telefon knapp
+ * zwanzig Bildschirme Bauhöhe; ohne Verzeichnis findet niemand das eine,
+ * das er sucht. Ein von Hand gepflegtes Verzeichnis daneben wäre aber
+ * dieselbe Falle wie beim Offline-Vorrat: Zwei Fassungen derselben Liste
+ * driften auseinander, und dann zeigt das Verzeichnis auf einen Anker, den
+ * es nicht mehr gibt. Hier kann das nicht passieren – beide Seiten lesen
+ * dasselbe Array.
+ *
+ * `needs` ist die Berechtigung, die das Instrument braucht. Sie steht im
+ * Verzeichnis, weil sie die Frage beantwortet, die man vor dem Klick hat:
+ * Sechs der neun kommen ohne aus, und das ist ein Merkmal, kein Zufall.
+ */
+const instruments: {
+  id: string;
+  name: string;
+  what: string;
+  needs: string | null;
+  group: string;
+  Component: ComponentType;
+}[] = [
+  {
+    id: "bildfrequenz",
+    name: "Bildfrequenz-Schreiber",
+    what: "Wie schnell und wie gleichmäßig das Panel liefert",
+    needs: null,
+    group: "Bildschirm",
+    Component: FrameRate,
+  },
+  {
+    id: "farbraum",
+    name: "Farbraum-Beweis",
+    what: "sRGB gegen P3 – nebeneinandergestellt",
+    needs: null,
+    group: "Bildschirm",
+    Component: ColorGamut,
+  },
+  {
+    id: "digitizer",
+    name: "Digitizer-Prüfstand",
+    what: "Stellen, die den Finger nicht mehr melden",
+    needs: null,
+    group: "Bildschirm",
+    Component: Digitizer,
+  },
+  {
+    id: "pixel-wecker",
+    name: "Pixel-Wecker",
+    what: "Hängende Bildpunkte lösen – manchmal",
+    needs: null,
+    group: "Bildschirm",
+    Component: PixelWake,
+  },
+  {
+    id: "stethoskop",
+    name: "Stethoskop",
+    what: "Spulenfiepen und Brummen als Spektrum",
+    needs: "Mikrofon",
+    group: "Ton",
+    Component: Stethoscope,
+  },
+  {
+    id: "klirrfaktor",
+    name: "Klirrfaktor",
+    what: "Verzerrung über fünf Lautstärkestufen",
+    needs: "Mikrofon",
+    group: "Ton",
+    Component: Distortion,
+  },
+  {
+    id: "entwaesserung",
+    name: "Lautsprecher entwässern",
+    what: "Wasser mit einem tiefen Ton austreiben",
+    needs: null,
+    group: "Ton",
+    Component: SpeakerEject,
+  },
+  {
+    id: "sturz",
+    name: "Beschleunigungsschreiber",
+    what: "Freier Fall, Aufprall, Bremsweg",
+    needs: "Bewegungssensor",
+    group: "Gerät",
+    Component: DropForensics,
+  },
+  {
+    id: "drossel",
+    name: "Drosselschreiber",
+    what: "Wie schnell das Gerät unter Last müde wird",
+    needs: null,
+    group: "Gerät",
+    Component: ThermalTrace,
+  },
+];
+
+const groups = ["Bildschirm", "Ton", "Gerät"];
+
 export default function CheckPage() {
+  const free = instruments.filter((i) => !i.needs).length;
+
   return (
     <section className="mx-auto max-w-3xl px-5 pb-24 pt-28 md:px-8 md:pt-36">
       <JsonLd data={breadcrumbJsonLd([{ name: "Geräte-Check", path: "/check" }])} />
@@ -57,52 +160,54 @@ export default function CheckPage() {
         jemand davor sieht.
       */}
       <Reveal className="mt-24 max-w-2xl" printHide>
-        <p className="text-eyebrow">Neun Instrumente</p>
+        <p className="text-eyebrow">{instruments.length} Instrumente</p>
         <h2 className="text-headline mt-4">Messen statt raten.</h2>
         <p className="mt-5 text-lg leading-relaxed text-ink-soft">
-          Diese neun geben keinen Befund und tauchen oben in der Auswertung
-          nicht auf. Sie zeigen, was dieses Gerät tatsächlich hergibt – mit
-          ihren Grenzen daneben. Was daraus folgt, entscheiden Sie. Sechs
-          davon kommen ganz ohne Berechtigung aus: kein Mikrofon, kein Sensor,
-          nur Rechnen, Licht und ein tiefer Ton.
+          Diese {instruments.length} geben keinen Befund und tauchen oben in
+          der Auswertung nicht auf. Sie zeigen, was dieses Gerät tatsächlich
+          hergibt – mit ihren Grenzen daneben. Was daraus folgt, entscheiden
+          Sie. {free} davon kommen ganz ohne Berechtigung aus: kein Mikrofon,
+          kein Sensor, nur Rechnen, Licht und ein tiefer Ton.
         </p>
       </Reveal>
 
-      <Reveal className="mt-12" printHide>
-        <Stethoscope />
+      {/* Das Verzeichnis. Entsteht aus derselben Liste wie die Abschnitte
+          darunter und kann deshalb nicht auf einen Anker zeigen, den es
+          nicht gibt. */}
+      <Reveal className="mt-10" printHide>
+        <nav className="instr-index" aria-label="Instrumente">
+          {groups.map((group) => (
+            <div key={group}>
+              <p className="instr-index__group">{group}</p>
+              <ul className="mt-3 space-y-2.5">
+                {instruments
+                  .filter((i) => i.group === group)
+                  .map((i) => (
+                    <li key={i.id}>
+                      <a href={`#${i.id}`} className="instr-link">
+                        <span className="instr-link__name">{i.name}</span>
+                        <span className="instr-link__what">{i.what}</span>
+                        {i.needs ? (
+                          <span className="instr-link__needs">{i.needs}</span>
+                        ) : null}
+                      </a>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          ))}
+        </nav>
       </Reveal>
 
-      <Reveal className="mt-20" printHide>
-        <Distortion />
-      </Reveal>
-
-      <Reveal className="mt-20" printHide>
-        <DropForensics />
-      </Reveal>
-
-      <Reveal className="mt-20" printHide>
-        <ThermalTrace />
-      </Reveal>
-
-      <Reveal className="mt-20" printHide>
-        <PixelWake />
-      </Reveal>
-
-      <Reveal className="mt-20" printHide>
-        <FrameRate />
-      </Reveal>
-
-      <Reveal className="mt-20" printHide>
-        <ColorGamut />
-      </Reveal>
-
-      <Reveal className="mt-20" printHide>
-        <Digitizer />
-      </Reveal>
-
-      <Reveal className="mt-20" printHide>
-        <SpeakerEject />
-      </Reveal>
+      {instruments.map(({ id, Component }, index) => (
+        <Reveal key={id} className={index === 0 ? "mt-16" : "mt-20"} printHide>
+          {/* scroll-mt hält die Überschrift unter dem klebenden Kopf frei –
+              ohne sie landet ein Sprungziel hinter der Leiste. */}
+          <div id={id} className="scroll-mt-24">
+            <Component />
+          </div>
+        </Reveal>
+      ))}
     </section>
   );
 }

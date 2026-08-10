@@ -173,12 +173,14 @@ export function ColorGamut() {
             Dafür bräuchte es die physische Diagonale, und die gibt kein
             Web-API preis. Sie stünde geraten da, mit zwei Nachkommastellen.
             Wie schnell dasselbe Panel schaltet, sagt Ihnen der{" "}
-            <Link href="#" className="underline underline-offset-2" onClick={(e) => {
-              e.preventDefault();
-              document.querySelector(".frames")?.scrollIntoView({ behavior: "smooth", block: "start" });
-            }}>
+            {/* Echter Anker statt eines Klick-Handlers: Er funktioniert ohne
+                JavaScript, lässt sich kopieren und in einem neuen Tab öffnen.
+                Das Sprungziel vergibt app/check/page.tsx aus derselben Liste,
+                aus der auch das Verzeichnis entsteht – es kann also nicht ins
+                Leere zeigen. */}
+            <a href="#bildfrequenz" className="underline underline-offset-2">
               Bildfrequenz-Schreiber
-            </Link>{" "}
+            </a>{" "}
             weiter oben.
           </p>
         </div>

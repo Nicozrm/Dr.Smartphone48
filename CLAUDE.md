@@ -831,6 +831,16 @@ nachgemessen hat, wäre die Behauptung in Reinform. Und beim Farbraum ist das
 Messgerät das Auge: Was jemand vor dem Bildschirm sieht, kann die Seite nicht
 wissen und deshalb auch nicht in einen Befund schreiben.
 
+**Verzeichnis und Abschnitte entstehen aus einer einzigen Liste**
+(`instruments` in `app/check/page.tsx`). Neun Instrumente ergeben auf dem
+Telefon knapp zwanzig Bildschirme Bauhöhe – ohne Verzeichnis findet niemand
+das eine, das er sucht. Ein daneben von Hand gepflegtes Verzeichnis wäre
+aber dieselbe Falle wie beim Offline-Vorrat: Zwei Fassungen derselben Liste
+driften auseinander, und dann zeigt ein Eintrag auf einen Anker, den es nicht
+mehr gibt. Aus der Liste kommen deshalb Sprungziel, Name, Kurzbeschreibung,
+die benötigte Berechtigung **und** die Zahl im Text darüber. Wer ein
+Instrument ergänzt, trägt es dort ein und sonst nirgends.
+
 **Stethoskop: die Aufbereitung muss aus.** `getUserMedia` liefert
 voreingestellt einen für Sprache aufbereiteten Kanal. Besonders die
 Rauschunterdrückung ist hier fatal, weil sie gezielt *gleichförmige* Geräusche
@@ -1030,6 +1040,17 @@ nicht 96.
 den Rand reicht, sieht aus wie eine ausgelassene Ecke und wird nicht
 gefunden. Lieber ein übersehenes Loch als ein erfundenes – das steht auch auf
 der Seite, unter „Was der Prüfstand übersieht“.
+
+**Der Touch-Punkt im Geräte-Check rechnet mit derselben Funktion.** Er tat es
+lange nicht: Unter 75 % bestrichener Fläche meldete er „warn“ mit der
+Empfehlung „Display“ – also genau die Gleichsetzung von „nicht geprüft“ und
+„meldet nicht“, gegen die der Prüfstand gebaut ist. Dort wog sie schwerer als
+hier, denn dieses Ergebnis fließt in den zusammengefassten Befund ein und
+damit in eine Empfehlung. Jetzt gilt auch dort: eingeschlossene Lücke →
+Befund, zu wenig bestrichen → **ungelaufen** statt durchgefallen, mit der
+Bitte um Wiederholung. Das ist dieselbe Regel wie beim Mikrofon ohne
+Ausschlag; wer einen Prüfpunkt ergänzt, der zu wenig Daten bekommen kann,
+hält sich daran.
 
 **Unter 60 % bestrichener Fläche gibt es keinen Befund.** Nicht „in
 Ordnung“, sondern die Bitte weiterzufahren: Ein Werkzeug, das nach halber

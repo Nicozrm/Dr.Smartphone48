@@ -3668,6 +3668,71 @@ html[data-js] .nojs-only {
   color: var(--positive);
 }
 
+/* ---- Verzeichnis der Instrumente ---------------------------------------- */
+
+.instr-index {
+  display: grid;
+  gap: 2rem 2.5rem;
+  padding: 1.5rem 1.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--surface-raised);
+}
+
+@media (min-width: 46rem) {
+  .instr-index {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.instr-index__group {
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.instr-link {
+  display: block;
+  /* Die ganze Zeile ist das Ziel, nicht nur der Name: Auf einem Telefon ist
+     ein zweizeiliger Eintrag mit 44 px Höhe treffsicher, ein 15 px hoher
+     Textlink nicht. */
+  padding: 0.25rem 0;
+}
+
+.instr-link__name {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--ink-strong);
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.instr-link:hover .instr-link__name {
+  color: var(--accent);
+}
+
+.instr-link__what {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+
+/* Die Berechtigung steht dabei, weil sie die Frage vor dem Klick ist.
+   Als stiller Vermerk, nicht als Warnung – sie ist kein Mangel. */
+.instr-link__needs {
+  display: inline-block;
+  margin-top: 0.375rem;
+  padding: 0.0625rem 0.4375rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+}
+
 /* ---- Digitizer-Prüfstand ------------------------------------------------ */
 
 .digit-grid {
