@@ -113,9 +113,11 @@ anlegt, trägt nirgends etwas nach.
   Jahreszahl zugeordnet bekommt.
 - `verify:status` – der Werkstattablauf in `lib/tickets/status.ts` gegen das
   Postgres-Enum in `supabase/migrations/`: gleiche Zustände, gleiche
-  Reihenfolge. Dazu Kontaktkanäle, die Form des Vorgangscodes, die Namen der
-  Realtime-Kanäle und die Zusage, dass es auf den Vorgangstabellen keine
-  Policy für `anon` gibt.
+  Reihenfolge – und gegen die Liste in der Vorprüfung am Kopf der ersten
+  Migration, die damit die dritte Fassung derselben Reihenfolge ist. Dazu
+  Kontaktkanäle, die Form des Vorgangscodes, die Namen der Realtime-Kanäle
+  und die Zusage, dass es auf den Vorgangstabellen keine Policy für `anon`
+  gibt.
 - `verify:cert` – das Reparaturzertifikat gegen die Zusage auf /pruefen. Es
   kippt **jedes einzelne Bit** des unterschriebenen Datensatzes und prüft, dass
   die Signatur jedes Mal bricht. Dazu Hin- und Rückweg des Binärformats (auch
@@ -782,11 +784,21 @@ dasselbe Modell wie bei der Statusseite. Und der Werkstattkanal, dessen Name
 im JavaScript steht, trägt nichts, was jemandem nützt. `verify:status` prüft
 genau das: Steht dort eines Tages ein Vorgangscode, schlägt es an.
 
-**Der Ablauf steht zweimal**, in TypeScript und als Postgres-Enum. Das ist
-unvermeidbar und deshalb maschinell abgesichert: `npm run verify:status`
-vergleicht beide Listen zeichen- und reihenfolgengenau. Wer einen Zustand
-hinzufügt, ändert beide Seiten – sonst lehnt die Datenbank ab, was die
-Oberfläche anbietet.
+**Der Ablauf steht dreimal**, in TypeScript, als Postgres-Enum und in der
+Vorprüfung am Kopf der ersten Migration. Das ist unvermeidbar und deshalb
+maschinell abgesichert: `npm run verify:status` vergleicht alle drei Listen
+zeichen- und reihenfolgengenau. Wer einen Zustand hinzufügt, ändert alle drei
+Stellen – sonst lehnt die Datenbank ab, was die Oberfläche anbietet, oder der
+Wächter sperrt eine Datenbank aus, die in Ordnung ist.
+
+**Die Migration prüft, ob sie in die richtige Datenbank läuft.** Alles unter
+der Vorprüfung arbeitet mit `if not exists` – beim zweiten Lauf richtig, auf
+einem fremden Schema eine Falle: Typ und Tabelle würden übersprungen und der
+Rest auf ein fremdes Fundament gebaut. Der Anlass ist kein gedachter: Im
+einzigen vorhandenen Supabase-Projekt lag bereits ein `ticket_status` mit den
+Werten `offen`, `in_arbeit`, `fertig`, eine `repair_tickets` mit anderen
+Spalten – und Policies für `anon` auf beiden Vorgangstabellen. Einzelheiten in
+`supabase/README.md` unter „Die Vorprüfung“.
 
 **Ein Statuswechsel ist unteilbar.** Vorgang und Historie schreibt die
 Datenbankfunktion `apply_ticket_status` in einer Transaktion; `changed_by`

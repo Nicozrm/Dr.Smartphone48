@@ -57,6 +57,21 @@ function enumValues(name) {
   return [...match[1].matchAll(/'([^']+)'/g)].map((entry) => entry[1]);
 }
 
+/**
+ * Liest die Sollwerte aus der Vorprüfung am Kopf der ersten Migration.
+ *
+ * Die Vorprüfung bricht ab, wenn in der Zieldatenbank schon ein fremder
+ * `ticket_status` liegt. Dafür trägt sie die erwarteten Werte selbst – und
+ * damit steht die Liste im Projekt ein drittes Mal. Läuft sie davon, weist
+ * die Vorprüfung eine Datenbank ab, die in Ordnung ist: ein Wächter, der
+ * den Falschen aussperrt.
+ */
+function guardValues() {
+  const match = sql.match(/v_erwartet\s+text\[\]\s*:=\s*array\[([^\]]*)\]/i);
+  if (!match) return null;
+  return [...match[1].matchAll(/'([^']+)'/g)].map((entry) => entry[1]);
+}
+
 /* ---- 1. Die Zustände ---------------------------------------------------- */
 
 console.log("\nZustände (TypeScript ↔ Postgres)");
@@ -70,6 +85,19 @@ if (!sqlStatuses) {
   console.log(`         Postgres:   ${sqlStatuses.join(", ")}`);
 } else {
   ok(`${TICKET_STATUSES.length} Zustände, gleiche Reihenfolge`);
+}
+
+const guardStatuses = guardValues();
+if (!guardStatuses) {
+  fail(
+    "Der ersten Migration fehlt die Vorprüfung (`v_erwartet text[] := array[…]`).",
+  );
+} else if (guardStatuses.join(",") !== [...TICKET_STATUSES].join(",")) {
+  fail("Die Vorprüfung erwartet eine andere Liste als TypeScript:");
+  console.log(`         TypeScript:  ${TICKET_STATUSES.join(", ")}`);
+  console.log(`         Vorprüfung:  ${guardStatuses.join(", ")}`);
+} else {
+  ok("die Vorprüfung der Migration kennt dieselben Zustände");
 }
 
 /* ---- 2. Beschreibungen -------------------------------------------------- */

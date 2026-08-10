@@ -13,6 +13,92 @@
 -- möglich, und jede Spalte, die es doch gibt, hat einen benennbaren Zweck.
 -- ---------------------------------------------------------------------------
 
+-- ---------------------------------------------------------------------------
+-- Vorprüfung: läuft diese Migration in die richtige Datenbank?
+--
+-- Der Anlass ist ein realer Fund. Im einzigen erreichbaren Projekt lag bereits
+-- ein `public.ticket_status` – mit den Werten 'offen', 'in_arbeit', 'fertig' –
+-- und eine `public.repair_tickets` mit anderen Spaltennamen, aus einem fremden
+-- Vorläufer. Alles darunter arbeitet mit `if not exists`, und das ist beim
+-- zweiten Lauf derselben Migration genau richtig. Trifft es aber auf ein
+-- fremdes Schema, wird aus der Wiederholbarkeit eine Falle: Der Typ wird
+-- übersprungen, die Tabelle wird übersprungen, und die Migration baut den Rest
+-- des Hauses auf ein Fundament, das ihr nicht gehört.
+--
+-- Sie liefe dabei nicht einmal sauber durch, sondern bräche später an einer
+-- Stelle ab, die nichts erklärt („column estimate_reference does not exist“) –
+-- nach zwei angelegten Erweiterungen und einem angelegten Typ. Ein halb
+-- angewandtes Schema ist schlimmer als ein gar nicht angewandtes, denn beim
+-- nächsten Versuch sieht es aus wie ein begonnener eigener Stand.
+--
+-- Deshalb steht die Frage vorn und wird laut beantwortet, bevor irgendetwas
+-- entsteht. Sie prüft nicht auf eine leere Datenbank – neben dieser Anwendung
+-- darf beliebig viel anderes liegen. Sie prüft genau die beiden Namen, die wir
+-- beanspruchen.
+-- ---------------------------------------------------------------------------
+
+do $$
+declare
+  -- Dieselbe Liste wie in `lib/tickets/status.ts`. Damit steht sie im Projekt
+  -- ein drittes Mal – `npm run verify:status` vergleicht deshalb auch diese
+  -- hier gegen TypeScript, nicht nur die des `create type` weiter unten.
+  v_erwartet text[] := array[
+    'open',
+    'device_received',
+    'diagnosis',
+    'waiting_for_parts',
+    'repairing',
+    'quality_check',
+    'ready_for_pickup',
+    'completed'
+  ];
+  v_vorhanden text[];
+  v_fehlend text;
+begin
+  select array_agg(e.enumlabel order by e.enumsortorder)
+    into v_vorhanden
+  from pg_type t
+  join pg_namespace n on n.oid = t.typnamespace
+  join pg_enum e on e.enumtypid = t.oid
+  where n.nspname = 'public' and t.typname = 'ticket_status';
+
+  if v_vorhanden is not null and v_vorhanden is distinct from v_erwartet then
+    raise exception
+      'In dieser Datenbank liegt bereits ein Typ public.ticket_status mit anderen Werten (%).',
+      array_to_string(v_vorhanden, ', ')
+      using
+        errcode = 'invalid_table_definition',
+        hint = 'Diese Migrationen brauchen eine Datenbank, in der die Namen ticket_status und repair_tickets frei sind. Entweder ein eigenes Supabase-Projekt anlegen oder den fremden Vorläufer vorher verwerfen – niemals blind darüberschreiben.';
+  end if;
+
+  -- Die Tabelle darf schon dastehen (zweiter Lauf), aber dann muss es unsere
+  -- sein. Geprüft werden vier Spalten, die es nur bei uns gibt; die erste
+  -- Fassung des Vorläufers hatte an ihrer Stelle `customer_name`, `device_brand`
+  -- und `status_note`.
+  if to_regclass('public.repair_tickets') is not null then
+    select string_agg(erwartet.spalte, ', ' order by erwartet.spalte)
+      into v_fehlend
+    from (values ('customer'), ('consent_at'), ('contact_channel'), ('total_price'))
+      as erwartet(spalte)
+    where not exists (
+      select 1
+      from information_schema.columns c
+      where c.table_schema = 'public'
+        and c.table_name = 'repair_tickets'
+        and c.column_name = erwartet.spalte
+    );
+
+    if v_fehlend is not null then
+      raise exception
+        'In dieser Datenbank liegt bereits eine Tabelle public.repair_tickets, der folgende Spalten fehlen: %.',
+        v_fehlend
+        using
+          errcode = 'invalid_table_definition',
+          hint = 'Das ist nicht die Tabelle dieser Anwendung. Ein eigenes Supabase-Projekt anlegen oder den fremden Vorläufer vorher verwerfen.';
+    end if;
+  end if;
+end $$;
+
 create extension if not exists "pgcrypto";
 -- Für die Suche in der Werkstattliste (Name, Gerät, Vorgangscode).
 --
