@@ -8,6 +8,14 @@ ist.
 
 ## Einrichten
 
+**Das Projekt gehört dieser Anwendung allein.** Die Migrationen beanspruchen
+die Namen `ticket_status` und `repair_tickets` im Schema `public`. Liegt dort
+schon etwas anderes unter diesen Namen, ist das keine Kleinigkeit, sondern das
+Ende der Einrichtung – die Migration bricht dann mit einer Erklärung ab, statt
+darüberzuschreiben (siehe „Die Vorprüfung“ unten). Neben der Anwendung darf
+beliebig viel anderes im Projekt liegen; nur diese beiden Namen müssen frei
+sein.
+
 1. Projekt anlegen (Region EU, wegen der Anschriften im Bestand).
 2. Migrationen in der Reihenfolge ihres Dateinamens ausführen – entweder
    `supabase db push` oder im SQL-Editor nacheinander einfügen:
@@ -41,6 +49,37 @@ ist.
    ```bash
    npm run verify:status
    ```
+
+## Die Vorprüfung
+
+Am Kopf der ersten Migration steht ein `do`-Block, der abbricht, wenn in der
+Zieldatenbank bereits ein fremder `public.ticket_status` oder eine fremde
+`public.repair_tickets` liegt. Er nennt dabei, was er vorgefunden hat.
+
+Der Anlass war ein realer Fund: Im einzigen vorhandenen Projekt lag ein
+Vorläufer mit den Zuständen `offen`, `in_arbeit`, `fertig` und den Spalten
+`customer_name`, `device_brand`, `status_note` – dazu Lese- und
+Schreib-Policies für `anon`, also das Gegenteil der Zusage aus
+`20260803120100_repair_tickets_rls.sql`.
+
+Alles unterhalb der Vorprüfung arbeitet mit `if not exists`. Beim zweiten Lauf
+derselben Migration ist das richtig; auf einem fremden Schema wird daraus eine
+Falle. Typ und Tabelle würden übersprungen, und der Rest baute auf ein
+Fundament, das ihm nicht gehört. Sauber durchgelaufen wäre das nicht einmal –
+es bräche später an `column estimate_reference does not exist` ab, nach zwei
+angelegten Erweiterungen und einem angelegten Typ. Ein halb angewandtes Schema
+ist schlimmer als ein gar nicht angewandtes: Beim nächsten Versuch sieht es aus
+wie ein begonnener eigener Stand.
+
+Die erwartete Zustandsliste steht damit ein drittes Mal im Projekt – in
+TypeScript, im `create type` und in der Vorprüfung. `npm run verify:status`
+vergleicht deshalb auch sie. Ohne diesen Vergleich wiese ein veralteter
+Wächter eines Tages eine Datenbank ab, die in Ordnung ist.
+
+Nachgemessen statt behauptet: Die Vorprüfung wurde gegen das oben genannte
+fremde Schema laufen gelassen. Sie schlägt bei fremdem Typ an, sie schlägt bei
+fremder Tabelle an (und benennt die vier fehlenden Spalten), und auf einer
+Datenbank ohne beide Namen schweigt sie.
 
 ## Der Kassensturz nach jedem Push
 

@@ -30,6 +30,7 @@ npm run verify:cert       # Reparaturzertifikat: Format, Signatur, QR-Größe, G
 npm run verify:instruments # Physik der Instrumente, Bruchmechanik, Drosselung
 npm run verify:privacy    # Datenschutz-Nachweis: kein Weg nach draußen
 npm run verify:invoice    # Geldrechnung: Cent, Steuergruppen, Ladenpreis
+npm run verify:camera     # Kamera-Prüfstand: Dunkelbild, Flecken, Schärfe
 
 bash .github/scripts/verify-alle.sh   # alle verify:*-Skripte nacheinander
                                       # (genau das, was CI ausführt)
@@ -77,12 +78,12 @@ tatsächlich saß.
 
 ### Die fachlichen Prüfskripte
 
-Der Prüfstand deckt die Regeln dieser Datei ab. Daneben stehen neun Skripte,
+Der Prüfstand deckt die Regeln dieser Datei ab. Daneben stehen zehn Skripte,
 die alle dasselbe prüfen: dass eine Zusage der Seite noch stimmt. Sie sind
 kein Ersatz für Tests, sondern genau die Stellen, an denen ein stiller Fehler
 die Website zur Lügnerin macht, ohne dass jemand etwas merkt.
 
-**Alle neun laufen in CI**, und zwar an zwei Stellen: `pruefungen.yml` an
+**Alle zehn laufen in CI**, und zwar an zwei Stellen: `pruefungen.yml` an
 jedem Pull Request (das Tor vor dem Merge) und `nextjs.yml` beim Push auf
 `main` (die letzte Bremse vor dem Veröffentlichen). Bis August 2026 taten
 sie das nicht – es lief nur der Prüfstand und `verify:qr`, die übrigen
@@ -113,9 +114,11 @@ anlegt, trägt nirgends etwas nach.
   Jahreszahl zugeordnet bekommt.
 - `verify:status` – der Werkstattablauf in `lib/tickets/status.ts` gegen das
   Postgres-Enum in `supabase/migrations/`: gleiche Zustände, gleiche
-  Reihenfolge. Dazu Kontaktkanäle, die Form des Vorgangscodes, die Namen der
-  Realtime-Kanäle und die Zusage, dass es auf den Vorgangstabellen keine
-  Policy für `anon` gibt.
+  Reihenfolge – und gegen die Liste in der Vorprüfung am Kopf der ersten
+  Migration, die damit die dritte Fassung derselben Reihenfolge ist. Dazu
+  Kontaktkanäle, die Form des Vorgangscodes, die Namen der Realtime-Kanäle
+  und die Zusage, dass es auf den Vorgangstabellen keine Policy für `anon`
+  gibt.
 - `verify:cert` – das Reparaturzertifikat gegen die Zusage auf /pruefen. Es
   kippt **jedes einzelne Bit** des unterschriebenen Datensatzes und prüft, dass
   die Signatur jedes Mal bricht. Dazu Hin- und Rückweg des Binärformats (auch
@@ -154,6 +157,15 @@ anlegt, trägt nirgends etwas nach.
   eingegeben“ gegen jeden Bruttopreis von 0,01 € bis 2.000 €. Der Würfel hat
   einen festen Startwert – ein Fehlschlag in Lauf 3182 muss sich nachstellen
   lassen.
+- `verify:camera` – der Kamera-Prüfstand auf /check. Geprüft werden nicht
+  Beispielbilder, sondern die Fälle, die aussehen wie ein Befund und keiner
+  sind: die Vignettierung jedes Objektivs (eine makellose Wand darf keine
+  vier dunklen Ecken ergeben), der wandernde Lichtschlitz am Finger (ein
+  Punkt, der nicht in **jedem** Bild leuchtet, ist kein defekter Punkt) und
+  das Bücherregal statt der weißen Wand. Dazu die Referenzfläche gegen eine
+  exakt gerechnete Wölbung, die Belichtungsunabhängigkeit des Schärfemaßes
+  und die eine Blindstelle des Verfahrens, damit sie auf der Seite stehen
+  bleibt.
 
 ## Deployment (Cloudflare Workers – empfohlen)
 
@@ -294,10 +306,11 @@ app/                     App-Router-Seiten (alle statisch prerendert)
                          Röntgen, Stats, CTA)
   reparatur/             Sofortpreis-Rechner (Signature-Feature) + Werkstattablauf + FAQ
   notfall/               Notfall-Protokolle (ohne JS lesbar, offline im Cache)
-  check/                 Geräte-Check: Sensor-Diagnose im Browser, dazu neun
+  check/                 Geräte-Check: Sensor-Diagnose im Browser, dazu elf
                          Instrumente (Stethoskop, Klirrfaktor, Sturzschreiber,
                          Drosselschreiber, Pixel-Wecker, Bildfrequenz-
                          Schreiber, Farbraum-Beweis, Digitizer-Prüfstand,
+                         Eingabe-Schreiber, Kamera-Prüfstand,
                          Lautsprecher-Entwässerung)
   vorbereitung/          Übergabe-Assistent: was vor der Abgabe zu tun ist
   ankauf/                Restwert-Rechner mit offengelegter Rechnung
@@ -343,6 +356,8 @@ components/
                          FrameRate (Bildfrequenz und Frame-Pacing),
                          ColorGamut (sRGB gegen P3, sichtbar),
                          Digitizer (tote Zonen im Touchscreen),
+                         InputLatency (Eingabeverzögerung, Abtastrate),
+                         CameraBench (Dunkelbild, Linsenflecken, Autofokus),
                          SpeakerEject (Wasser aus der Lautsprecherkammer)
   handover/              HandoverAssistant (Vorbereitung zur Abgabe)
   twin/                  DigitalTwin, RepairOrReplace
@@ -392,7 +407,10 @@ lib/
   display/               framerate.ts (Bilddauern → Rate, Streuung, zu späte
                          Bilder, Verteilung), digitizer.ts (Raster,
                          Flutfüllung, eingeschlossene Lücken), panel.ts
-                         (Farbraum, gerechnete Bildpunkte)
+                         (Farbraum, gerechnete Bildpunkte), latency.ts
+                         (Warteschlange, Zeit bis zum Bild, Abtastrate)
+  camera/                sensor.ts (Dunkelbild über mehrere Bilder,
+                         Referenzfläche zweiter Ordnung, Laplace-Schärfe)
   motion/                impact.ts (Fallgesetze, Bremsweg, Untergründe),
                          crack.ts (Spannungsüberhöhung nach Inglis)
   perf/                  throttle.ts (Arbeitspaket, Median, Auswertung)
@@ -437,6 +455,7 @@ scripts/
                          Spektrum-Abbildung, Klirrfaktor
   verify-privacy.mjs     Fingerabdruck-Nachweis: kein Weg nach draußen
   verify-invoice.mjs     Geldrechnung: Invarianten, Steuergruppen, Ladenpreis
+  verify-camera.mjs      Kamera: Vignettierung, Lichtschlitz, Schärfemaß
 ```
 
 ## Konventionen
@@ -821,11 +840,21 @@ dasselbe Modell wie bei der Statusseite. Und der Werkstattkanal, dessen Name
 im JavaScript steht, trägt nichts, was jemandem nützt. `verify:status` prüft
 genau das: Steht dort eines Tages ein Vorgangscode, schlägt es an.
 
-**Der Ablauf steht zweimal**, in TypeScript und als Postgres-Enum. Das ist
-unvermeidbar und deshalb maschinell abgesichert: `npm run verify:status`
-vergleicht beide Listen zeichen- und reihenfolgengenau. Wer einen Zustand
-hinzufügt, ändert beide Seiten – sonst lehnt die Datenbank ab, was die
-Oberfläche anbietet.
+**Der Ablauf steht dreimal**, in TypeScript, als Postgres-Enum und in der
+Vorprüfung am Kopf der ersten Migration. Das ist unvermeidbar und deshalb
+maschinell abgesichert: `npm run verify:status` vergleicht alle drei Listen
+zeichen- und reihenfolgengenau. Wer einen Zustand hinzufügt, ändert alle drei
+Stellen – sonst lehnt die Datenbank ab, was die Oberfläche anbietet, oder der
+Wächter sperrt eine Datenbank aus, die in Ordnung ist.
+
+**Die Migration prüft, ob sie in die richtige Datenbank läuft.** Alles unter
+der Vorprüfung arbeitet mit `if not exists` – beim zweiten Lauf richtig, auf
+einem fremden Schema eine Falle: Typ und Tabelle würden übersprungen und der
+Rest auf ein fremdes Fundament gebaut. Der Anlass ist kein gedachter: Im
+einzigen vorhandenen Supabase-Projekt lag bereits ein `ticket_status` mit den
+Werten `offen`, `in_arbeit`, `fertig`, eine `repair_tickets` mit anderen
+Spalten – und Policies für `anon` auf beiden Vorgangstabellen. Einzelheiten in
+`supabase/README.md` unter „Die Vorprüfung“.
 
 **Ein Statuswechsel ist unteilbar.** Vorgang und Historie schreibt die
 Datenbankfunktion `apply_ticket_status` in einer Transaktion; `changed_by`
@@ -858,17 +887,19 @@ gewählt hat – Vorauswahl ist „keine Nachrichten“.
 ### Die Instrumente auf `/check`
 
 Der Geräte-Check oben auf der Seite zählt zwölf Prüfpunkte zu einem Befund
-zusammen. Darunter stehen neun Werkzeuge, die das ausdrücklich **nicht**
+zusammen. Darunter stehen elf Werkzeuge, die das ausdrücklich **nicht**
 tun: Sie liefern Messwerte, und die Deutung bleibt beim Menschen. Sie in die
 Liste zu hängen hieße, ein Spektrum in ein Häkchen zu übersetzen – und genau
 diese Übersetzung wäre die Behauptung, die hier niemand aufstellen will. Wer
 ein weiteres Instrument ergänzt, hält es ebenfalls aus dem Befund heraus.
 
-Zwei sind dabei Sonderfälle. Die Entwässerung misst gar nichts, sie **tut**
+Drei sind dabei Sonderfälle. Die Entwässerung misst gar nichts, sie **tut**
 etwas – ein Häkchen bei „Lautsprecher“ nach einem Ton, dessen Wirkung niemand
-nachgemessen hat, wäre die Behauptung in Reinform. Und beim Farbraum ist das
+nachgemessen hat, wäre die Behauptung in Reinform. Beim Farbraum ist das
 Messgerät das Auge: Was jemand vor dem Bildschirm sieht, kann die Seite nicht
-wissen und deshalb auch nicht in einen Befund schreiben.
+wissen und deshalb auch nicht in einen Befund schreiben. Und der
+Kamera-Prüfstand misst durchaus, aber seine Aussage endet an der
+Bildaufbereitung des Geräts – siehe unten.
 
 **Stethoskop: die Aufbereitung muss aus.** `getUserMedia` liefert
 voreingestellt einen für Sprache aufbereiteten Kanal. Besonders die
@@ -965,6 +996,110 @@ begrenzt den Ablesewert des Stethoskops auf sechs Aktualisierungen je Sekunde.
 **Mikrofon und Sensor werden freigegeben.** Beide Werkzeuge räumen beim
 Verlassen der Seite auf (`stopRef` im Aufräumer). Ein Mikrofon, das nach dem
 Wegklicken weiterläuft, ist ein Fehler mit Kameralampe.
+
+### Kamera-Prüfstand und Eingabe-Schreiber
+
+Die beiden jüngsten Instrumente. Das eine braucht die teuerste Berechtigung
+der Seite, das andere gar keine – und beide rechnen vollständig in `lib/`,
+damit die Prüfskripte ohne Browser auskommen.
+
+**Der Kamera-Prüfstand misst dreierlei, und zwei davon können ihre Antwort
+verweigern.** Dunkelbild (heiße Bildpunkte, Ausleserauschen), Hellbild
+(Staub, Fett, Kratzer vor der Linse) und Schärfeverlauf (Autofokus). Alle
+Schwellen und Sperren stehen in `lib/camera/sensor.ts`.
+
+**Über mehrere Bilder das Minimum, nicht ein Einzelbild.** Ein heißer
+Bildpunkt leuchtet in *jedem* Bild; ein Lichtschlitz zwischen Finger und
+Gehäuse wandert. Ein Einzelbild kann beides nicht unterscheiden, und der
+Befund „acht defekte Bildpunkte“ wäre dann in Wahrheit ein schlecht
+abgedeckter Finger. Der Mittelwert reicht auch nicht: Ein Punkt, der in der
+Hälfte der Bilder hell ist, liegt im Mittel über der Schwelle und ist
+trotzdem in Ordnung. `verify:camera` prüft alle drei Fassungen gegeneinander –
+Einzelbild, letztes Bild und Mittelwert scheitern jeweils an einem Fall.
+
+**Zwei Sperren, nicht eine.** Ein zu helles Bild ist kein Dunkelbild
+(`DARK_MAX_LEVEL`). Aber ein schmaler Lichtschlitz kann den Mittelwert unter
+der Schwelle lassen und trotzdem Tausende Punkte über die Hitzegrenze
+heben – deshalb erklärt sich die Messung ab `MAX_HOT_SHARE` selbst für
+ungültig. Ein Sensor mit einem halben Promille defekter Punkte existiert
+nicht; wer so etwas misst, hat Licht im Bild.
+
+**Die Vignettierung ist der Fehler, den man hier einbaut.** Jedes Objektiv
+dunkelt zum Rand hin ab. Der naheliegende Vergleich einer Kachel mit ihrer
+weichgezeichneten Umgebung ist am Bildrand systematisch falsch: Das
+abgeschnittene Fenster mittelt über hellere Kacheln weiter innen, jede
+Randkachel liegt unter ihrer eigenen Umgebung, und der Prüfstand meldet an
+einer makellosen Wand vier dunkle Ecken. Genau das ist beim Selbsttest
+passiert. Verglichen wird deshalb gegen eine **angepasste Fläche zweiter
+Ordnung** – sechs Zahlen für das ganze Bild, kleinste Quadrate. Sie hat kein
+Fenster und deshalb keinen Rand; drei dunkle Kacheln können sechs Zahlen
+nicht verbiegen, die Wölbung des Objektivs bestimmt sie.
+
+**Zwei Durchgänge, und der zweite ist nachgewiesen nötig.** Im ersten reden
+alle Kacheln mit, und ein großer Fettfleck zieht die Fläche zu sich herunter:
+Gemeldet würden 12,6 % statt der eingebauten 15, dazu 47 Kacheln Ausfransen.
+Im zweiten sind die Verdächtigen des ersten stummgeschaltet, und die Tiefe
+stimmt wieder. Wer die Schleife kürzt, bekommt es vom Prüfskript an beiden
+Zahlen gesagt.
+
+**Die Blindstelle steht auf der Seite und im Prüfskript.** Ein breiter,
+flacher Belag – eine beschlagene Linse – ist selbst eine sanfte Wölbung und
+wird von der Referenzfläche mitgenommen. Das ist die Kehrseite davon, dass
+die Vignettierung nicht gemeldet wird: dieselbe Rechnung. `verify:camera`
+hält den Fall fest, damit der Satz unter „Was er übersieht“ stehen bleibt.
+
+**Die Schärfe wird auf die Belichtung normiert.** Die Varianz des
+Laplace-Operators, geteilt durch das Quadrat der mittleren Helligkeit. Ohne
+diese Division wäre dasselbe Motiv unter hellerer Beleuchtung „schärfer“ –
+und die Fokuskurve zeigte die Belichtungsautomatik, die im selben Moment
+mitregelt. Doppelte Helligkeit muss denselben Wert ergeben; das Prüfskript
+rechnet es nach.
+
+**Was der Prüfstand nicht kann, steht gleich groß daneben.** Die
+Bildaufbereitung korrigiert bekannte defekte Bildpunkte schon im Sensor-Chip,
+bevor ein Browser etwas sieht. Ein sauberes Dunkelbild heißt „kein
+unkorrigierter Fehler übrig“ – nicht „makelloser Sensor“. Deshalb steht der
+Kamera-Prüfstand außerhalb des zusammengefassten Befunds.
+
+**Kein Bild wird gespeichert, keines verlässt das Gerät.** Jedes wird
+gezeichnet, zu Zahlen gerechnet und verworfen; die Kamera wird beim Verlassen
+der Seite freigegeben. Dieselbe Regel wie beim Mikrofon, und hier wiegt sie
+schwerer: Eine Kamera sieht das Wohnzimmer.
+
+**Der Eingabe-Schreiber misst zwei von vier Abschnitten – und sagt es.**
+Zwischen Finger und Licht liegen: Abtastung im Panel, Warteschlange des
+Browsers, Zeichnen des nächsten Bildes, Bildschirm. Messbar sind die
+mittleren zwei, und zwar genau: `PointerEvent.timeStamp` liegt auf derselben
+Uhr wie `performance.now()`, der Zeitstempel von `requestAnimationFrame`
+ebenfalls. Der ausgegebene Wert ist deshalb ausdrücklich eine
+**Untergrenze** – dieselbe Ehrlichkeit wie beim Sturzschreiber, der seinen
+Spitzenwert ebenso ausweist.
+
+**Nicht `performance.now()` im Handler als Startzeitpunkt.** Das ist der
+Moment, in dem das JavaScript drankam, nicht der der Berührung. Wer damit
+rechnet, misst null und meldet ein makellos schnelles Gerät.
+
+**Der Median der Summen, nicht die Summe der Mediane.** Die beiden
+Abschnitte schwanken nicht unabhängig – eine ausgelastete Hauptschleife
+verlängert beide zugleich. Aus getrennten Medianen entstünde ein Wert, den
+keine einzelne Berührung je gebraucht hat. `verify:instruments` rechnet einen
+Fall nach, in dem sich die beiden Wege um 11 ms unterscheiden.
+
+**Die Abtastrate kommt aus `getCoalescedEvents()`.** Ohne die Zwischenpunkte
+misst man, wie oft der Browser ausliefert – also die Bildrate statt der
+Abtastrate. Abstände von exakt null fliegen raus: Manche Browser liefern
+mehrere Zwischenpunkte mit demselben Zeitstempel, und ein einziger davon
+triebe den Median gegen null und die gemeldete Rate gegen unendlich. Die
+Aussage ist einseitig wie beim Bildfrequenz-Schreiber: „kann 120“ ist
+belegbar, „kann nur 60“ nicht. Das Prüfskript liest den Text und schlägt an,
+wenn dort eine Obergrenze behauptet wird.
+
+**Die Bänder der Abtastraten dürfen sich nicht überlappen**, und die Toleranz
+ist dieselbe Zahl wie beim Bildfrequenz-Schreiber. Beide stehen doppelt im
+Quelltext, weil die Prüfskripte diese Dateien ohne Bündler laden und ein
+Import ohne Dateiendung dort nicht auflösbar ist – also werden sie
+maschinell zusammengehalten: `verify:instruments` wirft beide
+Median-Fassungen gegen 200 gewürfelte Reihen und vergleicht beide Toleranzen.
 
 ### Recht auf Reparatur (`/ersatzteile`)
 
