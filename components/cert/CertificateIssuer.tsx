@@ -191,13 +191,27 @@ export function CertificateIssuer() {
   };
 
   const openCount = checks.filter((c) => c === CHECK_OPEN).length;
-  const ready =
-    Boolean(signingKey) && model.trim().length > 1 && normalizeImei(imei).length >= 14;
+
+  /*
+    Was zum Unterschreiben fehlt – als Liste, nicht als zusammengesetzter
+    Satz. Die frühere Fassung baute ihn aus verschachtelten Bedingungen
+    samt Kommas zusammen; das war schon bei drei Gründen kaum zu lesen und
+    bei vieren falsch.
+  */
+  const fehlt = [
+    !signingKey && "ein Signaturschlüssel",
+    model.trim().length <= 1 && "die Modellbezeichnung",
+    normalizeImei(imei).length < 14 && "eine vollständige IMEI",
+  ].filter(Boolean) as string[];
+
+  /** Steht die öffentliche Hälfte im veröffentlichten Ring? */
+  const keyImRing = keyId !== null && certKeys.some((k) => k.id === keyId);
 
   const issue = async () => {
     setError("");
     setIssued(null);
-    if (!signingKey || keyId === null) return;
+    // Die Sperre sitzt hier, nicht am Knopf – siehe die Begründung unten.
+    if (fehlt.length > 0 || !signingKey || keyId === null) return;
     try {
       const binding = await deviceBinding(imei, BINDING_BYTES);
       const signable = encodeSignable(
@@ -538,21 +552,45 @@ export function CertificateIssuer() {
           später nicht mehr ändern, ohne die Unterschrift zu zerstören.
         </p>
         <div className="mt-5">
-          <Button onClick={issue} disabled={!ready}>
-            Zertifikat ausstellen
-          </Button>
+          <Button onClick={issue}>Zertifikat ausstellen</Button>
         </div>
-        {!ready ? (
-          <p className="mt-3 text-sm text-ink-faint">
-            Es fehlen noch: {!signingKey ? "ein Schlüssel" : null}
-            {!signingKey && model.trim().length <= 1 ? ", " : null}
-            {model.trim().length <= 1 ? "das Modell" : null}
-            {normalizeImei(imei).length < 14
-              ? `${model.trim().length <= 1 || !signingKey ? ", " : ""}die IMEI`
-              : null}
-            .
+        {fehlt.length > 0 ? (
+          /*
+            Kein `disabled`, dieselbe Regel wie bei der Absenderegel: Ein
+            gesperrter Knopf sagt „nicht bedienbar" und fällt aus der
+            Tabulatorreihenfolge – wer ihn mit der Tastatur erreicht, käme
+            nie zu der Erklärung, warum nichts passiert. Der Druck ist hier
+            der Weg zur Erklärung.
+
+            `aria-live`, damit die Vorlesehilfe die Liste beim Drücken
+            ansagt und nicht stumm bleibt.
+          */
+          <div className="mt-3" aria-live="polite">
+            <p className="text-sm text-ink-soft">
+              Zum Unterschreiben fehlt noch:
+            </p>
+            <ul className="mt-1.5 space-y-1">
+              {fehlt.map((f) => (
+                <li key={f} className="text-sm text-warn">
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : keyImRing ? null : (
+          /*
+            Der sicherheitsrelevante Fall, und der einzige, den man beim
+            Unterschreiben übersehen kann: Der Schlüssel ist da, der Beleg
+            wird gültig – aber niemand außerhalb dieses Browsers kann ihn
+            prüfen, weil die öffentliche Hälfte nicht im Ring steht. Der
+            Kunde bekäme einen Beleg, der sein Versprechen nicht einlöst.
+          */
+          <p className="mt-3 text-sm text-warn">
+            Einrichtungsmodus: Schlüssel&nbsp;#{keyId} steht nicht im
+            veröffentlichten Ring. Der Beleg wird unterschrieben, ist aber
+            nur auf diesem Gerät prüfbar.
           </p>
-        ) : null}
+        )}
         {error ? <p className="mt-4 text-sm text-danger">{error}</p> : null}
       </section>
 
