@@ -231,12 +231,113 @@ for (const tabelle of ["repair_tickets", "ticket_history", "workshop_staff"]) {
   }
 }
 
-// Eine Policy für `anon` auf den Vorgangstabellen wäre eine Policy für jeden.
-const anonPolicy = /create policy[\s\S]{0,400}?on public\.(repair_tickets|ticket_history)[\s\S]{0,200}?to [^\n]*\banon\b/i;
-if (anonPolicy.test(sql)) {
-  fail("Es gibt eine Policy für `anon` auf den Vorgangstabellen – die Kundensicht läuft über den Server.");
+/*
+  Eine Policy für `anon` auf den Vorgangstabellen wäre eine Policy für jeden.
+
+  Die erste Fassung dieser Prüfung suchte wörtlich nach `to … anon` und hat
+  damit genau den Fall übersehen, der am 10.8.2026 in der Datenbank stand:
+
+      create policy "repair_tickets_select_all"
+        on public.repair_tickets for select using (true);
+
+  Ohne `to`-Klausel gilt eine Policy für `PUBLIC`, also für **jede** Rolle –
+  `anon` eingeschlossen. Die weitreichendere Form war die, die durchkam, weil
+  sie das gesuchte Wort nicht enthielt. Geprüft wird deshalb nicht mehr auf ein
+  Wort, sondern auf die Rollenklausel: Sie muss da sein, und sie muss die
+  Rollen benennen, die gemeint sind.
+*/
+const GESCHUETZT = ["repair_tickets", "ticket_history", "workshop_staff"];
+
+/** Zerlegt `create policy …;` in Name, Tabelle und Rollenklausel. */
+function policyStatements(text) {
+  return [...text.matchAll(/create\s+policy\s+([\s\S]*?);/gi)].map((match) => {
+    const stmt = match[1];
+    const name = stmt.match(/^\s*"([^"]+)"|^\s*([a-z_][a-z0-9_]*)/i);
+    const table = stmt.match(/\bon\s+public\.([a-z_][a-z0-9_]*)/i);
+    // In `create policy` steht die Rollenklausel immer vor `using` /
+    // `with check` – alles danach kann eigene `to` enthalten (z. B. in einem
+    // Funktionsaufruf) und gehört nicht zur Klausel.
+    const head = stmt.split(/\busing\b|\bwith\s+check\b/i)[0];
+    const to = head.match(/\bto\s+([a-z0-9_,\s"]+)$/i);
+    return {
+      name: (name?.[1] ?? name?.[2] ?? "(ohne Namen)").trim(),
+      table: table?.[1] ?? null,
+      roles: to ? to[1].split(",").map((r) => r.trim().replace(/"/g, "")).filter(Boolean) : null,
+    };
+  });
+}
+
+const policies = policyStatements(sql).filter((p) => GESCHUETZT.includes(p.table));
+const offen = policies.filter(
+  (p) => p.roles === null || p.roles.some((r) => r === "anon" || r === "public"),
+);
+
+if (offen.length > 0) {
+  for (const p of offen) {
+    fail(
+      p.roles === null
+        ? `Policy „${p.name}" auf ${p.table} hat keine to-Klausel – sie gilt damit für PUBLIC, also auch für anon.`
+        : `Policy „${p.name}" auf ${p.table} gilt für ${p.roles.join(", ")} – die Kundensicht läuft über den Server.`,
+    );
+  }
 } else {
-  ok("RLS überall aktiv, keine Policy für anonyme Zugriffe auf die Vorgangstabellen");
+  ok(`RLS überall aktiv, ${policies.length} Policies, alle auf benannte Rollen ohne anon/public`);
+}
+
+/*
+  Die Abgleich-Migration entfernt auf den drei Tabellen jede Policy, die sie
+  nicht kennt. Das repariert eine von Hand veränderte Datenbank – und wäre eine
+  Falle, wenn ihre Liste hinter den Policies zurückbliebe: Eine neu angelegte,
+  dort nicht eingetragene Policy verschwände beim nächsten `db push` wieder,
+  ohne dass irgendetwas fehlschlüge. Beide Mengen müssen deshalb übereinstimmen.
+*/
+const whitelist = new Set();
+const listenBlock = sql.match(/vorgesehen constant jsonb :=([\s\S]*?);/i);
+if (!listenBlock) {
+  fail("Die Abgleich-Migration hat keine Liste vorgesehener Policies – Prüfung nicht möglich.");
+} else {
+  for (const eintrag of listenBlock[1].matchAll(/'([^']+)'/g)) {
+    if (!GESCHUETZT.includes(eintrag[1])) whitelist.add(eintrag[1]);
+  }
+  const angelegt = new Set(policies.map((p) => p.name));
+  const fehlt = [...angelegt].filter((n) => !whitelist.has(n));
+  const zuviel = [...whitelist].filter((n) => !angelegt.has(n));
+
+  if (fehlt.length > 0) {
+    fail(
+      `Diese Policies werden angelegt, stehen aber nicht in der Abgleich-Liste – der nächste Push entfernt sie: ${fehlt.join(", ")}`,
+    );
+  }
+  if (zuviel.length > 0) {
+    fail(`Die Abgleich-Liste nennt Policies, die keine Migration anlegt: ${zuviel.join(", ")}`);
+  }
+  if (fehlt.length === 0 && zuviel.length === 0) {
+    ok(`Abgleich-Liste und angelegte Policies decken sich (${whitelist.size})`);
+  }
+}
+
+/*
+  Das zweite Schloss.
+
+  Der Schutz hing bisher allein an der Abwesenheit einer Policy. Das ist
+  richtig und war zu wenig – eine unbedachte Zeile im SQL-Editor kippt es.
+  `anon` bekommt deshalb auf diesen Tabellen gar kein Tabellenrecht: RLS
+  filtert Zeilen, es verleiht keine. Was nie erteilt wurde, kann auch keine
+  Policy zurückholen.
+*/
+const revokeBlock = sql.match(
+  /foreach\s+tabelle\s+in\s+array\s+array\[([^\]]*)\][\s\S]{0,400}?revoke all on table public\.%I from anon/i,
+);
+if (!revokeBlock) {
+  fail("Keiner Migration entzieht `anon` das Tabellenrecht auf den Vorgangstabellen.");
+} else {
+  const genannt = [...revokeBlock[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  const vergessen = GESCHUETZT.filter((t) => !genannt.includes(t));
+  if (vergessen.length > 0) {
+    fail(`Diesen Tabellen wird das Recht für \`anon\` nicht entzogen: ${vergessen.join(", ")}`);
+  } else {
+    ok(`\`anon\` hat auf allen ${GESCHUETZT.length} Vorgangstabellen kein Tabellenrecht`);
+  }
 }
 
 console.log(
