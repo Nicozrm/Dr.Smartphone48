@@ -462,6 +462,8 @@ export function InvoiceBuilder() {
   const [flash, setFlash] = useState<string | null>(null);
   const [customerHits, setCustomerHits] = useState<Party[]>([]);
   const [zoom, setZoom] = useState(1);
+  /** Die automatische Einpassung – für die ehrliche Prozentanzeige. */
+  const [baseScale, setBaseScale] = useState(1);
 
   const quickRef = useRef<HTMLInputElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -524,6 +526,15 @@ export function InvoiceBuilder() {
       const available = stage.parentElement?.clientWidth ?? stage.clientWidth;
       const base = Math.min(1, Math.max(0.25, (available - 44) / 793.7));
       stage.style.setProperty("--sheet-scale", String(base * zoom));
+      /*
+        Die Einpassung mitführen, damit die Anzeige die Wahrheit sagen kann.
+        Sie stand früher auf „100 %", während das Blatt auf einem schmalen
+        Bildschirm tatsächlich bei 60 % lag – `zoom` ist ein Faktor **auf**
+        die Einpassung, nicht die Darstellungsgröße. Eine Prozentzahl, die
+        nicht die dargestellte Größe meint, ist keine Angabe, sondern eine
+        Zahl neben einem Knopf.
+      */
+      setBaseScale(base);
     };
     fit();
     const ro = new ResizeObserver(fit);
@@ -1311,9 +1322,17 @@ export function InvoiceBuilder() {
               >
                 −
               </button>
-              <span className="w-14 text-center font-mono text-[0.75rem] tabular-nums text-ink-soft">
-                {Math.round(zoom * 100)} %
-              </span>
+              {/* Die dargestellte Größe, nicht der Faktor. Ein Druck setzt
+                  auf die Einpassung zurück – sonst kommt man aus einer
+                  Vergrößerung nur schrittweise wieder heraus. */}
+              <button
+                type="button"
+                onClick={() => setZoom(1)}
+                title="Auf Fensterbreite einpassen"
+                className="w-16 rounded-full py-1 text-center font-mono text-[0.75rem] tabular-nums text-ink-soft transition-colors hover:text-ink-strong"
+              >
+                {Math.round(baseScale * zoom * 100)} %
+              </button>
               <button
                 type="button"
                 onClick={() => setZoom((z) => Math.min(2, +(z + 0.25).toFixed(2)))}
