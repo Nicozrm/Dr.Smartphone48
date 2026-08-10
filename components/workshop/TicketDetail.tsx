@@ -10,6 +10,7 @@ import { maskImei, publicNote } from "@/lib/tickets/public-view";
 import { statusPath, statusUrl } from "@/lib/tickets/links";
 import { ticketStatusMeta, type TicketStatus } from "@/lib/tickets/status";
 import type { RepairTicket, TicketHistoryEntry } from "@/lib/tickets/types";
+import { buildHandoff, putHandoff } from "@/lib/intern/handoff";
 
 /*
   Die Akte.
@@ -207,6 +208,35 @@ export function TicketDetail({
             <span className="font-mono text-lg font-semibold text-ink-strong">
               {formatEuro(ticket.totalPrice)}
             </span>
+          </div>
+
+          {/*
+            Von hier führt der Weg weiter, statt dass Modell, IMEI und
+            Reparaturart ein zweites und drittes Mal abgetippt werden. Was
+            genau mitgeht, entscheidet `buildHandoff`; das Ziel fragt vorher
+            nach (siehe HandoffNotice), damit nichts stillschweigend einen
+            offenen Entwurf ersetzt.
+
+            Die Übergabe steht im sessionStorage, nicht in der Adresse: Dort
+            stünde ein Kundenname, und Adressen landen im Verlauf.
+          */}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a
+              href="/intern/rechnung"
+              onClick={() => putHandoff(buildHandoff(ticket, "rechnung"))}
+              className="press inline-flex h-9 items-center gap-2 rounded-full border border-line-strong px-3.5 text-[0.8125rem] font-medium text-ink-strong transition-colors hover:border-ink-strong"
+            >
+              Rechnung anlegen
+              <Icon name="arrow-right" size={14} />
+            </a>
+            <a
+              href="/intern/zertifikat"
+              onClick={() => putHandoff(buildHandoff(ticket, "zertifikat"))}
+              className="press inline-flex h-9 items-center gap-2 rounded-full border border-line-strong px-3.5 text-[0.8125rem] font-medium text-ink-strong transition-colors hover:border-ink-strong"
+            >
+              Zertifikat ausstellen
+              <Icon name="arrow-right" size={14} />
+            </a>
           </div>
         </section>
 

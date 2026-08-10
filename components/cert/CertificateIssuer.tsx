@@ -5,6 +5,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { QrCode } from "@/components/ui/QrCode";
 import { SignatureGlyph } from "./SignatureGlyph";
+import { HandoffNotice } from "@/components/intern/HandoffNotice";
+import {
+  type Handoff,
+  clearHandoff,
+  peekHandoff,
+  toCertificateRepairs,
+} from "@/lib/intern/handoff";
 import {
   deviceBinding,
   exportPrivateKey,
@@ -148,8 +155,14 @@ export function CertificateIssuer() {
   const [issued, setIssued] = useState<Issued | null>(null);
   const [error, setError] = useState("");
   const [log, setLog] = useState<LogEntry[]>([]);
+  /* Eine wartende Übergabe aus der Werkstatt – gelesen, aber nicht
+     angewandt. Die Entscheidung trifft der Betrieb (siehe HandoffNotice). */
+  const [handoff, setHandoff] = useState<Handoff | null>(null);
 
-  useEffect(() => setLog(loadLog()), []);
+  useEffect(() => {
+    setLog(loadLog());
+    setHandoff(peekHandoff("zertifikat"));
+  }, []);
 
   const allModels = useMemo(
     () => brands.flatMap((brand) => brand.models.map((m) => m.name)),
@@ -227,6 +240,26 @@ export function CertificateIssuer() {
 
   /* ---- Darstellung ------------------------------------------------------- */
 
+  /* Steht schon etwas im Formular, das eine Übernahme ersetzen würde? Das
+     Prüfprotokoll bleibt in jedem Fall stehen – übernommen werden nur
+     Modell, IMEI und die Reparaturarten. */
+  const certDirty = model.trim().length > 0 || imei.trim().length > 0;
+
+  const applyHandoff = () => {
+    if (!handoff) return;
+    setModel(handoff.device);
+    setImei(handoff.imei ?? "");
+    setRepairs(toCertificateRepairs(handoff));
+    setIssued(null);
+    clearHandoff();
+    setHandoff(null);
+  };
+
+  const dismissHandoff = () => {
+    clearHandoff();
+    setHandoff(null);
+  };
+
   return (
     <div className="mx-auto max-w-4xl space-y-14 px-6 pb-24">
       <header>
@@ -238,6 +271,15 @@ export function CertificateIssuer() {
           Gerät – auch der private Schlüssel nicht.
         </p>
       </header>
+
+      {handoff ? (
+        <HandoffNotice
+          handoff={handoff}
+          replaces={certDirty}
+          onApply={applyHandoff}
+          onDismiss={dismissHandoff}
+        />
+      ) : null}
 
       {/* ---- Schlüssel ---- */}
       <section className="cert-entry">

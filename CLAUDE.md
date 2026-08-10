@@ -29,6 +29,7 @@ npm run verify:status     # Werkstattablauf gegen das Datenbankschema
 npm run verify:cert       # Reparaturzertifikat: Format, Signatur, QR-Größe, Geheimnisse
 npm run verify:instruments # Physik der Instrumente, Bruchmechanik, Drosselung
 npm run verify:privacy    # Datenschutz-Nachweis: kein Weg nach draußen
+npm run verify:intern     # Übergabe Vorgang → Rechnung → Zertifikat
 npm run verify:invoice    # Geldrechnung: Cent, Steuergruppen, Ladenpreis
 
 bash .github/scripts/verify-alle.sh   # alle verify:*-Skripte nacheinander
@@ -77,12 +78,12 @@ tatsächlich saß.
 
 ### Die fachlichen Prüfskripte
 
-Der Prüfstand deckt die Regeln dieser Datei ab. Daneben stehen neun Skripte,
+Der Prüfstand deckt die Regeln dieser Datei ab. Daneben stehen zehn Skripte,
 die alle dasselbe prüfen: dass eine Zusage der Seite noch stimmt. Sie sind
 kein Ersatz für Tests, sondern genau die Stellen, an denen ein stiller Fehler
 die Website zur Lügnerin macht, ohne dass jemand etwas merkt.
 
-**Alle neun laufen in CI**, und zwar an zwei Stellen: `pruefungen.yml` an
+**Alle zehn laufen in CI**, und zwar an zwei Stellen: `pruefungen.yml` an
 jedem Pull Request (das Tor vor dem Merge) und `nextjs.yml` beim Push auf
 `main` (die letzte Bremse vor dem Veröffentlichen). Bis August 2026 taten
 sie das nicht – es lief nur der Prüfstand und `verify:qr`, die übrigen
@@ -139,6 +140,12 @@ anlegt, trägt nirgends etwas nach.
   an ihren Einzelfällen: unberührtes Raster, Loch in der Mitte, Loch am Rand,
   Ring, zum Rand offene Lücke. Beim Farbraum werden die vier Auskunftssätze
   gelesen – keiner darf selbst urteilen, jeder muss auf die Felder verweisen.
+- `verify:intern` – die Übergabe zwischen den internen Werkzeugen. Drei
+  Stellen, an denen still etwas Falsches durchrutscht: die Naht Euro → Cent
+  (alle 199 Katalogpreise, jeder Betrag bis 2.000 €, Summe = zugesagter
+  Festpreis), die Zuordnung der Reparaturart zwischen Gerätekatalog und
+  eingefrorenem Zertifikatsformat, und die Frage, was mitgeht – neun Felder,
+  kein interner Vermerk, keine Telefonnummer, keine erfundene Anschrift.
 - `verify:privacy` – der Fingerabdruck-Nachweis auf /datenschutz. Prüft im
   Quelltext, dass die beteiligten Dateien kein `fetch`, kein `sendBeacon`,
   keinen Browserspeicher und keinen Zählpixel enthalten, dass jede gelesene
@@ -365,6 +372,8 @@ components/
   cert/                  CertificateSeal (das Siegel), SignatureGlyph,
                          CheckpointGrid, VerifyView (Prüfseite),
                          CertificateIssuer (Werkstattwerkzeug)
+  intern/                InternHome (Einstieg), HandoffNotice (Übergabe
+                         aus der Werkstatt – fragt, statt zu ersetzen)
   invoice/               InvoiceBuilder (Editor) + InvoiceSheet (das Blatt, DIN 5008)
   privacy/               Fingerprint (der Nachweis auf /datenschutz)
   pwa/                   ServiceWorkerRegister, OfflineStock (der Kassensturz)
@@ -404,6 +413,8 @@ lib/
   invoice/               types.ts calc.ts (Cent-Arithmetik) catalog.ts validate.ts
                          (§ 14 UStG) store.ts (localStorage) girocode.ts
                          einvoice.ts + cii.ts (E-Rechnung nach EN 16931)
+  intern/                handoff.ts (Vorgang → Rechnung/Zertifikat, nur
+                         Typ-Importe, damit das Prüfskript es laden kann)
   tickets/               status.ts (die acht Zustände), code.ts (Vorgangscode),
                          types.ts, validate.ts, public-view.ts (Redaktion),
                          repository.ts (einzige Datenzugriffsschicht),
@@ -436,6 +447,7 @@ scripts/
   verify-instruments.mjs Sturzphysik und Bruchmechanik gegen das Tafelwerk,
                          Spektrum-Abbildung, Klirrfaktor
   verify-privacy.mjs     Fingerabdruck-Nachweis: kein Weg nach draußen
+  verify-intern.mjs      Übergabe: Cent-Naht, Reparaturarten, was mitgeht
   verify-invoice.mjs     Geldrechnung: Invarianten, Steuergruppen, Ladenpreis
 ```
 
@@ -728,6 +740,67 @@ folgt weiterhin aus der Bemessungsgrundlage, gleich welches Netto gewählt wird.
 `verify:invoice` hält beides fest: die Invarianten gegen 4.000 gewürfelte
 Belege und die Zusage „nie teurer als eingegeben“ gegen jeden Bruttopreis von
 0,01 € bis 2.000 €.
+
+### Die Übergabe zwischen den internen Werkzeugen (`lib/intern/handoff.ts`)
+
+Der interne Bereich bestand aus drei Inseln: Vorgänge in der Datenbank,
+Rechnung im `localStorage` des Betriebsrechners, Zertifikat für sich allein.
+Wer nach der Reparatur abrechnete, tippte Modell, IMEI und Reparaturart ein
+zweites Mal ab – und beim Zertifikat ein drittes Mal. Jede Abschrift ist eine
+Gelegenheit, sich zu vertippen, und ausgerechnet die IMEI trägt das
+Zertifikat als Gerätebindung.
+
+Aus dem Vorgang führen deshalb zwei Wege heraus: **Rechnung anlegen** und
+**Zertifikat ausstellen**.
+
+**Die Übergabe steht im `sessionStorage`, nicht in der Adresse.** Der
+naheliegende Weg wäre `/intern/rechnung?vorgang=…&kunde=…` – und genau der
+darf es nicht sein: In der Adresse stünde ein Kundenname, und Adressen landen
+im Verlauf, in der Autovervollständigung und in jedem Zugriffsprotokoll, das
+später jemand einschaltet. Dieselbe Überlegung wie beim Reparaturzertifikat,
+dessen Beleg deshalb im Fragment steht. `sessionStorage` und nicht
+`localStorage`, weil es eine Übergabe ist und kein Bestand: Wer den Vorgang
+doch nicht abrechnet, soll morgen keinen Kundennamen mehr im Speicher haben.
+
+**Gelesen wird ohne Nebenwirkung.** Der erste Entwurf holte die Übergabe und
+räumte sie im selben Zug weg. Das ist genau dann falsch, wenn im
+Rechnungswerkzeug noch ein Entwurf liegt – und das ist fast immer der Fall,
+weil der Editor laufend sichert. Eine halb fertige Rechnung für einen anderen
+Kunden stillschweigend zu ersetzen, wäre der teuerste Weg, eine Abschrift zu
+sparen. `peekHandoff` liest deshalb folgenlos, `clearHandoff` räumt erst nach
+der Entscheidung weg, und `HandoffNotice` zeigt vorher, **was** übernommen
+wird. Ist das Formular leer, gibt es nichts zu entscheiden.
+
+**Was mitgeht, steht als Liste fest** – neun Felder, und `verify:intern` hält
+sie gegen den vollständigen Vorgang. Interne Vermerke, Zustand, Historie,
+Telefonnummer und Zeitzusagen gehören weder auf eine Rechnung noch in ein
+Zertifikat. Eine Anschrift wird **nicht** erfunden: Die Anmeldung eines
+Vorgangs fragt keine ab, also bleiben die Felder leer und werden im
+Rechnungswerkzeug ergänzt. Eine geratene Anschrift wäre nach § 14 UStG ein
+Formfehler mit Ansage.
+
+**Die Naht Euro → Cent ist die heikelste Stelle.** Der Vorgang führt
+Festpreise in Euro, das Rechnungswerkzeug ausschließlich ganzzahlige Cent.
+`199.9 * 100` ergibt in IEEE-754 nicht 19990, sondern 19989.999999999996 –
+mit `Math.trunc` bekäme der Kunde eine Rechnung einen Cent unter dem
+zugesagten Festpreis. `verify:intern` prüft deshalb alle 199 Preise des
+Gerätekatalogs, jeden Betrag von 0,00 € bis 2.000,00 € und die Invariante,
+dass die Positionen sich auf den zugesagten Festpreis summieren.
+
+**`RepairKind` und `CertRepair` sind zwei Aufzählungen mit denselben Werten**
+– die eine im Gerätekatalog, die andere im eingefrorenen Binärformat des
+Zertifikats. Die Zuordnung geht über den Wert, nicht über den Index; geprüft
+wird deshalb Mengengleichheit in der tragenden Richtung: Jede Art, die der
+Betrieb verkauft, muss das Format ausdrücken können. Umgekehrt darf eine alte
+Art im Format stehen bleiben – es ist eingefroren, damit alte Belege prüfbar
+bleiben.
+
+**`lib/intern/handoff.ts` enthält ausschließlich `import type`.** Das ist eine
+Bedingung, keine Vorliebe: Das Prüfskript lädt das Modul direkt mit Node und
+`--experimental-strip-types`. Reine Typ-Importe verschwinden dabei, ein
+Wert-Import müsste zur Laufzeit aufgelöst werden – und Node kennt weder die
+`@/`-Kürzel noch endungslose relative Pfade. Dieselbe Regel gilt für jedes
+Modul unter `lib/`, das ein Prüfskript anfasst.
 
 ### Vorgangsverwaltung (`/status`, `/intern/werkstatt`)
 

@@ -29,6 +29,15 @@ import {
 import { canRenderGiroCode, formatIban, isValidIban } from "@/lib/invoice/girocode";
 import { docTypeMeta, docTypes } from "@/lib/invoice/doctype";
 import { paginate } from "@/lib/invoice/paginate";
+import { HandoffNotice } from "@/components/intern/HandoffNotice";
+import {
+  type Handoff,
+  clearHandoff,
+  peekHandoff,
+  toInvoiceDevice,
+  toInvoiceLines,
+  toInvoiceParty,
+} from "@/lib/intern/handoff";
 import {
   buildBackup,
   clearDraft,
@@ -461,6 +470,9 @@ export function InvoiceBuilder() {
   const [flash, setFlash] = useState<string | null>(null);
   const [customerHits, setCustomerHits] = useState<Party[]>([]);
   const [zoom, setZoom] = useState(1);
+  /* Eine wartende Übergabe aus der Werkstatt. Sie wird beim Laden nur
+     gelesen, nicht angewandt – siehe HandoffNotice. */
+  const [handoff, setHandoff] = useState<Handoff | null>(null);
 
   const quickRef = useRef<HTMLInputElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -472,6 +484,7 @@ export function InvoiceBuilder() {
     setProfile(p);
     setInvoice(loadDraft() ?? newInvoice(p));
     setHistory(loadHistory());
+    setHandoff(peekHandoff("rechnung"));
   }, []);
 
   /* Entwurf sichern, aber nicht bei jedem Tastendruck. */
@@ -736,6 +749,36 @@ export function InvoiceBuilder() {
 
   const imei = checkImei(invoice.device.imei);
 
+  /*
+    Steht schon Arbeit im Formular? Positionen oder ein Kundenname genügen –
+    beides bekommt man nicht versehentlich hinein. Ist das Formular leer,
+    gibt es nichts zu entscheiden, und die Übergabe wird ungefragt
+    übernommen (siehe unten im Rumpf des Hinweises).
+  */
+  const dirty = invoice.lines.length > 0 || invoice.customer.name.trim().length > 0;
+
+  const applyHandoff = () => {
+    if (!handoff) return;
+    setInvoice({
+      ...invoice,
+      customer: toInvoiceParty(handoff),
+      device: toInvoiceDevice(handoff),
+      lines: toInvoiceLines(handoff),
+      // Bruttoeingabe: Der Festpreis auf dem Ticket ist der Ladenpreis, den
+      // der Kunde gelesen hat. Er bleibt unangetastet – dieselbe Regel wie
+      // in lib/invoice/calc.ts.
+      grossEntry: true,
+    });
+    clearHandoff();
+    setHandoff(null);
+    setFlash(`Vorgang ${handoff.ticketCode} übernommen`);
+  };
+
+  const dismissHandoff = () => {
+    clearHandoff();
+    setHandoff(null);
+  };
+
   return (
     <>
       {/* Werkzeugleiste */}
@@ -775,6 +818,17 @@ export function InvoiceBuilder() {
           </div>
         </div>
       </div>
+
+      {handoff ? (
+        <div className="mx-auto max-w-[1600px] px-5 pt-6 md:px-8">
+          <HandoffNotice
+            handoff={handoff}
+            replaces={dirty}
+            onApply={applyHandoff}
+            onDismiss={dismissHandoff}
+          />
+        </div>
+      ) : null}
 
       <div className="inv-app mx-auto grid max-w-[1600px] gap-8 px-5 py-8 md:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,760px)] lg:gap-12">
         {/* Editor */}

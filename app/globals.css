@@ -3668,6 +3668,90 @@ html[data-js] .nojs-only {
   color: var(--positive);
 }
 
+/* ---- Übergabe aus der Werkstatt ----------------------------------------- */
+
+/*
+  Der Hinweis auf eine wartende Übergabe.
+
+  Er trägt den Akzent als Rand und Fläche, nicht als vollflächige Farbe: Es
+  ist eine Frage, kein Alarm und kein Erfolg. Dieselbe Zurückhaltung wie beim
+  Rechtsanspruch auf /ersatzteile.
+*/
+.handoff {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid color-mix(in oklab, var(--accent) 26%, transparent);
+  border-radius: var(--radius-m);
+  background: var(--accent-subtle);
+}
+
+.handoff__body {
+  min-width: 0;
+}
+
+.handoff__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--ink-strong);
+}
+
+.handoff__what {
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+.handoff__warn {
+  margin-top: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--warn);
+}
+
+.handoff__actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.5rem;
+}
+
+.handoff__yes,
+.handoff__no {
+  display: inline-flex;
+  align-items: center;
+  height: 2.25rem;
+  padding: 0 0.875rem;
+  border-radius: var(--radius-full);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.handoff__yes {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.handoff__yes:hover {
+  background: var(--accent-hover);
+}
+
+.handoff__no {
+  border: 1px solid var(--line-strong);
+  color: var(--ink-strong);
+}
+
+.handoff__no:hover {
+  border-color: var(--ink-strong);
+}
+
 /* ---- Verzeichnis der Instrumente ---------------------------------------- */
 
 .instr-index {

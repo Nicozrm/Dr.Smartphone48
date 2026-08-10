@@ -20,6 +20,7 @@
     "verify:cert": "node --experimental-strip-types --no-warnings scripts/verify-cert.mjs",
     "verify:instruments": "node --experimental-strip-types --no-warnings scripts/verify-instruments.mjs",
     "verify:privacy": "node --experimental-strip-types --no-warnings scripts/verify-privacy.mjs",
+    "verify:intern": "node --experimental-strip-types --no-warnings scripts/verify-intern.mjs",
     "verify:invoice": "node --experimental-strip-types --no-warnings scripts/verify-invoice.mjs"
   },
   "dependencies": {
