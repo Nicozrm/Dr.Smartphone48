@@ -3802,12 +3802,159 @@ html[data-js] .nojs-only {
   color: var(--ink-faint);
 }
 
+/* ---- Kamera-Prüfstand ---------------------------------------------------- */
+
+.cam-stage {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--surface-sunken);
+}
+
+.cam-stage[data-open="true"] {
+  border-color: var(--accent);
+}
+
+.cam-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cam-idle {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.cam-progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: color-mix(in srgb, var(--ink-strong) 20%, transparent);
+}
+
+.cam-progress > div {
+  height: 100%;
+  background: var(--accent);
+  transition: width 90ms linear;
+}
+
+.cam-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/*
+  Die Helligkeitskarte des Hellbilds.
+
+  Sie ist eine Karte und kein Foto: Jede Kachel trägt denselben Ton, nur
+  unterschiedlich deckend. Ein echtes Standbild an dieser Stelle wäre
+  hübscher und würde genau das verwischen, worum es geht – die Abweichung
+  einer Kachel von ihrer Umgebung.
+*/
+.cam-field {
+  display: grid;
+  aspect-ratio: 4 / 3;
+  gap: 0;
+  overflow: hidden;
+  border-radius: var(--radius-m);
+  background: var(--surface-sunken);
+}
+
+.cam-field > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--ink-strong);
+}
+
+/*
+  Ein gefundener Fleck trägt Farbe **und** Muster – dieselbe Regel wie beim
+  Digitizer-Prüfstand: Die Kacheln stehen einzeln, ohne Beschriftung, und
+  eine Rot-Grün-Schwäche darf hier nicht über den Befund entscheiden.
+*/
+.cam-field > span[data-spot] {
+  background: var(--warn);
+  opacity: 1 !important;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(0, 0, 0, 0.3) 0 2px,
+    transparent 2px 4px
+  );
+}
+
+/* ---- Eingabe-Schreiber --------------------------------------------------- */
+
+.lag-pad {
+  position: relative;
+  display: grid;
+  width: 100%;
+  place-items: center;
+  gap: 0.5rem;
+  min-height: 11rem;
+  padding: 1.5rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-l);
+  background: var(--surface-raised);
+  text-align: center;
+  /* Ohne das rutscht beim Wischen die Seite mit – und der Schreiber bekäme
+     genau die Bewegung nicht zu sehen, die er messen soll. */
+  touch-action: none;
+  user-select: none;
+}
+
+.lag-pad[data-armed] {
+  border-style: solid;
+  border-color: var(--accent);
+}
+
+/*
+  Die Rückmeldung auf eine Berührung.
+
+  Sie muss etwas Sichtbares ändern, sonst kann der Browser das angeforderte
+  Bild mit einem ohnehin geplanten verrechnen und die Messung liefe gegen ein
+  Bild, das mit dieser Berührung nichts zu tun hat. Deshalb ein Wechsel der
+  Fläche – und kein Übergang darauf, der die Messung um seine eigene Dauer
+  verlängerte.
+*/
+.lag-pad[data-hit="1"] {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-raised));
+}
+
+.lag-pad__hint {
+  max-width: 26rem;
+  font-size: 0.9375rem;
+  color: var(--ink-soft);
+}
+
+.lag-pad__count {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
 @media print {
   .wake-stage,
   .thermal-bar,
   .eject-stage,
   .frames-hist,
   .digit-grid,
+  .cam-stage,
+  .cam-field,
+  .lag-pad,
   .gamut-strip {
     display: none;
   }

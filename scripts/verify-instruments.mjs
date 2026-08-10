@@ -102,6 +102,17 @@ import {
   reading as digitizerReading,
 } from "../lib/display/digitizer.ts";
 import {
+  KNOWN_TOUCH_RATES,
+  MIN_TOUCH_SAMPLES,
+  NOTICEABLE_MS,
+  SNAP_TOLERANCE as TOUCH_SNAP_TOLERANCE,
+  median as latencyMedian,
+  nearestTouchRate,
+  summariseTaps,
+  touchRate,
+  touchRateReading,
+} from "../lib/display/latency.ts";
+import {
   coversP3,
   gamutLabel,
   gamutReading,
@@ -1346,6 +1357,184 @@ console.log("\nDigitizer – „nicht geprüft“ ist nicht „meldet nicht“\n
 }
 
 /* ---- 16. Farbraum-Beweis ------------------------------------------------ */
+
+console.log("\nEingabe – Verzögerung und die Abtastrate des Digitizers\n");
+{
+  /*
+    Die doppelte Stelle, maschinell zusammengehalten.
+
+    `median` steht im Bildfrequenz-Schreiber und im Eingabe-Schreiber, weil
+    die Prüfskripte diese Dateien ohne Bündler laden und ein Import ohne
+    Dateiendung dort nicht auflösbar ist. Zwei Fassungen derselben Funktion
+    driften auseinander – also werden sie hier gegen dieselben gewürfelten
+    Reihen gestellt, dieselbe Mechanik wie beim Werkstattablauf, der ebenfalls
+    zweimal steht.
+  */
+  let s = 20260810 >>> 0;
+  const wuerfel = () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+  let abweichung = null;
+  for (let lauf = 0; lauf < 200 && !abweichung; lauf++) {
+    const n = 1 + Math.floor(wuerfel() * 12);
+    const werte = Array.from({ length: n }, () => Math.round(wuerfel() * 1000) / 10);
+    /* summarise() zieht seinen Median aus derselben Funktion wie der
+       Bildfrequenz-Schreiber; über eine Reihe gleicher Abstände ist der
+       Median die Bilddauer. */
+    const ausFrames = summarise(werte.filter((v) => v > 0)).medianMs;
+    const ausLatency = latencyMedian(werte.filter((v) => v > 0));
+    if (!near(ausFrames, ausLatency, 1e-12)) {
+      abweichung = `${werte.join(", ")} → ${ausFrames} gegen ${ausLatency}`;
+    }
+  }
+  if (abweichung) fail(`Die beiden Median-Fassungen weichen ab: ${abweichung}`);
+  else ok("beide Median-Fassungen liefern über 200 gewürfelte Reihen dasselbe");
+
+  if (TOUCH_SNAP_TOLERANCE !== SNAP_TOLERANCE) {
+    fail(
+      `Die Toleranz steht zweimal verschieden: ${TOUCH_SNAP_TOLERANCE} gegen ${SNAP_TOLERANCE}.`,
+    );
+  } else {
+    ok("beide Toleranzen für die Zuordnung einer Rate sind dieselbe Zahl");
+  }
+
+  /*
+    Der Median der Summen, nicht die Summe der Mediane.
+
+    Die beiden Abschnitte schwanken nicht unabhängig voneinander: Eine
+    ausgelastete Hauptschleife verlängert beide zugleich. Aus zwei getrennt
+    gebildeten Medianen entstünde ein Wert, den keine einzelne Berührung je
+    gebraucht hat. Hier: Der Median der Wartezeiten ist 10, der der Zeichenzeiten
+    ebenfalls – zusammen 20 ms, die so keine der drei Berührungen gebraucht hat.
+    Richtig sind 31 ms, nämlich der Median aus 31, 20 und 35.
+  */
+  const gegenlaeufig = [
+    { queueMs: 1, frameMs: 30 },
+    { queueMs: 10, frameMs: 10 },
+    { queueMs: 30, frameMs: 5 },
+  ];
+  const zusammen = summariseTaps(gegenlaeufig);
+  if (!near(zusammen.queueMs, 10, 1e-9) || !near(zusammen.frameMs, 10, 1e-9)) {
+    fail("Die Mediane der beiden Abschnitte stimmen nicht.");
+  } else if (!near(zusammen.totalMs, 31, 1e-9)) {
+    fail(
+      `Der Median der Summen steht auf ${zusammen.totalMs} statt 31 – das sieht nach der Summe der Mediane aus.`,
+    );
+  } else if (!near(zusammen.worstMs, 35, 1e-9)) {
+    fail(`Die schlechteste Berührung steht auf ${zusammen.worstMs} statt 35.`);
+  } else {
+    ok("Gesamtzeit und schlechtester Fall kommen aus je einer Berührung");
+  }
+
+  /* Unbrauchbare Werte fliegen raus, statt das Ergebnis zu vergiften. Eine
+     negative Wartezeit gibt es nicht – wohl aber Uhren, die sie liefern. */
+  const schmutz = summariseTaps([
+    { queueMs: 5, frameMs: 5 },
+    { queueMs: -3, frameMs: 5 },
+    { queueMs: NaN, frameMs: 5 },
+    { queueMs: 5, frameMs: 5 },
+  ]);
+  if (schmutz.count !== 2 || !near(schmutz.totalMs, 10, 1e-9)) {
+    fail(`Unbrauchbare Messwerte gehen in die Auswertung ein (${schmutz.count} Werte).`);
+  } else {
+    ok("negative und ungültige Messwerte fliegen raus");
+  }
+
+  /* Ohne Messwerte: Nullen, kein NaN und keine erfundene Zahl. */
+  const leer = summariseTaps([]);
+  if (leer.count !== 0 || leer.totalMs !== 0 || Number.isNaN(leer.jitterMs)) {
+    fail("Eine leere Messung liefert etwas anderes als Nullen.");
+  } else {
+    ok("eine leere Messung liefert Nullen, kein NaN");
+  }
+
+  /*
+    Die Bänder der Abtastraten dürfen sich nicht überlappen – dieselbe Regel
+    wie beim Bildfrequenz-Schreiber, und aus demselben Anlass: In der
+    Überlappung entschiede die Reihenfolge im Array statt der Messung.
+  */
+  const sortiert = [...KNOWN_TOUCH_RATES].sort((a, b) => a - b);
+  let beruehrung = null;
+  for (let i = 1; i < sortiert.length; i++) {
+    const oben = sortiert[i - 1] * (1 + TOUCH_SNAP_TOLERANCE);
+    const unten = sortiert[i] * (1 - TOUCH_SNAP_TOLERANCE);
+    if (oben >= unten) beruehrung = `${sortiert[i - 1]} und ${sortiert[i]}`;
+  }
+  if (beruehrung) fail(`Die Bänder von ${beruehrung} Hz überlappen sich.`);
+  else ok("keine zwei Abtastraten haben sich berührende Bänder");
+
+  let danebenzugeordnet = null;
+  for (const rate of KNOWN_TOUCH_RATES) {
+    if (nearestTouchRate(rate) !== rate) danebenzugeordnet = `${rate} findet sich nicht selbst`;
+  }
+  /* Genau zwischen zwei Bändern wird keine Rate behauptet. Ohne diesen Fall
+     lieferte `nearestTouchRate` immer den nächsten Eintrag – und 105 Hz hieße
+     dann „120 Hz“. */
+  for (let i = 1; i < sortiert.length; i++) {
+    const mitte = (sortiert[i - 1] + sortiert[i]) / 2;
+    if (nearestTouchRate(mitte) !== null) {
+      danebenzugeordnet = `${mitte} Hz bekommt eine Zuordnung`;
+    }
+  }
+  if (danebenzugeordnet) fail(`Zuordnung der Abtastrate: ${danebenzugeordnet}.`);
+  else ok("jede Rate findet sich selbst, dazwischen wird nichts behauptet");
+
+  /*
+    Abstände von exakt null fliegen raus.
+
+    Manche Browser liefern mehrere Zwischenpunkte mit demselben Zeitstempel,
+    wenn sie im selben Zug aus dem Treiber kamen. Bliebe einer davon stehen,
+    ginge der Median gegen null und die gemeldete Rate gegen unendlich – eine
+    Zahl, die aussähe wie ein besonders gutes Panel.
+  */
+  const zeiten = [];
+  for (let i = 0; i < 60; i++) {
+    zeiten.push(i * 8.333);
+    if (i % 5 === 0) zeiten.push(i * 8.333);
+  }
+  const rate = touchRate(zeiten);
+  if (!rate.conclusive) {
+    fail("Sechzig Zwischenpunkte reichen nicht für eine Aussage.");
+  } else if (rate.nearest !== 120) {
+    fail(`8,333 ms Abstand ergeben ${rate.nearest ?? rate.hz.toFixed(1)} statt 120 Hz.`);
+  } else if (!Number.isFinite(rate.hz)) {
+    fail("Doppelte Zeitstempel ergeben eine unendliche Rate.");
+  } else {
+    ok("doppelte Zeitstempel verfälschen die Abtastrate nicht");
+  }
+
+  /* Zu wenige Zwischenpunkte: keine Aussage, sondern eine Bitte. */
+  const kurz = touchRate([0, 8, 16, 24]);
+  if (kurz.conclusive) {
+    fail("Vier Zwischenpunkte reichen für eine Abtastrate.");
+  } else if (!new RegExp(String(MIN_TOUCH_SAMPLES)).test(touchRateReading(kurz))) {
+    fail("Der Text sagt nicht, wie viele Punkte noch fehlen.");
+  } else {
+    ok(`unter ${MIN_TOUCH_SAMPLES} Zwischenpunkten gibt es keine Rate`);
+  }
+
+  /*
+    Die Aussage bleibt einseitig – wie beim Bildfrequenz-Schreiber.
+
+    „Wer 120 misst, hat ein Panel, das 120 kann“ ist belegbar. Der
+    Umkehrschluss ist es nicht, und er darf deshalb nirgends stehen.
+  */
+  const text = touchRateReading(touchRate(Array.from({ length: 60 }, (_, i) => i * 8.333)));
+  if (/kann nur|nicht mehr als|höchstens/.test(text)) {
+    fail(`Der Text schließt von der Messung nach unten: „${text}“`);
+  } else {
+    ok("der Text behauptet keine Obergrenze des Panels");
+  }
+
+  /* Die Marke der Wahrnehmbarkeit ist eine Marke, kein Urteil – und sie ist
+     die Zahl aus der Mensch-Maschine-Forschung, nicht eine gegriffene. */
+  if (NOTICEABLE_MS !== 50) {
+    fail(`Die Wahrnehmbarkeitsmarke steht auf ${NOTICEABLE_MS} ms statt 50.`);
+  } else {
+    ok("die Wahrnehmbarkeitsmarke steht auf 50 ms");
+  }
+}
 
 console.log("\nFarbraum – die Auskunft und was aus ihr folgt\n");
 
