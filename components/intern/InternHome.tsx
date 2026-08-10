@@ -18,6 +18,9 @@ import {
 import { workshopHref } from "@/lib/workshop/deeplink";
 import { INTERN_TOOLS } from "@/lib/intern/pages";
 import { certKeys } from "@/lib/cert/keys";
+import { SUPPORT_CHECKED } from "@/lib/data/support";
+import { site } from "@/lib/site";
+import { MANUELL, readiness, type ReadinessItem } from "@/lib/intern/readiness";
 import { loadProfile } from "@/lib/invoice/store";
 import {
   TICKET_STATUSES,
@@ -92,60 +95,43 @@ function satzZu(reason: AttentionReason, days: number, status: TicketStatus): st
   return `Seit ${tage} unverändert auf „${ticketStatusMeta[status].label}“`;
 }
 
-/* ---- Einrichtung: was fehlt, bevor es losgeht --------------------------- */
-
-interface Mangel {
-  text: string;
-  href: string;
-  hinweis: string;
-}
+/* ---- Livegang: was noch fehlt ------------------------------------------- */
 
 /**
- * Die offenen Punkte, aber nur die maschinell feststellbaren.
+ * Dieselbe Liste, die `npm run livegang` im Terminal zeigt.
  *
- * Beide sind still: Ohne Schlüssel stellt `/intern/zertifikat` weiter
- * Belege aus – sie sind nur außerhalb dieses einen Browsers nicht prüfbar.
- * Ohne Bankverbindung druckt das Rechnungswerkzeug weiter, nur eben ohne
- * GiroCode und ohne Pflichtangaben. Beides fällt erst auf, wenn ein Kunde
- * davorsteht.
+ * Erst nach dem ersten Rendern: Das Rechnungsprofil liegt im
+ * Browserspeicher, und ein serverseitig anderes Ergebnis als im Browser
+ * ergäbe eine Abweichung beim Hydrieren.
  */
-function useEinrichtung(): Mangel[] {
-  const [maengel, setMaengel] = useState<Mangel[]>([]);
+function useLivegang(): ReadinessItem[] {
+  const [items, setItems] = useState<ReadinessItem[]>([]);
 
   useEffect(() => {
-    const gefunden: Mangel[] = [];
-
-    if (certKeys.length === 0) {
-      gefunden.push({
-        text: "Signaturschlüssel fehlt",
-        href: "/intern/zertifikat",
-        hinweis:
-          "Ausgestellte Zertifikate lassen sich außerhalb dieses Browsers nicht prüfen.",
-      });
-    }
-
-    // localStorage nur im Browser, und nur nach dem ersten Rendern – sonst
-    // weicht das Serverbild vom ersten Clientbild ab.
     const profil = loadProfile();
-    const fehlend = [
-      !profil.iban && "IBAN",
-      !profil.bic && "BIC",
-      !profil.taxNumber && "Steuernummer",
-    ].filter(Boolean) as string[];
-
-    if (fehlend.length > 0) {
-      gefunden.push({
-        text: `${fehlend.join(", ")} ${fehlend.length === 1 ? "fehlt" : "fehlen"}`,
-        href: "/intern/rechnung",
-        hinweis:
-          "Ohne diese Angaben bleibt der GiroCode aus und die Rechnung ist unvollständig.",
-      });
-    }
-
-    setMaengel(gefunden);
+    setItems(
+      readiness({
+        certKeyCount: certKeys.length,
+        profile: {
+          iban: profil.iban,
+          bic: profil.bic,
+          taxNumber: profil.taxNumber,
+        },
+        supportChecked: SUPPORT_CHECKED,
+        site: {
+          street: site.street,
+          zip: site.zip,
+          city: site.city,
+          phone: site.phone,
+          email: site.email,
+          vatId: site.vatId,
+        },
+        now: Date.now(),
+      }),
+    );
   }, []);
 
-  return maengel;
+  return items;
 }
 
 /* ---- Die Seite ---------------------------------------------------------- */
@@ -173,7 +159,7 @@ function Rahmen({ children }: { children: React.ReactNode }) {
 
 /** Ohne Datenbank: die Werkzeuge stehen, die Vorgänge gibt es nicht. */
 function OhneBackend() {
-  const maengel = useEinrichtung();
+  const livegang = useLivegang();
   return (
     <Rahmen>
       <p className="max-w-2xl text-lg leading-relaxed text-ink-soft">
@@ -183,14 +169,14 @@ function OhneBackend() {
         gewohnt weiter, sie brauchen keinen Server.
       </p>
       <Werkzeuge ohneWerkstatt />
-      <Einrichtung maengel={maengel} />
+      <Livegang items={livegang} />
     </Rahmen>
   );
 }
 
 /** Mit Datenbank: erst anmelden, dann nachsehen, was quer liegt. */
 function MitBackend() {
-  const maengel = useEinrichtung();
+  const livegang = useLivegang();
 
   /* Die Uhr erst im Browser stellen, und danach im Minutentakt: „seit 4
      Tagen" darf sich nicht zwischen Server- und Clientbild unterscheiden. */
@@ -408,7 +394,7 @@ function MitBackend() {
       </section>
 
       <Werkzeuge />
-      <Einrichtung maengel={maengel} />
+      <Livegang items={livegang} />
     </Rahmen>
   );
 }
@@ -479,43 +465,87 @@ function Werkzeuge({ ohneWerkstatt = false }: { ohneWerkstatt?: boolean }) {
   );
 }
 
-function Einrichtung({ maengel }: { maengel: Mangel[] }) {
-  if (maengel.length === 0) return null;
+function Livegang({ items }: { items: ReadinessItem[] }) {
+  const blocker = items.filter((i) => i.schwere === "blocker");
+  const hinweise = items.filter((i) => i.schwere === "hinweis");
+
   return (
     <section>
-      <h2 className="text-title">Einrichtung</h2>
-      <p className="mt-3 max-w-2xl text-[0.9375rem] leading-relaxed text-ink-soft">
-        Beides fällt im Betrieb erst auf, wenn ein Kunde davorsteht – deshalb
-        steht es hier.
+      <h2 className="text-title">Vor dem Livegang</h2>
+      <p className="mt-2 max-w-2xl text-[0.9375rem] leading-relaxed text-ink-soft">
+        {blocker.length === 0
+          ? "Maschinell prüfbar ist nichts mehr offen. Die drei Punkte unten kann nur ein Mensch bestätigen."
+          : "Was hier steht, fällt im Betrieb erst auf, wenn ein Kunde davorsteht."}
       </p>
-      <ul className="mt-5 space-y-3">
-        {maengel.map((m) => (
-          <li
-            key={m.href + m.text}
-            className="flex items-start gap-4 overflow-hidden rounded-[var(--radius-m)] border border-line bg-sunken p-4"
-          >
-            {/* Dieselbe Kante wie bei den Befunden oben: Was etwas von einem
-                will, sieht gleich aus, egal woher es kommt. */}
-            <span
-              aria-hidden="true"
-              className="-my-4 -ml-4 w-1 self-stretch"
-              style={{ background: "var(--warn)" }}
-            />
-            <span className="min-w-0 flex-1">
-              <span className="block font-medium text-warn">{m.text}</span>
-              <span className="mt-1 block text-[0.875rem] leading-relaxed text-ink-soft">
-                {m.hinweis}
+
+      {items.length > 0 ? (
+        <ul className="mt-5 space-y-3">
+          {[...blocker, ...hinweise].map((item) => (
+            <li
+              key={item.id}
+              className="flex items-start gap-4 overflow-hidden rounded-[var(--radius-m)] border border-line bg-sunken p-4"
+            >
+              {/* Dieselbe Kante wie bei den Befunden oben: Was etwas von
+                  einem will, sieht gleich aus, egal woher es kommt. */}
+              <span
+                aria-hidden="true"
+                className="-my-4 -ml-4 w-1 self-stretch"
+                style={{
+                  background:
+                    item.schwere === "blocker" ? "var(--danger)" : "var(--warn)",
+                }}
+              />
+              <span className="min-w-0 flex-1">
+                <span
+                  className={`block font-medium ${
+                    item.schwere === "blocker" ? "text-danger" : "text-warn"
+                  }`}
+                >
+                  {item.titel}
+                </span>
+                <span className="mt-1 block text-[0.875rem] leading-relaxed text-ink-soft">
+                  {item.hinweis}
+                </span>
+                {item.href ? (
+                  <Link
+                    href={item.href}
+                    className="mt-2 inline-block text-[0.875rem] font-medium text-accent underline-offset-4 hover:underline"
+                  >
+                    Jetzt erledigen
+                  </Link>
+                ) : null}
               </span>
-              <Link
-                href={m.href}
-                className="mt-2 inline-block text-[0.875rem] font-medium text-accent underline-offset-4 hover:underline"
-              >
-                Jetzt nachholen
-              </Link>
-            </span>
-          </li>
-        ))}
-      </ul>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {/*
+        Ohne Häkchen, und das ist Absicht: Ein Häkchen, das sich selbst
+        setzt, wäre gelogen. Keine Maschine kann sehen, ob vor dem Worker
+        eine Zugangsbeschränkung steht oder ob die Preise gegengelesen sind.
+      */}
+      <div className="mt-6 rounded-[var(--radius-m)] border border-line bg-raised p-5">
+        <p className="text-[0.75rem] uppercase tracking-[0.08em] text-ink-faint">
+          Nur von Hand zu bestätigen
+        </p>
+        <ul className="mt-3 space-y-3">
+          {MANUELL.map((punkt) => (
+            <li key={punkt.titel}>
+              <p className="text-[0.9375rem] font-medium text-ink-strong">
+                {punkt.titel}
+              </p>
+              <p className="mt-0.5 text-[0.875rem] leading-relaxed text-ink-soft">
+                {punkt.hinweis}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <p className="mt-4 text-[0.8125rem] leading-relaxed text-ink-faint">
+        Dieselbe Liste im Terminal: <code>npm run livegang</code>.
+      </p>
     </section>
   );
 }

@@ -20,7 +20,8 @@
     "verify:cert": "node --experimental-strip-types --no-warnings scripts/verify-cert.mjs",
     "verify:instruments": "node --experimental-strip-types --no-warnings scripts/verify-instruments.mjs",
     "verify:privacy": "node --experimental-strip-types --no-warnings scripts/verify-privacy.mjs",
-    "verify:invoice": "node --experimental-strip-types --no-warnings scripts/verify-invoice.mjs"
+    "verify:invoice": "node --experimental-strip-types --no-warnings scripts/verify-invoice.mjs",
+    "livegang": "node --experimental-strip-types --no-warnings scripts/livegang.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
