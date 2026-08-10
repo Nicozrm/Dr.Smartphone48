@@ -781,6 +781,45 @@ vorher redigiert. Eine Lese-Policy für `anon` wäre eine Lese-Policy für jeden
 der acht Zeichen durchprobiert. `verify:status` schlägt an, wenn doch eine
 entsteht.
 
+**Dazu ein zweites Schloss: `anon` hat auf den drei Tabellen gar kein
+Tabellenrecht.** Bisher hing der Schutz allein an einer Abwesenheit – keine
+Policy, also keine Sicht. Das ist richtig und war zu wenig, denn eine einzige
+Zeile im SQL-Editor kippt es. RLS filtert Zeilen, es verleiht keine Rechte;
+was nie erteilt wurde, kann auch keine Policy zurückholen. `authenticated`
+behält seine Rechte, weil darüber das Dashboard läuft und dort die Policies
+entscheiden. Die Anwendung verliert nichts: Der öffentliche Schlüssel wird in
+`lib/supabase/browser.ts` nur für Realtime benutzt.
+
+**Die Datei ist nicht die Datenbank – der Befund vom 10.8.2026.** Im
+Supabase-Projekt standen auf `repair_tickets` und `ticket_history` fünf
+Policies, die in keiner Migration dieses Repositories vorkommen, jede davon
+`for select/insert/update … using (true)` ohne `to`-Klausel. Ohne `to` gilt
+eine Policy für `PUBLIC`, also für jede Rolle – wer den öffentlichen Schlüssel
+aus dem ausgelieferten JavaScript las, konnte jeden Vorgang lesen, anlegen und
+ändern: Name, Telefon, E-Mail, IMEI, interne Vermerke. Angewandt war nur die
+erste Migration; `workshop_staff`, `is_workshop_staff()` und
+`apply_ticket_status()` gab es gar nicht. Was dort stand, hatte jemand von
+Hand geschrieben.
+
+Drei Lehren, alle drei umgesetzt:
+
+- **Die weitreichendere Form war die, die durchkam.** `verify:status` suchte
+  wörtlich nach `to … anon` und übersah damit eine Policy *ohne*
+  Rollenklausel – die für mehr gilt, nicht für weniger. Geprüft wird jetzt die
+  Klausel selbst: Sie muss da sein und darf weder `anon` noch `public` nennen.
+- **Ein Push gleicht ab, statt zu ergänzen.**
+  `20260810120000_repair_tickets_drift.sql` entfernt auf den drei Tabellen
+  **jede** Policy, die dort nicht namentlich vorgesehen ist. Eine von Hand
+  veränderte Datenbank kommt damit zurück in den Zustand, den dieses
+  Verzeichnis beschreibt. Wer eine Policy ergänzt, trägt sie in die Liste ein –
+  `verify:status` prüft, dass Liste und angelegte Policies dieselbe Menge sind,
+  sonst entfernte der nächste Push die neue Policy lautlos wieder.
+- **Kein Prüfskript sieht die Datenbank.** Alle laufen gegen Dateien, und die
+  Dateien waren richtig. Nach jedem `supabase db push` gehört deshalb der
+  Kassensturz aus `supabase/README.md` in den SQL-Editor – oder Supabases
+  eigene Sicherheitsprüfung (Advisors) angesehen. Das ist die einzige Prüfung
+  dieses Projekts, die ein Mensch auslösen muss.
+
 **Realtime ist ein Signal, keine Datenquelle.** Kein `postgres_changes` – das
 verschickte die ganze Zeile samt Name, Telefon und IMEI. Stattdessen sendet
 der Trigger je Kanal genau so viel, wie der Empfänger braucht:

@@ -25,6 +25,13 @@ sein.
    | `20260803120000_repair_tickets.sql` | Typen, Tabellen, Indizes |
    | `20260803120100_repair_tickets_rls.sql` | RLS, Schreibpfad, Zeitstempel |
    | `20260803120200_repair_tickets_realtime.sql` | Rundruf und Zuhör-Policies |
+   | `20260810120000_repair_tickets_drift.sql` | Abgleich: entfernt fremde Policies, entzieht `anon` das Tabellenrecht |
+
+   **Alle vier, und in dieser Reihenfolge.** Wer nur die erste einspielt,
+   bekommt Tabellen ohne Policies, ohne `workshop_staff` und ohne
+   `apply_ticket_status` – ein Zustand, in dem das Dashboard nicht läuft und
+   in dem sich leicht „mal eben" eine Policy von Hand einfügen lässt. Genau so
+   ist der Befund vom 10.8.2026 entstanden.
 
 3. Umgebungsvariablen setzen (siehe `.env.example`):
 
@@ -73,6 +80,60 @@ Nachgemessen statt behauptet: Die Vorprüfung wurde gegen das oben genannte
 fremde Schema laufen gelassen. Sie schlägt bei fremdem Typ an, sie schlägt bei
 fremder Tabelle an (und benennt die vier fehlenden Spalten), und auf einer
 Datenbank ohne beide Namen schweigt sie.
+
+## Der Kassensturz nach jedem Push
+
+`npm run verify:status` liest **Dateien**, nicht die Datenbank. Am 10.8.2026
+war genau das der blinde Fleck: Die Migrationen stimmten, angewandt war nur
+die erste, und auf den Vorgangstabellen standen fünf von Hand angelegte
+Policies `using (true)` ohne `to`-Klausel – also für jede Rolle, `anon`
+eingeschlossen. Alle Prüfskripte liefen grün.
+
+Diese Abfrage gehört deshalb nach jedem `supabase db push` in den SQL-Editor.
+Sie soll **nichts** zurückgeben:
+
+```sql
+-- 1. Policies, die keine Migration kennt, oder die für anon/public gelten
+select tablename, policyname, roles::text, cmd, 'unerwartete Policy' as befund
+from pg_policies
+where schemaname = 'public'
+  and tablename in ('repair_tickets', 'ticket_history', 'workshop_staff')
+  and (
+    roles::text[] && array['anon', 'public']
+    or policyname not in (
+      'Werkstatt liest Vorgaenge', 'Werkstatt legt Vorgaenge an',
+      'Werkstatt pflegt Vorgaenge', 'Werkstatt liest Historie',
+      'Mitarbeitende sehen ihren Eintrag'
+    )
+  )
+union all
+-- 2. Tabellen ohne RLS oder mit einem Recht für anon
+select c.relname, '-', '-', '-',
+       case when not c.relrowsecurity then 'RLS ist aus' else 'anon hat ein Tabellenrecht' end
+from pg_class c join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public'
+  and c.relname in ('repair_tickets', 'ticket_history', 'workshop_staff')
+  and (not c.relrowsecurity
+       or has_table_privilege('anon', c.oid, 'SELECT')
+       or has_table_privilege('anon', c.oid, 'INSERT')
+       or has_table_privilege('anon', c.oid, 'UPDATE')
+       or has_table_privilege('anon', c.oid, 'DELETE'))
+union all
+-- 3. Funktionen ohne festen search_path oder mit Ausführungsrecht für anon
+select p.proname, '-', '-', '-',
+       case when p.proconfig is null then 'kein search_path'
+            else 'anon darf ausführen' end
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname in ('is_workshop_staff', 'is_service_role', 'apply_ticket_status',
+                    'touch_repair_ticket', 'log_ticket_created', 'broadcast_ticket_change')
+  and (p.proconfig is null or has_function_privilege('anon', p.oid, 'EXECUTE'));
+```
+
+Dazu, einmal im Dashboard: **Advisors → Security**. Supabase prüft dort unter
+anderem auf Tabellen ohne RLS und auf Funktionen mit beweglichem
+`search_path`. Es ist die einzige Prüfung dieses Projekts, die ein Mensch
+auslösen muss – die anderen laufen in CI.
 
 ## Personal freischalten
 
