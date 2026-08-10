@@ -72,6 +72,10 @@ export function CertificateIssuer() {
   const [publicKey, setPublicKey] = useState("");
   const [signingKey, setSigningKey] = useState<CryptoKey | null>(null);
   const [keyNote, setKeyNote] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  /** Genau die Zeile, die nach `lib/cert/keys.ts` gehört – einmal gebaut. */
+  const keyLine = `{ id: ${keyId}, publicKey: "${publicKey}", since: "${new Date().toISOString().slice(0, 10)}", note: "Werkstattrechner." },`;
 
   useEffect(() => {
     const stored = loadKey();
@@ -286,7 +290,22 @@ export function CertificateIssuer() {
                   Öffentliche Hälfte · diese Zeile nach{" "}
                   <code>lib/cert/keys.ts</code> übernehmen
                 </p>
-                <pre className="cert-hex mt-2">{`{ id: ${keyId}, publicKey: "${publicKey}", since: "${new Date().toISOString().slice(0, 10)}", note: "Werkstattrechner." },`}</pre>
+                <pre className="cert-hex mt-2">{keyLine}</pre>
+                {/* Abtippen ist hier die häufigste Fehlerquelle: 87 Zeichen
+                    base64url, in denen ein vertauschtes Zeichen den Ring
+                    still unbrauchbar macht. */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard
+                      ?.writeText(keyLine)
+                      .then(() => setCopied(true))
+                      .catch(() => setCopied(false));
+                  }}
+                  className="press mt-2 inline-flex h-9 items-center rounded-full border border-line-strong px-4 text-[0.875rem] font-medium text-ink-strong"
+                >
+                  {copied ? "Kopiert" : "Zeile kopieren"}
+                </button>
                 <p className="mt-2 text-sm text-ink-soft">
                   Genau diese eine Zeile, und zwar in das Array{" "}
                   <code>certKeys</code> – nicht in den Kommentar darüber. Ein
