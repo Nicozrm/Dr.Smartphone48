@@ -254,11 +254,13 @@ function MitBackend() {
             </p>
           ) : null}
           {quer.length === 0 ? (
-            <p className="mt-4 text-lg text-ink-soft">
-              Nichts liegt quer. Kein überfälliger Termin, nichts seit über{" "}
-              {PICKUP_DAYS} Tagen abholbereit, nichts seit über {STALE_DAYS}{" "}
-              Tagen unbewegt.
-            </p>
+            <div className="mt-4 rounded-[var(--radius-m)] border border-line bg-raised px-5 py-6">
+              <p className="text-lg text-ink-strong">Nichts liegt quer.</p>
+              <p className="mt-1.5 text-[0.875rem] leading-relaxed text-ink-soft">
+                Kein überfälliger Termin, nichts seit über {PICKUP_DAYS} Tagen
+                abholbereit, nichts seit über {STALE_DAYS} Tagen unbewegt.
+              </p>
+            </div>
           ) : (
             <>
               <p className="mt-3 text-[0.9375rem] text-ink-soft">
@@ -269,27 +271,47 @@ function MitBackend() {
               <ul className="mt-5 space-y-2">
                 {quer.map(({ ticket, reason, days }) => (
                   <li key={ticket.ticketCode}>
-                  <Link
-                    href={workshopHref({ vorgang: ticket.ticketCode })}
-                    className="press block rounded-[var(--radius-m)] border border-line bg-raised p-4 transition-colors hover:border-line-strong"
-                  >
-                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <span className="font-mono text-[0.9375rem] text-ink-strong">
-                        {ticket.ticketCode}
-                      </span>
-                      <span className="text-ink-strong">{ticket.device}</span>
-                      <span className="text-[0.875rem] text-ink-faint">
-                        {ticket.customer}
-                      </span>
-                    </div>
-                    <p
-                      className={`mt-1 text-[0.875rem] ${
-                        reason === "ueberfaellig" ? "text-danger" : "text-warn"
-                      }`}
+                    <Link
+                      href={workshopHref({ vorgang: ticket.ticketCode })}
+                      className="press group flex items-start gap-4 overflow-hidden rounded-[var(--radius-m)] border border-line bg-raised p-4 transition-colors hover:border-line-strong"
                     >
-                      {satzZu(reason, days, ticket.status)}
-                    </p>
-                  </Link>
+                      {/* Die Kante trägt den Grund. Farbe statt Symbol: ein
+                          Ausrufezeichen neben jeder Zeile schriee, und die
+                          Liste soll ruhig bleiben, auch wenn sie lang wird. */}
+                      <span
+                        aria-hidden="true"
+                        className="-my-4 -ml-4 w-1 self-stretch"
+                        style={{
+                          background:
+                            reason === "ueberfaellig"
+                              ? "var(--danger)"
+                              : "var(--warn)",
+                        }}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                          <span className="truncate font-medium text-ink-strong">
+                            {ticket.device}
+                          </span>
+                          <span className="truncate text-[0.875rem] text-ink-soft">
+                            {ticket.customer}
+                          </span>
+                          <span className="font-mono text-[0.8125rem] text-ink-faint">
+                            {ticket.ticketCode}
+                          </span>
+                        </span>
+                        <span
+                          className={`mt-1 block text-[0.875rem] ${
+                            reason === "ueberfaellig" ? "text-danger" : "text-warn"
+                          }`}
+                        >
+                          {satzZu(reason, days, ticket.status)}
+                        </span>
+                      </span>
+                      <span className="mt-0.5 shrink-0 text-ink-faint transition-transform group-hover:translate-x-0.5">
+                        <Icon name="arrow-right" size={16} />
+                      </span>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -337,17 +359,23 @@ function MitBackend() {
           </p>
         ) : (
           <>
-            <p className="mt-4 text-lg text-ink-soft">
-              {offen === 1 ? "Ein Vorgang" : `${offen} Vorgänge`} in Arbeit
-              {abholbereit > 0 ? `, davon ${abholbereit} abholbereit` : ""}
-              {wert > 0 ? ` · ${formatEuro(wert)} in Arbeit` : ""}.
-            </p>
-            {wert > 0 ? (
-              <p className="mt-1 text-[0.8125rem] text-ink-faint">
-                Kein Umsatz: nichts davon ist bezahlt, und manches wird nach
-                der Diagnose abgelehnt.
-              </p>
-            ) : null}
+            {/* Drei Kacheln, mehr nicht – dieselbe Zurückhaltung wie im
+                Dashboard. Ein Feld mit zwölf Kennzahlen wird gelesen wie
+                eine Tapete. */}
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <Kachel label="In Arbeit" wert={String(offen)} />
+              <Kachel
+                label="Abholbereit"
+                wert={String(abholbereit)}
+                hinweis={abholbereit > 0 ? "wartet auf den Kunden" : undefined}
+                betont={abholbereit > 0}
+              />
+              <Kachel
+                label="Wert in Arbeit"
+                wert={formatEuro(wert)}
+                hinweis="kein Umsatz – nichts davon ist bezahlt"
+              />
+            </div>
             <ul className="mt-6 divide-y divide-line border-y border-line">
               {OPEN_STATUSES.filter((status) => (zaehlung.get(status) ?? 0) > 0).map(
                 (status) => {
@@ -385,6 +413,43 @@ function MitBackend() {
   );
 }
 
+/**
+ * Eine Kennzahl.
+ *
+ * Die Zahl steht in Tabellenziffern (`tabular-nums`), damit die Kacheln
+ * beim Aktualisieren nicht zucken – eine Ziffer, die schmaler ist als die
+ * andere, verschiebt sonst die ganze Zeile.
+ */
+function Kachel({
+  label,
+  wert,
+  hinweis,
+  betont = false,
+}: {
+  label: string;
+  wert: string;
+  hinweis?: string;
+  betont?: boolean;
+}) {
+  return (
+    <div className="rounded-[var(--radius-m)] border border-line bg-raised px-4 py-3.5">
+      <p className="text-[0.75rem] uppercase tracking-[0.08em] text-ink-faint">
+        {label}
+      </p>
+      <p
+        className={`mt-1.5 font-mono text-2xl font-semibold tabular-nums tracking-tight ${
+          betont ? "text-accent" : "text-ink-strong"
+        }`}
+      >
+        {wert}
+      </p>
+      {hinweis ? (
+        <p className="mt-0.5 text-[0.75rem] leading-snug text-ink-faint">{hinweis}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function Werkzeuge({ ohneWerkstatt = false }: { ohneWerkstatt?: boolean }) {
   const liste = ohneWerkstatt
     ? INTERN_TOOLS.filter((w) => !w.needsBackend)
@@ -398,11 +463,13 @@ function Werkzeuge({ ohneWerkstatt = false }: { ohneWerkstatt?: boolean }) {
           <Link
             key={w.href}
             href={w.href}
-            className="press rounded-[var(--radius-l)] border border-line bg-raised p-5 transition-colors hover:border-line-strong"
+            className="press group rounded-[var(--radius-l)] border border-line bg-raised p-5 transition-colors hover:border-line-strong"
           >
             <span className="flex items-center gap-2 font-medium text-ink-strong">
               {w.title}
-              <Icon name="arrow-right" size={15} />
+              <span className="text-ink-faint transition-transform group-hover:translate-x-0.5">
+                <Icon name="arrow-right" size={15} />
+              </span>
             </span>
             <p className="mt-1 text-[0.875rem] leading-relaxed text-ink-soft">{w.desc}</p>
           </Link>
@@ -425,18 +492,27 @@ function Einrichtung({ maengel }: { maengel: Mangel[] }) {
         {maengel.map((m) => (
           <li
             key={m.href + m.text}
-            className="rounded-[var(--radius-m)] border border-line bg-sunken p-4"
+            className="flex items-start gap-4 overflow-hidden rounded-[var(--radius-m)] border border-line bg-sunken p-4"
           >
-            <p className="font-medium text-warn">{m.text}</p>
-            <p className="mt-1 text-[0.875rem] leading-relaxed text-ink-soft">
-              {m.hinweis}
-            </p>
-            <Link
-              href={m.href}
-              className="mt-2 inline-block text-[0.875rem] font-medium text-accent underline-offset-4 hover:underline"
-            >
-              Jetzt nachholen
-            </Link>
+            {/* Dieselbe Kante wie bei den Befunden oben: Was etwas von einem
+                will, sieht gleich aus, egal woher es kommt. */}
+            <span
+              aria-hidden="true"
+              className="-my-4 -ml-4 w-1 self-stretch"
+              style={{ background: "var(--warn)" }}
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium text-warn">{m.text}</span>
+              <span className="mt-1 block text-[0.875rem] leading-relaxed text-ink-soft">
+                {m.hinweis}
+              </span>
+              <Link
+                href={m.href}
+                className="mt-2 inline-block text-[0.875rem] font-medium text-accent underline-offset-4 hover:underline"
+              >
+                Jetzt nachholen
+              </Link>
+            </span>
           </li>
         ))}
       </ul>
