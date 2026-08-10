@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { StatusBadge } from "@/components/status/StatusBadge";
 import { StatusControl } from "./StatusControl";
 import { fetchWorkshopTicket, patchTicket, type TicketPatch } from "@/lib/api/client";
 import { formatDateTime, formatEuro, formatMinutes } from "@/lib/format";
+import { certHref, invoiceHref } from "@/lib/intern/prefill";
 import { maskImei, publicNote } from "@/lib/tickets/public-view";
 import { statusPath, statusUrl } from "@/lib/tickets/links";
 import { ticketStatusMeta, type TicketStatus } from "@/lib/tickets/status";
@@ -207,6 +209,34 @@ export function TicketDetail({
             <span className="font-mono text-lg font-semibold text-ink-strong">
               {formatEuro(ticket.totalPrice)}
             </span>
+          </div>
+        </section>
+
+        {/* Weiter im Arbeitsweg */}
+        <section>
+          <h3 className="text-[0.875rem] font-medium text-ink-strong">Weiter</h3>
+          <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-ink-faint">
+            Kunde, Gerät und IMEI werden übernommen – abgetippte Daten sind
+            falsch getippte Daten. Was im Ziel schon ausgefüllt ist, bleibt
+            stehen.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link
+              href={invoiceHref({
+                customer: ticket.customer,
+                model: ticket.device,
+                imei: ticket.imei ?? undefined,
+              })}
+              className="press inline-flex h-10 items-center rounded-full border border-line-strong px-4 text-[0.875rem] font-medium text-ink-strong"
+            >
+              Rechnung schreiben
+            </Link>
+            <Link
+              href={certHref({ model: ticket.device, batch: ticket.ticketCode })}
+              className="press inline-flex h-10 items-center rounded-full border border-line-strong px-4 text-[0.875rem] font-medium text-ink-strong"
+            >
+              Zertifikat ausstellen
+            </Link>
           </div>
         </section>
 

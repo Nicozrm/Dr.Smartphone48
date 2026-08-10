@@ -7,8 +7,21 @@
  * tippen muss, hat eine Liste bekommen und keine Handlung. Eine Übersicht,
  * die auf Sackgassen zeigt, ist eine Tapete mit Zahlen.
  *
- * Also trägt die Adresse den Sprung: `?vorgang=<Code>` öffnet die Akte,
- * `?status=<Zustand>` zeigt einen Zustand allein.
+ * Also trägt die Adresse den Sprung: `#vorgang=<Code>` öffnet die Akte,
+ * `#status=<Zustand>` zeigt einen Zustand allein.
+ *
+ * ## Warum im Fragment und nicht als Parameter
+ *
+ * Dieselbe Regel wie beim Reparaturzertifikat: Ein Fragment schickt der
+ * Browser **niemals** an einen Server. Ein Parameter dagegen steht in jedem
+ * Zugriffsprotokoll – dem des Hosters, dem von Cloudflare, dem des
+ * Proxys dazwischen.
+ *
+ * Beim Vorgangscode wiegt das, denn er ist kein Ausweis, sondern ein
+ * Schlüssel: Wer ihn hat, sieht die Statusseite des Kunden. Ihn in eine
+ * Adresszeile zu schreiben, die protokolliert wird, wäre genau der
+ * Leichtsinn, den dieses Projekt beim Zertifikat ausdrücklich vermeidet.
+ * Die erste Fassung dieses Moduls tat es trotzdem.
  *
  * ## Warum das geprüft wird, statt einfach gelesen
  *
@@ -43,10 +56,11 @@ export interface WorkshopDeepLink {
  * nicht ein zweites Mal hier steht.
  */
 export function parseDeepLink(
-  query: string,
+  fragment: string,
   known: readonly string[],
 ): WorkshopDeepLink {
-  const params = new URLSearchParams(query);
+  // Führendes „#" abstreifen – `window.location.hash` liefert es mit.
+  const params = new URLSearchParams(fragment.replace(/^#/, ""));
   const out: WorkshopDeepLink = {};
 
   const vorgang = params.get("vorgang");
@@ -66,7 +80,7 @@ export function parseDeepLink(
  * gewinnt.
  */
 export function workshopHref(link: WorkshopDeepLink): string {
-  if (link.vorgang) return `/intern/werkstatt?vorgang=${encodeURIComponent(link.vorgang)}`;
-  if (link.status) return `/intern/werkstatt?status=${encodeURIComponent(link.status)}`;
+  if (link.vorgang) return `/intern/werkstatt#vorgang=${encodeURIComponent(link.vorgang)}`;
+  if (link.status) return `/intern/werkstatt#status=${encodeURIComponent(link.status)}`;
   return "/intern/werkstatt";
 }

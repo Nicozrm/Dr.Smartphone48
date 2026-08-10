@@ -34,6 +34,7 @@ import {
 import { fingerprint } from "@/lib/cert/glyph";
 import { certKeys } from "@/lib/cert/keys";
 import { appendLog, loadKey, loadLog, saveKey, type LogEntry } from "@/lib/cert/store";
+import { fillIfEmpty, parseCertPrefill } from "@/lib/intern/prefill";
 import { repairMeta } from "@/lib/data/devices";
 import { brands } from "@/lib/data/devices";
 import { checkpointCount, inspectionGroups } from "@/lib/data/inspection";
@@ -140,6 +141,7 @@ export function CertificateIssuer() {
   const [model, setModel] = useState("");
   const [imei, setImei] = useState("");
   const [batch, setBatch] = useState("");
+
   const [technician, setTechnician] = useState("");
   const [repairs, setRepairs] = useState<CertRepair[]>([]);
   const [checks, setChecks] = useState<CheckResult[]>(
@@ -148,6 +150,20 @@ export function CertificateIssuer() {
   const [issued, setIssued] = useState<Issued | null>(null);
   const [error, setError] = useState("");
   const [log, setLog] = useState<LogEntry[]>([]);
+
+
+  /*
+    Vorbelegung aus der Akte: `#modell=…&charge=…`.
+
+    Nur leere Felder werden gefüllt – wer schon etwas eingetragen hat, soll
+    es durch einen Klick auf einen Verweis nicht verlieren. Einmal beim
+    Laden, denn die Adresse ist ein Startwert und kein Zustandsspeicher.
+  */
+  useEffect(() => {
+    const pre = parseCertPrefill(window.location.hash);
+    if (pre.model) setModel((current) => fillIfEmpty(current, pre.model));
+    if (pre.batch) setBatch((current) => fillIfEmpty(current, pre.batch));
+  }, []);
 
   useEffect(() => setLog(loadLog()), []);
 

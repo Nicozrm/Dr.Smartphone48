@@ -40,6 +40,13 @@ import {
   valueInProgress,
 } from "../lib/workshop/attention.ts";
 import { parseDeepLink, workshopHref } from "../lib/workshop/deeplink.ts";
+import {
+  certHref,
+  fillIfEmpty,
+  invoiceHref,
+  parseCertPrefill,
+  parseInvoicePrefill,
+} from "../lib/intern/prefill.ts";
 
 let failures = 0;
 const fail = (text) => {
@@ -350,7 +357,7 @@ console.log("\nSprung – von der Übersicht in die Akte\n");
   // Hin und zurück: Was gebaut wird, muss auch wieder gelesen werden.
   const code = "K7M2-B94X";
   const hin = workshopHref({ vorgang: code });
-  const zurueck = parseDeepLink(hin.slice(hin.indexOf("?")), bekannt);
+  const zurueck = parseDeepLink(hin.slice(hin.indexOf("#")), bekannt);
   if (zurueck.vorgang !== code) {
     fail(`Ein gebauter Vorgangs-Sprung liest sich als „${zurueck.vorgang}" zurück.`);
   } else {
@@ -359,7 +366,7 @@ console.log("\nSprung – von der Übersicht in die Akte\n");
 
   for (const status of bekannt) {
     const href = workshopHref({ status });
-    const back = parseDeepLink(href.slice(href.indexOf("?")), bekannt);
+    const back = parseDeepLink(href.slice(href.indexOf("#")), bekannt);
     if (back.status !== status) {
       fail(`Zustand „${status}" liest sich als „${back.status}" zurück.`);
       break;
@@ -374,13 +381,13 @@ console.log("\nSprung – von der Übersicht in die Akte\n");
     keine Vorgänge mehr.
   */
   const muell = [
-    "?status=geloescht",
-    "?status=",
-    "?status=OPEN",
-    "?vorgang=abc",
-    "?vorgang=IIII-OOOO",
-    "?vorgang=" + "A".repeat(200),
-    "?vorgang=K7M2-B94X'; DROP TABLE tickets;--",
+    "#status=geloescht",
+    "#status=",
+    "#status=OPEN",
+    "#vorgang=abc",
+    "#vorgang=IIII-OOOO",
+    "#vorgang=" + "A".repeat(200),
+    "#vorgang=K7M2-B94X'; DROP TABLE tickets;--",
   ];
   let durchgerutscht = 0;
   for (const q of muell) {
@@ -401,12 +408,89 @@ console.log("\nSprung – von der Übersicht in die Akte\n");
     ok("Vorgang und Zustand zugleich: der Vorgang gewinnt");
   }
 
+  // Der Code darf nirgends als Parameter stehen – nur im Fragment.
+  if (hin.includes("?")) {
+    fail(`Der Sprung schreibt den Vorgangscode als Parameter: ${hin}`);
+  } else if (!hin.includes("#vorgang=")) {
+    fail(`Der Sprung trägt den Code nicht im Fragment: ${hin}`);
+  } else {
+    ok("der Vorgangscode steht im Fragment, nicht im Zugriffsprotokoll");
+  }
+
   // Ohne Angabe die nackte Adresse.
   if (workshopHref({}) !== "/intern/werkstatt") {
     fail(`Ein leerer Sprung ergibt „${workshopHref({})}".`);
   } else {
     ok("ohne Angabe die nackte Adresse");
   }
+}
+
+/* ---- Vom Vorgang in die Werkzeuge ---------------------------------------- */
+
+console.log("\nVorbelegung – Kunde und Gerät wandern mit, ohne etwas zu überschreiben\n");
+{
+  // Hin und zurück, auch mit Zeichen, die eine Adresse sonst zerlegen.
+  const faelle = [
+    { customer: "Müller-Öz & Söhne", model: "iPhone 15 Pro", imei: "356938035643809" },
+    { customer: "A?B=C#D&E", model: "Galaxy S24+", imei: "" },
+    { customer: "", model: "", imei: "" },
+  ];
+  let schlecht = 0;
+  for (const fall of faelle) {
+    const href = invoiceHref(fall);
+    const zurueck = parseInvoicePrefill(href.includes("#") ? href.slice(href.indexOf("#")) : "");
+    if ((zurueck.customer ?? "") !== fall.customer) schlecht++;
+    if ((zurueck.model ?? "") !== fall.model) schlecht++;
+    if ((zurueck.imei ?? "") !== fall.imei) schlecht++;
+  }
+  if (schlecht > 0) fail(`${schlecht} Angaben überstehen den Weg durch die Adresse nicht.`);
+  else ok("Umlaute und Sonderzeichen überstehen Hin- und Rückweg");
+
+  // Nichts davon darf als Parameter stehen – es sind personenbezogene Daten.
+  const mitDaten = invoiceHref({ customer: "Muster", model: "iPhone 15", imei: "356938035643809" });
+  if (mitDaten.includes("?")) {
+    fail(`Die Vorbelegung schreibt Kundendaten als Parameter: ${mitDaten}`);
+  } else if (!mitDaten.includes("#")) {
+    fail("Die Vorbelegung steht nicht im Fragment.");
+  } else {
+    ok("Kunde, Gerät und IMEI stehen im Fragment, nie im Zugriffsprotokoll");
+  }
+
+  // Ohne Angaben kein Fragment – eine nackte Adresse bleibt nackt.
+  if (invoiceHref({}) !== "/intern/rechnung" || certHref({}) !== "/intern/zertifikat") {
+    fail("Eine leere Vorbelegung hängt trotzdem ein Fragment an.");
+  } else {
+    ok("ohne Angaben bleibt die Adresse nackt");
+  }
+
+  // Die Längengrenzen des Zertifikatsformats gelten schon hier.
+  const lang = certHref({ model: "M".repeat(200), batch: "B".repeat(200) });
+  const zurueck = parseCertPrefill(lang.slice(lang.indexOf("#")));
+  if ((zurueck.model?.length ?? 0) > 32 || (zurueck.batch?.length ?? 0) > 24) {
+    fail(`Zu lange Angaben werden nicht begrenzt: ${zurueck.model?.length}/${zurueck.batch?.length}`);
+  } else {
+    ok("Modell auf 32 und Charge auf 24 Zeichen begrenzt, wie im Beleg");
+  }
+
+  // Steuerzeichen haben in einem Feld nichts verloren.
+  const roh = parseInvoicePrefill("#kunde=" + encodeURIComponent("Zeile1\nZeile2\u0000"));
+  if (/[\u0000-\u001f]/.test(roh.customer ?? "")) {
+    fail("Steuerzeichen überleben die Vorbelegung.");
+  } else {
+    ok("Zeilenumbrüche und Steuerzeichen werden entfernt");
+  }
+
+  /*
+    Die Regel, an der ein Datenverlust hängt: Vorbelegen füllt nur leere
+    Felder. Ein halbfertiger Beleg darf nicht verschwinden, bloß weil
+    jemand aus der Werkstatt hierher gesprungen ist.
+  */
+  if (fillIfEmpty("", "Neu") !== "Neu") fail("Ein leeres Feld wird nicht gefüllt.");
+  if (fillIfEmpty("   ", "Neu") !== "Neu") fail("Ein Feld aus Leerzeichen gilt nicht als leer.");
+  if (fillIfEmpty("Alt", "Neu") !== "Alt") fail("Eine Vorbelegung überschreibt einen vorhandenen Wert.");
+  if (fillIfEmpty("Alt", undefined) !== "Alt") fail("Ein Wert geht ohne Vorbelegung verloren.");
+  if (fillIfEmpty("", undefined) !== "") fail("Aus nichts wird etwas.");
+  ok("Vorbelegen füllt nur leere Felder – Vorhandenes bleibt stehen");
 }
 
 console.log(

@@ -49,8 +49,13 @@ export function WorkshopDashboard() {
   const searchRef = useRef<HTMLInputElement>(null);
 
   /*
-    Der Sprung aus der Übersicht: `?vorgang=<Code>` öffnet eine Akte,
-    `?status=<Zustand>` zeigt einen Zustand allein.
+    Der Sprung aus der Übersicht: `#vorgang=<Code>` öffnet eine Akte,
+    `#status=<Zustand>` zeigt einen Zustand allein.
+
+    Im Fragment, nicht als Parameter: Ein Fragment schickt der Browser nie
+    an einen Server, ein Parameter landet in jedem Zugriffsprotokoll. Der
+    Vorgangscode ist ein Schlüssel – wer ihn hat, sieht die Statusseite des
+    Kunden. Dieselbe Überlegung wie beim Reparaturzertifikat.
 
     Einmal beim Laden, nicht fortlaufend. Die Adresse ist hier ein
     Startwert, kein zweiter Zustandsspeicher – wer danach filtert oder
@@ -67,7 +72,7 @@ export function WorkshopDashboard() {
     wieder.
   */
   useEffect(() => {
-    const link = parseDeepLink(window.location.search, TICKET_STATUSES);
+    const link = parseDeepLink(window.location.hash, TICKET_STATUSES);
     if (link.vorgang) {
       setStatuses([...TICKET_STATUSES]);
       setSearch(link.vorgang);

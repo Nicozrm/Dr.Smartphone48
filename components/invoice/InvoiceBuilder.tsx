@@ -29,6 +29,7 @@ import {
 import { canRenderGiroCode, formatIban, isValidIban } from "@/lib/invoice/girocode";
 import { docTypeMeta, docTypes } from "@/lib/invoice/doctype";
 import { paginate } from "@/lib/invoice/paginate";
+import { fillIfEmpty, parseInvoicePrefill } from "@/lib/intern/prefill";
 import {
   buildBackup,
   clearDraft,
@@ -470,8 +471,34 @@ export function InvoiceBuilder() {
   useEffect(() => {
     const p = loadProfile();
     setProfile(p);
-    setInvoice(loadDraft() ?? newInvoice(p));
     setHistory(loadHistory());
+
+    /*
+      Vorbelegung aus einer Vorgangsakte: `#kunde=…&geraet=…&imei=…`.
+
+      Sie kommt **nach** dem Entwurf und füllt nur leere Felder. Ein
+      halbfertiger Beleg darf nicht verschwinden, bloß weil jemand aus der
+      Werkstatt hierher gesprungen ist – und niemand rechnet mit einem
+      Datenverlust, wenn er nur auf einen Verweis klickt.
+    */
+    const draft = loadDraft() ?? newInvoice(p);
+    const pre = parseInvoicePrefill(window.location.hash);
+    setInvoice(
+      pre.customer || pre.model || pre.imei
+        ? {
+            ...draft,
+            customer: {
+              ...draft.customer,
+              name: fillIfEmpty(draft.customer.name, pre.customer),
+            },
+            device: {
+              ...draft.device,
+              model: fillIfEmpty(draft.device.model, pre.model),
+              imei: fillIfEmpty(draft.device.imei, pre.imei),
+            },
+          }
+        : draft,
+    );
   }, []);
 
   /* Entwurf sichern, aber nicht bei jedem Tastendruck. */
