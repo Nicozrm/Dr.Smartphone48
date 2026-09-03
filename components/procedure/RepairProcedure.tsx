@@ -224,7 +224,7 @@ export function RepairProcedure() {
 
         {/* Gerät und Uhr */}
         <aside className="lg:sticky lg:top-24 lg:self-start">
-          <div className="rounded-[var(--radius-l)] border border-line bg-raised p-6 shadow-raised">
+          <div className="glass-pane rounded-[var(--radius-l)] p-6" data-sheen>
             <DeviceDiagram
               highlight={done ? "full" : current.part}
               className="mx-auto w-full max-w-[220px]"

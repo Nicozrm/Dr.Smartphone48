@@ -36,7 +36,7 @@ export default function KontaktPage() {
 
         <Reveal delay={160}>
           <aside className="space-y-8">
-            <div className="rounded-[var(--radius-l)] border border-line bg-raised p-7 shadow-raised">
+            <div className="glass-pane rounded-[var(--radius-l)] p-7" data-sheen>
               <h2 className="text-title">Vor Ort</h2>
               <address className="mt-4 space-y-3 not-italic">
                 <p className="flex items-start gap-3 text-[0.9375rem] text-ink">
@@ -70,7 +70,7 @@ export default function KontaktPage() {
 
             <LiveStatus />
 
-            <div className="rounded-[var(--radius-l)] border border-line bg-raised p-7 shadow-raised">
+            <div className="glass-pane rounded-[var(--radius-l)] p-7" data-sheen>
               <h2 className="text-title">Öffnungszeiten</h2>
               <dl className="mt-4 space-y-2.5">
                 {site.openingHours.map((entry) => (

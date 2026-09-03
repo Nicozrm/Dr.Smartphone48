@@ -497,7 +497,7 @@ export function DeviceExploded() {
         {focused ? (
           // Bauteilbefund – erscheint anstelle der Steuerung, sobald ein
           // Bauteil isoliert ist. Wie ein Blatt aus der Werkstattakte.
-          <div className="glass rounded-[var(--radius-l)] p-6 shadow-floating">
+          <div className="glass-pane rounded-[var(--radius-l)] p-6" data-depth="3" data-sheen>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-ink-faint">

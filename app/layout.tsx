@@ -3,6 +3,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { QuickDock } from "@/components/layout/QuickDock";
 import { ClientEffects } from "@/components/experience/ClientEffects";
 import { site, fullAddress } from "@/lib/site";
 import "./globals.css";
@@ -175,6 +176,13 @@ export default function RootLayout({
         <Header />
         <main id="inhalt">{children}</main>
         <Footer />
+        {/*
+          Die Aktionsleiste steht am Ende des Dokuments, nicht am Anfang:
+          Sie ist fest positioniert, aber ihr Platzhalter (`.dock-space`)
+          liegt im Fluss und muss hinter dem Fuß stehen, damit er die letzte
+          Zeile der Seite freihält statt die erste.
+        */}
+        <QuickDock />
         <ClientEffects />
       </body>
     </html>

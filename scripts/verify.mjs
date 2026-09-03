@@ -47,6 +47,30 @@ function walk(dir, exts, out = []) {
 /** Zeilennummer eines Zeichenindex – für Befunde, die man anspringen kann. */
 const lineOf = (text, index) => text.slice(0, index).split("\n").length;
 
+/**
+ * Kommentare durch gleich lange Leerzeichen ersetzen.
+ *
+ * Nicht entfernen: Die Zeichenpositionen müssen erhalten bleiben, sonst zeigt
+ * jeder Befund auf die falsche Zeile. Geblendet werden Blockkommentare
+ * (auch die JSX-Form) und Zeilen, die mit // oder * beginnen – ein `//`
+ * mitten in der Zeile bleibt stehen, weil dort meistens „https://" steht.
+ *
+ * Der Anlass: Die Hydrations-Prüfung meldete beim ersten Lauf ihr eigenes
+ * Gegenbeispiel, das im Quelltext als Kommentar über der Korrektur steht.
+ * Eine Regel, die verbietet, den Fehler zu beschreiben, ist eine schlechte
+ * Regel.
+ */
+function blankComments(src) {
+  let out = src.replace(/\/\*[\s\S]*?\*\//g, (m) =>
+    m.replace(/[^\n]/g, " "),
+  );
+  out = out
+    .split("\n")
+    .map((line) => (/^\s*(\/\/|\*)/.test(line) ? " ".repeat(line.length) : line))
+    .join("\n");
+  return out;
+}
+
 /* ================================================================== */
 /* 1. Kontrast                                                        */
 /*                                                                    */
@@ -553,12 +577,245 @@ function checkExport() {
 
 /* ================================================================== */
 
+/* ================================================================== */
+/* 6. Glas                                                            */
+/*                                                                    */
+/* CLAUDE.md: „Ohne backdrop-filter-Support fällt jede Stufe auf eine  */
+/* deckende Fläche zurück, damit Text immer lesbar bleibt." Dazu die   */
+/* beiden Ansagen des Nutzers, die Glas abschalten:                    */
+/* prefers-reduced-transparency und der Druck.                        */
+/*                                                                    */
+/* Warum das eine Prüfung braucht:                                     */
+/*                                                                     */
+/* Eine Glasstufe, die ihre Fläche **nur** innerhalb des @supports-    */
+/* Blocks bekommt, sieht in jedem heutigen Browser richtig aus. Wer    */
+/* sie ohne backdrop-filter öffnet, bekommt eine durchsichtige Karte   */
+/* mit Text darauf – lesbar auf Off-White, unlesbar über einem Bild    */
+/* oder einer dunklen Sektion. Der Fehler zeigt sich also nirgends,    */
+/* wo er gebaut wurde.                                                 */
+/*                                                                     */
+/* Dieselbe Klasse Fehler beim Rückfall: Wer `.glass-neu` anlegt und   */
+/* in den beiden Abschaltblöcken nicht nennt, ignoriert für genau      */
+/* diese eine Fläche eine Systemeinstellung – und merkt es nie, weil   */
+/* er den Schalter selbst nicht gesetzt hat.                           */
+/* ================================================================== */
+
+/** Blockinhalt ab einem gefundenen Selektor/At-Rule-Kopf, klammerweise. */
+function braceBlock(css, startIndex) {
+  const open = css.indexOf("{", startIndex);
+  if (open === -1) return "";
+  let depth = 0;
+  for (let i = open; i < css.length; i++) {
+    if (css[i] === "{") depth++;
+    else if (css[i] === "}") {
+      depth--;
+      if (depth === 0) return css.slice(open + 1, i);
+    }
+  }
+  return "";
+}
+
+function checkGlass() {
+  checksRun++;
+  const css = read("app/globals.css");
+  const file = "app/globals.css";
+
+  /*
+    Die Klassennamen kommen aus dem Stylesheet selbst, nicht aus einer Liste
+    hier – eine von Hand gepflegte Liste wäre genau die Stelle, an der die
+    neue Stufe fehlt.
+
+    Die Wortgrenze muss den Bindestrich einschließen: `\\b` sitzt zwischen
+    „glass" und „-pane", also fände `\\.glass\\b` sich selbst in `.glass-pane`
+    wieder und hielte jede Regel für erfüllt, sobald irgendeine Unterstufe
+    sie erfüllt.
+  */
+  const bound = (cls) => new RegExp(`\\.${cls}(?![\\w-])`, "g");
+
+  const classes = new Set(
+    [...css.matchAll(/\.(glass(?:-[a-z]+)*)(?![\w-])/g)].map((m) => m[1]),
+  );
+  // `.hero-glass` und `.cursor-glass` sind keine Stufen dieses Systems,
+  // sondern eigene Flächen – sie tragen den Namen nur zufällig. Sie beginnen
+  // nicht mit „glass", fallen also ohnehin heraus.
+  const stufen = [...classes].sort();
+
+  /* --- 1. Jede Stufe hat eine deckende Fläche ohne jede Bedingung. ---
+
+     „Außerhalb von @supports" reicht als Kriterium nicht, und auch daran ist
+     der Selbsttest hängengeblieben: Der Abschaltblock für
+     prefers-reduced-transparency setzt ebenfalls eine deckende Fläche, steht
+     außerhalb von @supports und erfüllte damit die Regel – für einen
+     Browser, der weder backdrop-filter kann noch die Einstellung gesetzt
+     hat, war die Karte trotzdem durchsichtig.
+
+     Verlangt wird deshalb eine Fläche, die unter **keiner** Bedingung steht:
+     weder in einem @supports noch in einem @media. */
+  const conditionalRanges = [...css.matchAll(/@(?:supports|media)\b/g)].map((m) => {
+    const body = braceBlock(css, m.index);
+    const start = css.indexOf(body, m.index);
+    return [start, start + body.length];
+  });
+  const bedingt = (i) => conditionalRanges.some(([a, b]) => i >= a && i <= b);
+
+  for (const cls of stufen) {
+    const hatFallback = [...css.matchAll(bound(cls))].some((m) => {
+      if (bedingt(m.index)) return false;
+      /*
+        Der Fund muss die **nackte** Klasse sein. `.glass-pane::before` trägt
+        selbst ein `background` (die Fase) und `.glass-pane[data-depth="1"]`
+        eine Tönung – beide erfüllen die Regel nicht, denn keine von beiden
+        gibt der Fläche einen deckenden Grund.
+
+        Genau daran ist diese Prüfung beim ersten Selbsttest gescheitert: Sie
+        meldete nichts, als die Fläche von .glass-pane entfernt wurde, weil
+        das ::before-Pseudoelement für sie zählte.
+      */
+      const after = css.slice(m.index + cls.length + 1, m.index + cls.length + 2);
+      if (!/[\s,{]/.test(after)) return false;
+      const body = braceBlock(css, m.index);
+      return /background\s*:/.test(body);
+    });
+    if (!hatFallback) {
+      report(
+        "glas",
+        file,
+        `.${cls} hat keine deckende Fläche ohne Bedingung (weder @supports noch @media). ` +
+          `Ohne backdrop-filter bleibt sie durchsichtig und der Text steht auf dem Untergrund.`,
+      );
+    }
+  }
+
+  /* --- 2. Jede Stufe steht in beiden Abschaltblöcken. --- */
+  const rtIdx = css.indexOf("@media (prefers-reduced-transparency: reduce)");
+  if (rtIdx === -1) {
+    report(
+      "glas",
+      file,
+      "Kein Block für prefers-reduced-transparency. Wer durchscheinende Flächen abbestellt, bekommt sie trotzdem.",
+    );
+  } else {
+    const body = braceBlock(css, rtIdx);
+    for (const cls of stufen) {
+      if (!bound(cls).test(body)) {
+        report(
+          "glas",
+          file,
+          `.${cls} fehlt im Block für prefers-reduced-transparency.`,
+        );
+      }
+    }
+  }
+
+  const printBlocks = [...css.matchAll(/@media print/g)]
+    .map((m) => braceBlock(css, m.index))
+    .join("\n");
+  for (const cls of stufen) {
+    if (!bound(cls).test(printBlocks)) {
+      report(
+        "glas",
+        file,
+        `.${cls} fehlt im Druckblock. Auf Papier gibt es keinen Untergrund, durch den etwas scheinen könnte.`,
+      );
+    }
+  }
+
+  /* --- 3. data-sheen und data-depth wirken nur auf .glass-pane. ---
+     Ein Attribut, das nichts auslöst, ist eine Behauptung ohne Wirkung –
+     dieselbe Sorte Fehler wie ein Prüfskript, dessen Sollwert vom Prüfling
+     stammt. */
+  for (const f of walk("components", [".tsx"]).concat(walk("app", [".tsx"]))) {
+    const src = blankComments(readFileSync(f, "utf8"));
+    for (const attr of ["data-sheen", "data-depth"]) {
+      let idx = src.indexOf(attr);
+      while (idx !== -1) {
+        /*
+          Zeichenketten sind kein JSX. `const SELECTOR = ".glass-pane[data-sheen]"`
+          in GlassSheen.tsx ist der Grund für diese Zeile: Beim ersten Lauf
+          meldete die Prüfung genau die Datei, die das Attribut überhaupt erst
+          auswertet. Ungerade Zahl von Anführungszeichen vor der Fundstelle in
+          derselben Zeile heißt: Wir stehen mitten in einem String.
+        */
+        const lineStart = src.lastIndexOf("\n", idx) + 1;
+        const before = src.slice(lineStart, idx);
+        const quotes = (before.match(/["']/g) || []).length;
+        const tagStart = src.lastIndexOf("<", idx);
+        if (quotes % 2 === 1 || tagStart === -1) {
+          idx = src.indexOf(attr, idx + 1);
+          continue;
+        }
+        // Rückwärts bis zum öffnenden Tag; darin muss glass-pane stehen.
+        const tag = src.slice(tagStart, idx);
+        if (!tag.includes("glass-pane")) {
+          report(
+            "glas",
+            rel(f),
+            `${attr} in Zeile ${lineOf(src, idx)} steht an einem Element ohne .glass-pane – dort wirkt es nicht.`,
+          );
+        }
+        idx = src.indexOf(attr, idx + 1);
+      }
+    }
+  }
+}
+
+/* ================================================================== */
+/* 7. Hydration                                                       */
+/*                                                                    */
+/* Der Anlass ist ein realer Fehler in Digitizer.tsx: Dort stand      */
+/*                                                                    */
+/*   const reported = typeof navigator !== "undefined"                */
+/*     ? navigator.maxTouchPoints || 0 : 0;                           */
+/*                                                                    */
+/* mitten im Render. Beim Vorrendern gibt es kein `navigator`, also 0 */
+/* – und ein Rechner ohne Touchscreen meldet ebenfalls 0. Auf dem     */
+/* Schreibtisch fiel es deshalb nie auf. Ein Telefon meldet 5, und    */
+/* damit wich der Text im ausgelieferten HTML von dem ab, den der     */
+/* Browser rechnete.                                                  */
+/*                                                                    */
+/* Die Folge war nicht die falsche Zahl, sondern der Abbruch: React   */
+/* verwirft bei einem solchen Unterschied den ganzen Baum und baut    */
+/* ihn neu – samt der Attribute, die das No-Flash-Skript vorher an    */
+/* <html> geschrieben hat. `data-theme` war weg, und wer den          */
+/* Dunkelmodus eingestellt hatte, bekam /check auf dem Telefon in     */
+/* Hell. Ein Fehler auf genau dem Gerät, für das die Seite gemacht    */
+/* ist, und auf keinem der Geräte sichtbar, auf denen sie gebaut      */
+/* wird.                                                              */
+/*                                                                    */
+/* Geprüft wird deshalb genau die **Fragezeichen-Form**. Sie ist das  */
+/* Eingeständnis, dass der Wert auf Server und Client verschieden ist */
+/* – und rendert ihn trotzdem. Die `if`-Form bleibt erlaubt: Sie      */
+/* steht in Ereignishändlern und Effekten, wo sie hingehört.          */
+/* ================================================================== */
+
+const HYDRATION_TERNARY =
+  /typeof\s+(window|navigator|document)\s*!==\s*["']undefined["']\s*\?/g;
+
+function checkHydration() {
+  checksRun++;
+  for (const f of walk("components", [".tsx"]).concat(walk("app", [".tsx"]))) {
+    const src = blankComments(readFileSync(f, "utf8"));
+    for (const m of src.matchAll(HYDRATION_TERNARY)) {
+      report(
+        "hydration",
+        rel(f),
+        `Zeile ${lineOf(src, m.index)}: \`typeof ${m[1]} !== "undefined" ? …\` im Render. ` +
+          `Der Wert unterscheidet sich zwischen Vorrendern und Browser; React verwirft dann den ` +
+          `ganzen Baum und nimmt die Attribute an <html> mit (data-theme). ` +
+          `Den Wert in einem useEffect nachtragen.`,
+      );
+    }
+  }
+}
+
 const CHECKS = [
   ["Kontrast", checkContrast],
   ["Redaktion", checkEditorial],
   ["Shader", checkShaders],
   ["Metadaten", checkPageMeta],
   ["Offline-Vorrat", checkPrecache],
+  ["Glas", checkGlass],
+  ["Hydration", checkHydration],
 ];
 
 console.log("Prüfstand – die Regeln aus CLAUDE.md, ausgeführt\n");

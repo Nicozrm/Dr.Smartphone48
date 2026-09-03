@@ -214,7 +214,7 @@ export function DigitalTwin() {
 
       {/* Zwilling */}
       <aside className="lg:sticky lg:top-24 lg:self-start">
-        <div className="glass rounded-[var(--radius-l)] p-6 shadow-raised">
+        <div className="glass-pane rounded-[var(--radius-l)] p-6" data-sheen>
           <p className="font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-ink-faint">
             Digitaler Zwilling
           </p>

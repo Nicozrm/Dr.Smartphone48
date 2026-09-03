@@ -335,8 +335,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Refurbished Teaser */}
-      <section className="mx-auto max-w-6xl px-5 py-24 md:px-8 md:py-36">
+      {/* Refurbished Teaser – dieselbe Überlegung wie bei den Werkzeugen:
+          Die Gerätekarten sind Scheiben und brauchen einen Untergrund. */}
+      <section className="lightfall mx-auto max-w-6xl px-5 py-24 md:px-8 md:py-36">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <SectionHeading
             eyebrow="Refurbished"
@@ -366,8 +367,17 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Werkzeuge – was diese Seite kann, was andere nicht können */}
-      <section className="border-t border-line bg-raised">
+      {/*
+        Werkzeuge – was diese Seite kann, was andere nicht können.
+
+        `lightfall` ist hier nicht Dekoration, sondern Voraussetzung: Die vier
+        Karten sind Glasscheiben, und Glas über einer gleichmäßig weißen
+        Fläche bricht nichts. Es bliebe eine weiße Kachel auf Weiß, deren
+        Kante allein der Schatten trägt. Mit der Lichtquelle über der Sektion
+        hat die Scheibe einen Verlauf, den sie aufhellen und sättigen kann –
+        erst dadurch sieht man ihr an, dass etwas hinter ihr liegt.
+      */}
+      <section className="lightfall border-t border-line bg-raised">
         <div className="mx-auto max-w-6xl px-5 py-24 md:px-8 md:py-36">
           <SectionHeading
             eyebrow="Werkzeuge"

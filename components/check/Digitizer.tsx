@@ -140,8 +140,32 @@ export function Digitizer() {
     };
   }, [running]);
 
-  const reported =
-    typeof navigator !== "undefined" ? navigator.maxTouchPoints || 0 : 0;
+  /*
+    Die Zahl der Berührungspunkte wird **nach** dem ersten Bild gelesen, nicht
+    währenddessen.
+
+    Vorher stand hier `typeof navigator !== "undefined" ? … : 0` mitten im
+    Render. Auf dem Schreibtisch fiel das nie auf: Beim Vorrendern gibt es
+    kein `navigator`, also 0 – und ein Rechner ohne Touchscreen meldet
+    ebenfalls 0. Auf einem Telefon meldet er 5, und damit unterschied sich
+    der Text im ausgelieferten HTML von dem, den der Browser rechnete.
+
+    Die Folge war nicht die falsche Zahl, sondern der Abbruch: React verwirft
+    bei einem solchen Unterschied den ganzen Baum und baut ihn neu – und
+    nimmt dabei die Attribute mit, die das No-Flash-Skript vorher an
+    `<html>` geschrieben hat. `data-theme` war weg, und wer den Dunkelmodus
+    eingestellt hatte, bekam /check auf dem Telefon in Hell. Ein Fehler auf
+    genau dem Gerät, für das die Seite gemacht ist, und auf keinem der
+    Geräte sichtbar, auf denen sie gebaut wird.
+
+    Der Anfangswert ist deshalb 0 auf beiden Seiten; der echte Wert kommt
+    einen Durchlauf später. `|| "—"` unten zeigt so lange einen Strich, was
+    ohnehin die richtige Auskunft ist: „noch nicht gemessen".
+  */
+  const [reported, setReported] = useState(0);
+  useEffect(() => {
+    setReported(navigator.maxTouchPoints || 0);
+  }, []);
 
   return (
     <div className="digit">

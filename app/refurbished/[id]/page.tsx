@@ -196,7 +196,7 @@ export default async function GeraetePage({
           {/* Preis und Kontakt */}
           <Reveal delay={80} className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
             <aside className="lg:sticky lg:top-24">
-              <div className="rounded-[var(--radius-xl)] border border-line bg-raised p-7 shadow-raised">
+              <div className="glass-pane rounded-[var(--radius-xl)] p-7" data-sheen>
                 <div className="flex items-baseline gap-3">
                   <span className="font-mono text-3xl font-semibold tracking-tight text-ink-strong">
                     {formatEuro(device.price)}

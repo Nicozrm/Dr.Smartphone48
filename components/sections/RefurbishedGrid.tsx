@@ -77,7 +77,7 @@ export function RefurbishedGrid() {
           ))}
         </div>
       ) : (
-        <div className="mt-6 rounded-[var(--radius-l)] border border-line bg-raised px-6 py-16 text-center">
+        <div className="glass-pane mt-6 rounded-[var(--radius-l)] px-6 py-16 text-center">
           <p className="text-title">Gerade nicht auf Lager.</p>
           <p className="mx-auto mt-2 max-w-sm text-[0.9375rem] text-ink-soft">
             Unser Bestand wechselt täglich. Fragen Sie uns – wir reservieren

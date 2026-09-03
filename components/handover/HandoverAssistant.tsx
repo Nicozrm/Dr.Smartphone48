@@ -129,7 +129,8 @@ export function HandoverAssistant() {
                 key={p}
                 type="button"
                 onClick={() => setPlatform(p)}
-                className="press group rounded-[var(--radius-m)] border border-line bg-raised p-6 text-left transition-[border-color,box-shadow] duration-[var(--duration-base)] ease-[var(--ease-out)] hover:border-ink-faint hover:shadow-raised"
+                className="glass-pane press lift group rounded-[var(--radius-m)] p-6 text-left"
+                data-depth="1"
               >
                 <span className="inline-flex h-11 w-11 items-center justify-center rounded-[var(--radius-s)] bg-sunken text-ink-strong">
                   <Icon name={p === "ios" ? "cpu" : "tool"} size={22} />
@@ -175,7 +176,8 @@ export function HandoverAssistant() {
 
       {/* Fortschritt */}
       <div
-        className="glass sticky top-20 z-20 mb-10 flex flex-wrap items-center justify-between gap-4 rounded-[var(--radius-l)] p-4 md:p-5"
+        className="glass-pane sticky top-20 z-20 mb-10 flex flex-wrap items-center justify-between gap-4 rounded-[var(--radius-l)] p-4 md:p-5"
+        data-depth="3"
         data-print="hide"
       >
         <div className="min-w-0">

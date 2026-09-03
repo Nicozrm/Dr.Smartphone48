@@ -209,7 +209,7 @@ export function RepairOrReplace() {
       </div>
 
       {/* Ergebnis */}
-      <div className="glass rounded-[var(--radius-l)] p-6 shadow-raised md:p-7">
+      <div className="glass-pane rounded-[var(--radius-l)] p-6 md:p-7" data-sheen>
         <p
           className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-mono text-[0.6875rem] uppercase tracking-[0.12em]"
           style={{

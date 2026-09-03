@@ -96,7 +96,7 @@ export default function ErsatzteilePage() {
           <div className="mt-12 grid gap-5 md:grid-cols-3">
             {tiers.map((tier, i) => (
               <Reveal key={tier.name} delay={i * 90}>
-                <div className="flex h-full flex-col rounded-[var(--radius-l)] border border-line bg-page p-7">
+                <div className="glass-pane flex h-full flex-col rounded-[var(--radius-l)] p-7" data-sheen>
                   <p className="font-mono text-xs uppercase tracking-[0.14em] text-ink-faint">
                     Stufe {i + 1}
                   </p>

@@ -64,6 +64,8 @@ Geprüft wird:
 | Shader | kein Backtick im GLSL-Literal, keine GLSL-Schlüsselwörter als Bezeichner |
 | Metadaten | jede Route nutzt `pageMeta()` |
 | Offline-Vorrat | `public/sw.js` und `lib/pwa/precache.ts` nennen dieselben Seiten in derselben Reihenfolge, /notfall zuerst, gleicher Nachrichtenname |
+| Glas | jede `.glass*`-Stufe hat eine deckende Fläche ohne Bedingung, steht in beiden Abschaltblöcken (`prefers-reduced-transparency`, Druck), und `data-sheen`/`data-depth` stehen nur an `.glass-pane` |
+| Hydration | kein `typeof window/navigator/document !== "undefined" ? …` im Render – der Unterschied kostet den ganzen Baum |
 | Export | eigener Canonical je Seite, `og:image` überall, nichts zugleich in Sitemap und auf `noindex` |
 
 Die Export-Prüfungen laufen nur, wenn `./out` vorliegt – also nach
@@ -341,12 +343,13 @@ app/                     App-Router-Seiten (alle statisch prerendert)
 components/
   ui/                    Primitives: Button, Icon (eigenes SVG-Set), Reveal,
                          SectionHeading, ThemeToggle, QrCode, PrintButton
-  layout/                Header, Footer, Logo
+  layout/                Header, Footer, Logo, QuickDock (Aktionsleiste unten)
   sections/              Faq, RefurbishedGrid/-Card, DiagramShowcase, ContactForm,
                          Reviews (Google-Aggregat), LiveStatus (Öffnungsstatus)
   configurator/          Configurator (Preislogik) + DeviceDiagram (SVG-Explosion)
   experience/            Bootloader, CommandPalette (⌘K), ShaderField (WebGL-Hero),
-                         DeviceExploded, XRay, MagneticField, ScrollProgress
+                         DeviceExploded, XRay, MagneticField, ScrollProgress,
+                         GlassSheen (der Glanz auf den Scheiben)
   check/                 DeviceCheck (Display-, Sensor-, Audio-, Akku-Tests),
                          Stethoscope (Spektrum + Wasserfall),
                          Distortion (Klirrfaktor über die Lautstärke),
@@ -385,6 +388,7 @@ components/
   pwa/                   ServiceWorkerRegister, OfflineStock (der Kassensturz)
 lib/
   site.ts                Stammdaten (Name, Adresse, URL …) – zentrale Quelle
+  opening.ts             Öffnungsstatus – eine Rechnung für Karte und Leiste
   seo.tsx                pageMeta() – Canonical/OG pro Seite, Breadcrumbs, JsonLd
   qr.ts                  QR-Encoder nach ISO/IEC 18004 (Byte-Modus, Stufe M, v1–20)
   imei.ts                Luhn-Prüfung mit offengelegter Rechnung
@@ -456,6 +460,7 @@ scripts/
   verify-privacy.mjs     Fingerabdruck-Nachweis: kein Weg nach draußen
   verify-invoice.mjs     Geldrechnung: Invarianten, Steuergruppen, Ladenpreis
   verify-camera.mjs      Kamera: Vignettierung, Lichtschlitz, Schärfemaß
+                         (die Glasprüfung steckt in verify.mjs, nicht hier)
 ```
 
 ## Konventionen
@@ -504,6 +509,184 @@ scripts/
   die Werkzeuge unter check/, twin/, battery/, resale/, ticket/, parts/).
 - Alle Firmendaten (Adresse, Telefon, Reparatur- und Ankaufspreise,
   Impressum) sind **Platzhalter** und vor dem Livegang zu ersetzen.
+
+### Hydration: was auf dem Schreibtisch nie auffällt
+
+Der Anlass ist ein realer Fehler, gefunden beim Blicktest zu diesem Umbau. In
+`Digitizer.tsx` stand mitten im Render:
+
+```ts
+const reported = typeof navigator !== "undefined" ? navigator.maxTouchPoints || 0 : 0;
+```
+
+Beim Vorrendern gibt es kein `navigator`, also 0 – und ein Rechner ohne
+Touchscreen meldet ebenfalls 0. Auf dem Schreibtisch stimmte also alles. Ein
+Telefon meldet 5, und damit wich der Text im ausgelieferten HTML von dem ab,
+den der Browser rechnete.
+
+**Die Folge war nicht die falsche Zahl, sondern der Abbruch.** React verwirft
+bei einem solchen Unterschied den ganzen Baum und baut ihn neu – samt der
+Attribute, die das No-Flash-Skript vorher an `<html>` geschrieben hat.
+`data-theme` war weg, und wer den Dunkelmodus eingestellt hatte, bekam
+`/check` auf dem Telefon in Hell. Ein Fehler auf genau dem Gerät, für das die
+Seite gemacht ist, und auf keinem der Geräte sichtbar, auf denen sie gebaut
+wird.
+
+Der Prüfstand sucht deshalb genau die **Fragezeichen-Form**: Sie ist das
+Eingeständnis, dass der Wert auf Server und Client verschieden ist – und
+rendert ihn trotzdem. Die `if`-Form bleibt erlaubt; sie steht in
+Ereignishändlern und Effekten, wo sie hingehört. Was der Browser weiß und der
+Server nicht, kommt über `useEffect` einen Durchlauf später.
+
+Die Prüfung ist blind für Kommentare (`blankComments` in `verify.mjs`), und
+das ist kein Detail: Beim ersten Lauf meldete sie ihr eigenes Gegenbeispiel,
+das über der Korrektur im Quelltext steht. Eine Regel, die verbietet, den
+Fehler zu beschreiben, ist eine schlechte Regel.
+
+### Glas: eine Scheibe, drei Tiefen
+
+Der Unterschied zwischen „Glassmorphism" und Glas steckt nicht in der
+Unschärfe. Unschärfe allein ergibt Milchglas – eine Fläche, hinter der etwas
+Helles liegt. Die Scheiben dieser Seite (`.glass-pane`) tun drei Dinge mehr,
+und alle drei stehen als Tokens in `globals.css`:
+
+- **Sie hellt auf und schärft nach.** `--glass-filter` ist
+  `blur · saturate · brightness · contrast`. Ein Glasplättchen über Papier
+  lässt den Untergrund nicht dunkler werden; Sättigung allein leistet das
+  nicht, weil sie nur die Farben spreizt. Im Dunkelmodus kehren sich zwei der
+  Werte um: Aufhellen auf Schwarz ergibt grauen Nebel, also wird dort
+  abgedunkelt und stärker gespreizt.
+- **Sie hat eine Fase.** `::before` zeichnet einen 1-px-Ring aus einem
+  **konischen** Verlauf zwischen `--glass-rim` (Streiflicht) und
+  `--glass-rim-shade` (Materialschatten), ab 210 Grad – dieselbe
+  Lichtrichtung wie alle Schatten der Seite. Ein gleichmäßiger Rand leuchtet
+  ringsum gleich stark und liest sich als Kontur; eine Fase trägt oben links
+  Licht und unten rechts Schatten. Gezeichnet wird sie über zwei Masken mit
+  `mask-composite: exclude`, weil `border-image` keine runden Ecken kann.
+- **Sie glänzt, wo die Lichtquelle steht.** `::after` liegt auf `z-index: -1`
+  (über der eigenen Fläche, unter dem Inhalt – dieselbe Schichtung wie
+  `.lightfall`) und folgt dem Zeiger über `--gx/--gy`. Gesetzt werden die
+  beiden Zahlen von `components/experience/GlassSheen.tsx`, und zwar
+  ausschließlich für die **eine** Scheibe unter dem Zeiger: ein delegierter
+  `pointerover` sagt, welche es ist, erst danach hängt ein `pointermove` an
+  genau ihr. Im Ruhezustand rechnet nichts.
+
+**Drei Tiefen, nicht beliebig viele.** `data-depth="1"` ist eine Kachel im
+Fluss, ohne Angabe (2) eine Karte, `data-depth="3"` etwas Schwebendes –
+Leiste, Blatt, Dialog. Die Tiefe ist eine Aussage über Hierarchie, keine über
+Geschmack. Wer eine vierte braucht, hat vermutlich ein Layoutproblem.
+
+**Glas über einer gleichmäßig weißen Fläche ist kein Glas.** Es bricht
+nichts, und übrig bliebe eine weiße Kachel auf Weiß, deren Kante allein der
+Schatten trägt. Sektionen, die Scheiben tragen, bekommen deshalb `lightfall`
+(Werkzeuge und Refurbished auf der Startseite) – erst der Verlauf dahinter
+gibt der Scheibe etwas zum Aufhellen und Sättigen.
+
+**Die schwebende Leiste hat ihre eigene Tönung** (`--glass-bg-dock`, 0.9
+statt 0.78). Nachgemessen, nicht geschätzt: Mit der normalen starken Stufe
+stand die Statuszeile der Aktionsleiste über der Zeile „Akkukapazität 98 %"
+einer Gerätekarte, und beide waren gleichzeitig lesbar – also keine von
+beiden. Eine Karte im Fluss darf durchscheinen, weil hinter ihr die Sektion
+liegt und sonst nichts. Eine Leiste, die über *jedem* Inhalt schwebt, darf es
+nicht: Was hinter ihr steht, kennt sie nicht.
+
+**Zwei Ansagen des Nutzers schalten Glas ab, und beide sind keine Ausnahme.**
+`prefers-reduced-transparency` setzt, wer unter durchscheinenden Flächen
+schlechter liest – der Schalter steht unter iOS und Windows neben den
+Kontrasteinstellungen und ist kein Geschmacksregler. Und im Druck gibt es
+keinen Untergrund, durch den etwas scheinen könnte; die Fase käme als grauer
+Rahmen mit aufs Blatt.
+
+**Deshalb prüft der Prüfstand drei Dinge** (`npm run verify`, Abschnitt
+„Glas"), und zwei davon hat er beim Selbsttest an sich selbst gelernt:
+
+- **Jede Stufe braucht eine deckende Fläche ohne jede Bedingung.** Eine
+  Stufe, die ihre Fläche nur im `@supports`-Block bekommt, sieht in jedem
+  heutigen Browser richtig aus – wer sie ohne `backdrop-filter` öffnet,
+  bekommt durchsichtigen Text. Der erste Anlauf prüfte „außerhalb von
+  `@supports`" und ließ sich vom Abschaltblock für
+  `prefers-reduced-transparency` täuschen, der ebenfalls eine deckende Fläche
+  setzt. Verlangt wird jetzt eine Fläche unter **keiner** Bedingung.
+- **Jede Stufe steht namentlich in beiden Abschaltblöcken.** Wer
+  `.glass-neu` anlegt und dort nicht nennt, ignoriert für genau diese Fläche
+  eine Systemeinstellung – und merkt es nie, weil er den Schalter selbst
+  nicht gesetzt hat. Gefunden wurde damit sofort ein echter Altbefund:
+  `.glass-micro` fehlte im Druckblock.
+- **`data-sheen` und `data-depth` nur an `.glass-pane`.** Ein Attribut ohne
+  Wirkung ist eine Behauptung ohne Wirkung.
+
+Zwei Fallen beim Schreiben dieser Prüfung, beide im Skript vermerkt: `\b`
+sitzt zwischen „glass" und „-pane", also findet sich `\.glass\b` in
+`.glass-pane` selbst wieder und hält jede Regel für erfüllt, sobald
+irgendeine Unterstufe sie erfüllt. Und `.glass-pane::before` trägt selbst ein
+`background` (die Fase) – als Rückfall zählt nur die **nackte** Klasse.
+
+### Die Aktionsleiste (`components/layout/QuickDock.tsx`)
+
+Der wichtigste Zusatz für den Alltag, und der unauffälligste.
+
+Wer auf einem Telefon nach einer Handywerkstatt sucht, will meistens drei
+Dinge: anrufen, hinfahren, wissen was es kostet. Auf dem Schreibtisch stehen
+diese Wege in der Kopfzeile; auf dem Telefon lagen sie hinter dem Menü – also
+hinter drei Handgriffen, an jeder Stelle jeder Seite. Die Leiste holt sie an
+den unteren Bildschirmrand, wo der Daumen ohnehin liegt. Das ist kein
+Stilmittel: Die obere Bildschirmhälfte eines heutigen Telefons ist einhändig
+nicht erreichbar.
+
+- **Vier Ziele, nicht sechs.** Eine Leiste mit sechs Zeichen ist eine zweite
+  Navigation, und dann sucht man wieder.
+- **Sie weicht beim Lesen zurück.** Vorwärtsscrollen fährt sie aus dem Bild,
+  Zurückscrollen holt sie sofort wieder; unter 6 px Weg passiert nichts,
+  sonst flackert sie am Gummiband des Seitenendes. Der Zustand wird direkt am
+  Element gesetzt, nicht über `useState` – sonst rechnete React bei jedem
+  Scrollereignis einen Baum durch, um ein Attribut zu ändern.
+- **Sie hält ihren Platz frei.** `.dock-space` reserviert die Höhe am Ende
+  des Dokuments. Ohne das verdeckt eine schwebende Leiste den letzten Knopf
+  jeder Seite – der klassische Fehler dieser Bauform. Der Platzhalter steht
+  deshalb im Layout **hinter** dem Fuß.
+- **`env(safe-area-inset-bottom)`.** Ohne das liegt der Anrufknopf auf einem
+  iPhone unter der Wischgeste, mit der man die App verlässt.
+- **Ab `lg` gibt es sie nicht**, und im internen Bereich auch nicht: Wer am
+  Rechnungswerkzeug sitzt, ruft nicht die eigene Werkstatt an.
+- **Bei offenem Menü tritt sie zurück** (`:root[data-nav-open="true"]`). Zwei
+  Glasebenen übereinander brechen in Chromium das Compositing des
+  Hintergrunds – derselbe Grund, aus dem die Kopfzeile bei offenem Menü
+  deckend wird.
+
+Die WhatsApp-Schaltfläche führt auf den nackten Chat ohne vorbereiteten Text
+und fällt damit ausdrücklich **nicht** unter die Absenderegel: Die Seite
+überträgt nichts, der Besucher schreibt selbst.
+
+**Der Öffnungsstatus wird einmal gerechnet.** `lib/opening.ts` versorgt die
+Leiste, das mobile Menü und die Verfügbarkeitskarte auf /kontakt. Zwei
+Fassungen derselben Öffnungszeiten driften auseinander, und dann widerspricht
+die Seite sich selbst – auf demselben Bildschirm. Gerechnet wird im Browser,
+nicht beim Bauen: Ein statisch exportierter Feierabend wäre auf dem Datum des
+letzten Deploys eingefroren.
+
+### Die Kopfzeile: eine Markierung, die gleitet
+
+Die aktuelle Seite stand bisher nur in einer dunkleren Schrift. Das ist
+korrekt und trotzdem schwach – man liest es erst, wenn man die Punkte
+vergleicht. Jetzt liegt eine Fläche dahinter, und sie **gleitet**, wenn man
+einen anderen Punkt anfährt.
+
+Der Unterschied ist nicht Zierrat: Eine Markierung, die von A nach B fährt,
+sagt „dasselbe Element, neue Stelle". Eine, die drüben verschwindet und hier
+erscheint, sagt „zwei Elemente" – und der Blick muss sie erst wieder
+zuordnen. Position und Breite setzt `Header.tsx` direkt am Element; sechs
+überfahrene Punkte wären sonst sechs React-Durchläufe für zwei Zahlen.
+Gibt es keinen aktiven Punkt (Startseite, Impressum), verschwindet die
+Markierung ganz, statt am linken Rand zu parken.
+
+Die Haarlinie darunter läuft an beiden Enden aus (`.header-rim`). Ein
+durchgezogener Rand über die volle Breite schneidet die Seite in zwei Teile –
+genau das, was eine schwebende Leiste nicht tun soll.
+
+**Das mobile Menü ist ein Blatt**, kein Deckel: große Ziele, ein Zeichen je
+Zeile, und **oben** die drei Sofortwege samt Öffnungsstatus. Ein Menü, aus
+dem man erst wieder herausfinden muss, um anzurufen, ist eine Sackgasse mit
+Inhaltsverzeichnis.
 
 ### Kontrast: die Tonleiter ist gemessen, nicht geschätzt
 

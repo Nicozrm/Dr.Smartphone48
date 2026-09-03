@@ -81,7 +81,7 @@ export function RescueClock() {
 
   if (startedAt === null) {
     return (
-      <div className="rounded-[var(--radius-l)] border border-line bg-raised p-5 md:p-6">
+      <div className="glass-pane rounded-[var(--radius-l)] p-5 md:p-6">
         <p className="flex items-center gap-2 text-[0.875rem] font-medium text-ink-strong">
           <Icon name="clock" size={17} className="text-ink-soft" />
           Wann ist es passiert?
@@ -118,7 +118,7 @@ export function RescueClock() {
   const current = phases[currentIndex];
 
   return (
-    <div className="rounded-[var(--radius-l)] border border-line bg-raised p-5 md:p-6">
+    <div className="glass-pane rounded-[var(--radius-l)] p-5 md:p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <p className="flex items-center gap-2 text-[0.875rem] font-medium text-ink-strong">
           <Icon name="clock" size={17} className="text-ink-soft" />
