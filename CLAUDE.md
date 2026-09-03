@@ -65,6 +65,7 @@ Geprüft wird:
 | Metadaten | jede Route nutzt `pageMeta()` |
 | Offline-Vorrat | `public/sw.js` und `lib/pwa/precache.ts` nennen dieselben Seiten in derselben Reihenfolge, /notfall zuerst, gleicher Nachrichtenname |
 | Glas | jede `.glass*`-Stufe hat eine deckende Fläche ohne Bedingung, steht in beiden Abschaltblöcken (`prefers-reduced-transparency`, Druck), und `data-sheen`/`data-depth` stehen nur an `.glass-pane` |
+| Hydration | kein `typeof window/navigator/document !== "undefined" ? …` im Render – der Unterschied kostet den ganzen Baum |
 | Export | eigener Canonical je Seite, `og:image` überall, nichts zugleich in Sitemap und auf `noindex` |
 
 Die Export-Prüfungen laufen nur, wenn `./out` vorliegt – also nach
@@ -508,6 +509,39 @@ scripts/
   die Werkzeuge unter check/, twin/, battery/, resale/, ticket/, parts/).
 - Alle Firmendaten (Adresse, Telefon, Reparatur- und Ankaufspreise,
   Impressum) sind **Platzhalter** und vor dem Livegang zu ersetzen.
+
+### Hydration: was auf dem Schreibtisch nie auffällt
+
+Der Anlass ist ein realer Fehler, gefunden beim Blicktest zu diesem Umbau. In
+`Digitizer.tsx` stand mitten im Render:
+
+```ts
+const reported = typeof navigator !== "undefined" ? navigator.maxTouchPoints || 0 : 0;
+```
+
+Beim Vorrendern gibt es kein `navigator`, also 0 – und ein Rechner ohne
+Touchscreen meldet ebenfalls 0. Auf dem Schreibtisch stimmte also alles. Ein
+Telefon meldet 5, und damit wich der Text im ausgelieferten HTML von dem ab,
+den der Browser rechnete.
+
+**Die Folge war nicht die falsche Zahl, sondern der Abbruch.** React verwirft
+bei einem solchen Unterschied den ganzen Baum und baut ihn neu – samt der
+Attribute, die das No-Flash-Skript vorher an `<html>` geschrieben hat.
+`data-theme` war weg, und wer den Dunkelmodus eingestellt hatte, bekam
+`/check` auf dem Telefon in Hell. Ein Fehler auf genau dem Gerät, für das die
+Seite gemacht ist, und auf keinem der Geräte sichtbar, auf denen sie gebaut
+wird.
+
+Der Prüfstand sucht deshalb genau die **Fragezeichen-Form**: Sie ist das
+Eingeständnis, dass der Wert auf Server und Client verschieden ist – und
+rendert ihn trotzdem. Die `if`-Form bleibt erlaubt; sie steht in
+Ereignishändlern und Effekten, wo sie hingehört. Was der Browser weiß und der
+Server nicht, kommt über `useEffect` einen Durchlauf später.
+
+Die Prüfung ist blind für Kommentare (`blankComments` in `verify.mjs`), und
+das ist kein Detail: Beim ersten Lauf meldete sie ihr eigenes Gegenbeispiel,
+das über der Korrektur im Quelltext steht. Eine Regel, die verbietet, den
+Fehler zu beschreiben, ist eine schlechte Regel.
 
 ### Glas: eine Scheibe, drei Tiefen
 

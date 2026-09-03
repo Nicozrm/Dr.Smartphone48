@@ -47,6 +47,30 @@ function walk(dir, exts, out = []) {
 /** Zeilennummer eines Zeichenindex – für Befunde, die man anspringen kann. */
 const lineOf = (text, index) => text.slice(0, index).split("\n").length;
 
+/**
+ * Kommentare durch gleich lange Leerzeichen ersetzen.
+ *
+ * Nicht entfernen: Die Zeichenpositionen müssen erhalten bleiben, sonst zeigt
+ * jeder Befund auf die falsche Zeile. Geblendet werden Blockkommentare
+ * (auch die JSX-Form) und Zeilen, die mit // oder * beginnen – ein `//`
+ * mitten in der Zeile bleibt stehen, weil dort meistens „https://" steht.
+ *
+ * Der Anlass: Die Hydrations-Prüfung meldete beim ersten Lauf ihr eigenes
+ * Gegenbeispiel, das im Quelltext als Kommentar über der Korrektur steht.
+ * Eine Regel, die verbietet, den Fehler zu beschreiben, ist eine schlechte
+ * Regel.
+ */
+function blankComments(src) {
+  let out = src.replace(/\/\*[\s\S]*?\*\//g, (m) =>
+    m.replace(/[^\n]/g, " "),
+  );
+  out = out
+    .split("\n")
+    .map((line) => (/^\s*(\/\/|\*)/.test(line) ? " ".repeat(line.length) : line))
+    .join("\n");
+  return out;
+}
+
 /* ================================================================== */
 /* 1. Kontrast                                                        */
 /*                                                                    */
@@ -701,7 +725,7 @@ function checkGlass() {
      dieselbe Sorte Fehler wie ein Prüfskript, dessen Sollwert vom Prüfling
      stammt. */
   for (const f of walk("components", [".tsx"]).concat(walk("app", [".tsx"]))) {
-    const src = readFileSync(f, "utf8");
+    const src = blankComments(readFileSync(f, "utf8"));
     for (const attr of ["data-sheen", "data-depth"]) {
       let idx = src.indexOf(attr);
       while (idx !== -1) {
@@ -735,6 +759,55 @@ function checkGlass() {
   }
 }
 
+/* ================================================================== */
+/* 7. Hydration                                                       */
+/*                                                                    */
+/* Der Anlass ist ein realer Fehler in Digitizer.tsx: Dort stand      */
+/*                                                                    */
+/*   const reported = typeof navigator !== "undefined"                */
+/*     ? navigator.maxTouchPoints || 0 : 0;                           */
+/*                                                                    */
+/* mitten im Render. Beim Vorrendern gibt es kein `navigator`, also 0 */
+/* – und ein Rechner ohne Touchscreen meldet ebenfalls 0. Auf dem     */
+/* Schreibtisch fiel es deshalb nie auf. Ein Telefon meldet 5, und    */
+/* damit wich der Text im ausgelieferten HTML von dem ab, den der     */
+/* Browser rechnete.                                                  */
+/*                                                                    */
+/* Die Folge war nicht die falsche Zahl, sondern der Abbruch: React   */
+/* verwirft bei einem solchen Unterschied den ganzen Baum und baut    */
+/* ihn neu – samt der Attribute, die das No-Flash-Skript vorher an    */
+/* <html> geschrieben hat. `data-theme` war weg, und wer den          */
+/* Dunkelmodus eingestellt hatte, bekam /check auf dem Telefon in     */
+/* Hell. Ein Fehler auf genau dem Gerät, für das die Seite gemacht    */
+/* ist, und auf keinem der Geräte sichtbar, auf denen sie gebaut      */
+/* wird.                                                              */
+/*                                                                    */
+/* Geprüft wird deshalb genau die **Fragezeichen-Form**. Sie ist das  */
+/* Eingeständnis, dass der Wert auf Server und Client verschieden ist */
+/* – und rendert ihn trotzdem. Die `if`-Form bleibt erlaubt: Sie      */
+/* steht in Ereignishändlern und Effekten, wo sie hingehört.          */
+/* ================================================================== */
+
+const HYDRATION_TERNARY =
+  /typeof\s+(window|navigator|document)\s*!==\s*["']undefined["']\s*\?/g;
+
+function checkHydration() {
+  checksRun++;
+  for (const f of walk("components", [".tsx"]).concat(walk("app", [".tsx"]))) {
+    const src = blankComments(readFileSync(f, "utf8"));
+    for (const m of src.matchAll(HYDRATION_TERNARY)) {
+      report(
+        "hydration",
+        rel(f),
+        `Zeile ${lineOf(src, m.index)}: \`typeof ${m[1]} !== "undefined" ? …\` im Render. ` +
+          `Der Wert unterscheidet sich zwischen Vorrendern und Browser; React verwirft dann den ` +
+          `ganzen Baum und nimmt die Attribute an <html> mit (data-theme). ` +
+          `Den Wert in einem useEffect nachtragen.`,
+      );
+    }
+  }
+}
+
 const CHECKS = [
   ["Kontrast", checkContrast],
   ["Redaktion", checkEditorial],
@@ -742,6 +815,7 @@ const CHECKS = [
   ["Metadaten", checkPageMeta],
   ["Offline-Vorrat", checkPrecache],
   ["Glas", checkGlass],
+  ["Hydration", checkHydration],
 ];
 
 console.log("Prüfstand – die Regeln aus CLAUDE.md, ausgeführt\n");
