@@ -79,7 +79,7 @@ export default function RefurbishedPage() {
           <div className="mt-16 grid gap-5 md:grid-cols-3">
             {grades.map((g, i) => (
               <Reveal key={g.id} delay={i * 80}>
-                <div className="rounded-[var(--radius-m)] border border-line bg-page p-6">
+                <div className="glass-pane rounded-[var(--radius-m)] p-6" data-depth="1">
                   <p className="font-mono text-xs uppercase tracking-[0.14em] text-ink-faint">
                     Zustand
                   </p>

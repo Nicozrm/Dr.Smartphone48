@@ -221,6 +221,61 @@
     inset 0 -1px 0 rgba(20, 21, 23, 0.04);
 
   /*
+    Glas v2 – Brechung statt Milchfilter.
+
+    Der Unterschied zwischen „Glassmorphism" und Glas steckt nicht in der
+    Unschärfe. Unschärfe allein ergibt Milchglas: eine Fläche, hinter der
+    etwas Helles liegt. Echtes Glas tut drei Dinge zusätzlich, und alle drei
+    sind hier Tokens:
+
+    – Es hellt auf und schärft nach. Ein Glasplättchen über Papier lässt den
+      Untergrund nicht dunkler werden; die Sättigung allein reicht dafür
+      nicht, weil sie nur die Farben spreizt. `brightness` und `contrast`
+      hinter der Unschärfe sind der Unterschied zwischen „verwaschen" und
+      „poliert".
+    – Es hat eine Fase. Eine Kante bricht Licht anders als die Fläche, und
+      zwar richtungsabhängig: oben links das Streiflicht, unten rechts der
+      Schatten der Materialstärke. Ein gleichmäßiger 1-px-Rand kann das
+      nicht – deshalb --glass-rim/--glass-rim-shade als Paar und ein
+      konischer Verlauf dazwischen (siehe .glass-pane).
+    – Es glänzt dort, wo die Lichtquelle steht. Der Glanz ist eine Ellipse,
+      keine Fläche, und er wandert mit dem Zeiger.
+
+    Die Werte sind bewusst niedrig gehalten. `brightness(118%)` sähe auf dem
+    Bildschirm des Entwerfers großartig aus und über einem Foto wie ein
+    ausgewaschener Schleier.
+  */
+  --glass-brightness: 106%;
+  --glass-contrast: 103%;
+  --glass-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate))
+    brightness(var(--glass-brightness)) contrast(var(--glass-contrast));
+  /*
+    Die schwebende Leiste bekommt eine eigene, deutlich dichtere Tönung.
+
+    Nachgemessen statt geschätzt: Mit --glass-bg-strong (0.78) stand die
+    Statuszeile der Aktionsleiste über der Zeile „Akkukapazität 98 %" einer
+    Gerätekarte, und beide waren gleichzeitig lesbar – also keine von beiden.
+    Eine Karte im Fluss darf durchscheinen, weil hinter ihr die Sektion liegt
+    und sonst nichts. Eine Leiste, die über *jedem* Inhalt der Seite schwebt,
+    darf es nicht: Was hinter ihr steht, kennt sie nicht.
+
+    Das ist kein Widerspruch zur Glasidee, sondern ihr Maß: Auch echtes Glas
+    ist umso dichter, je dicker es ist.
+  */
+  --glass-bg-dock: rgba(255, 255, 255, 0.9);
+
+  /* Die Fase: Streiflicht und Materialschatten als Paar.
+     Der Schatten trägt die Kante im Hellmodus allein – ein weißes Streiflicht
+     auf weißer Fläche ist keins. Deshalb ist er hier der kräftigere der
+     beiden Werte, im Dunkelmodus genau umgekehrt. */
+  --glass-rim: rgba(255, 255, 255, 0.92);
+  --glass-rim-shade: rgba(20, 21, 23, 0.14);
+  --glass-rim-width: 1px;
+  /* Der Glanz auf der Scheibe. Folgt dem Zeiger über --gx/--gy (GlassSheen). */
+  --glass-sheen: rgba(255, 255, 255, 0.5);
+  --glass-sheen-strength: 1;
+
+  /*
     Korn.
 
     Eine einzige, sehr feine Textur über der ganzen Seite. Sie erfüllt zwei
@@ -348,6 +403,25 @@
   --glass-border: rgba(245, 245, 243, 0.1);
   --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.09),
     inset 0 -1px 0 rgba(0, 0, 0, 0.5);
+
+  /*
+    Glas auf Schwarz kehrt zwei der drei Größen um.
+
+    Aufhellen ist hier falsch: Der Untergrund ist ohnehin fast schwarz, und
+    `brightness` über 100 % macht daraus grauen Nebel – genau den Schleier,
+    den der Dunkelmodus dieser Seite sonst überall vermeidet. Abgedunkelt und
+    stärker gespreizt bleibt die Scheibe dagegen als Scheibe lesbar.
+
+    Die Fase behält ihr Streiflicht, verliert aber den Materialschatten fast
+    vollständig: Ein dunkler Rand auf schwarzem Grund ist kein Rand, sondern
+    ein Loch.
+  */
+  --glass-brightness: 88%;
+  --glass-contrast: 112%;
+  --glass-bg-dock: rgba(14, 14, 17, 0.86);
+  --glass-rim: rgba(255, 255, 255, 0.24);
+  --glass-rim-shade: rgba(0, 0, 0, 0.55);
+  --glass-sheen: rgba(190, 212, 255, 0.16);
 
   /* Korn auf Schwarz muss kräftiger sein: Dunkelheit schluckt Textur. */
   --noise-opacity: 0.045;
@@ -832,25 +906,468 @@ html[data-js] .nojs-only {
   }
 
   @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    /*
+      Alle drei Stufen teilen sich dieselbe Filterkette (--glass-filter) und
+      unterscheiden sich nur in --glass-blur und der Tönung. Vorher stand die
+      Kette dreimal ausgeschrieben; als das Aufhellen dazukam, war das drei
+      Stellen, an denen man es vergessen kann. Wer eine vierte Stufe anlegt,
+      setzt --glass-blur und --glass-bg und erbt den Rest.
+    */
     .glass {
       background: var(--glass-bg);
-      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+      -webkit-backdrop-filter: var(--glass-filter);
+      backdrop-filter: var(--glass-filter);
     }
     .glass-strong {
+      --glass-blur: var(--glass-blur-strong);
       background: var(--glass-bg-strong);
-      -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturate));
-      backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturate));
+      -webkit-backdrop-filter: var(--glass-filter);
+      backdrop-filter: var(--glass-filter);
     }
     /* Mikro-Glas ersetzt Vollweiß auf Karten. Die Unschärfe ist so gering,
        dass sie niemand als Glas erkennt – sie nimmt der Fläche nur das
        Sterile, weil der Untergrund noch minimal durchscheint. */
     .glass-micro {
+      --glass-blur: var(--glass-blur-micro);
+      --glass-saturate: 140%;
       background: var(--glass-bg-micro);
-      -webkit-backdrop-filter: blur(var(--glass-blur-micro)) saturate(140%);
-      backdrop-filter: blur(var(--glass-blur-micro)) saturate(140%);
+      -webkit-backdrop-filter: var(--glass-filter);
+      backdrop-filter: var(--glass-filter);
     }
   }
+}
+
+/* ---- Glas v2: die Scheibe ------------------------------------------------
+
+   `.glass` ist eine Fläche mit Unschärfe dahinter. `.glass-pane` ist eine
+   Scheibe: Sie hat eine Fase, sie fängt Licht, und sie liegt in einer von
+   drei Tiefen über dem Untergrund.
+
+   Aufbau, von hinten nach vorn:
+
+   1. Die Fläche selbst – getönt, mit --glass-filter dahinter.
+   2. ::after, der Glanz. Liegt auf z-index: -1 und damit über der eigenen
+      Fläche, aber unter dem Inhalt – dieselbe Schichtung wie bei .lightfall.
+      Ohne `isolation: isolate` fiele die Ebene sonst hinter die Sektion.
+   3. Der Inhalt.
+   4. ::before, die Fase. Sie gehört über den Inhalt, weil eine Glaskante das
+      auch tut: Wer eine Scheibe über Text legt, sieht die Kante, nicht den
+      Text darunter. Ein Pixel breit, ohne Ereignisse.
+
+   Die Fase ist ein konischer Verlauf, kein Rand. Ein gleichmäßiger Rand
+   leuchtet ringsum gleich stark und sieht damit aus wie eine Kontur; eine
+   echte Fase trägt oben links das Streiflicht und unten rechts den Schatten
+   der Materialstärke. Der Verlauf startet bei 210deg, damit das Licht von
+   links oben kommt – dieselbe Richtung wie bei allen Schatten dieser Seite.
+
+   Gezeichnet wird sie über zwei Masken, die sich gegenseitig ausstanzen:
+   `padding` legt die Ringbreite fest, `mask-composite: exclude` nimmt die
+   Fläche innerhalb des Rings wieder heraus. Das ist der einzige Weg zu einem
+   Verlaufs-Rand, der dem border-radius folgt – `border-image` kann keine
+   runden Ecken. */
+@layer components {
+  .glass-pane {
+    position: relative;
+    isolation: isolate;
+    border-radius: var(--radius-l);
+    background: var(--surface-raised);
+    box-shadow: var(--shadow-raised);
+  }
+
+  /* Die Fase. */
+  .glass-pane::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    border-radius: inherit;
+    padding: var(--glass-rim-width);
+    background: conic-gradient(
+      from 210deg,
+      var(--glass-rim-shade) 0deg,
+      var(--glass-rim) 55deg,
+      var(--glass-rim) 92deg,
+      var(--glass-rim-shade) 168deg,
+      var(--glass-rim-shade) 232deg,
+      var(--glass-rim) 288deg,
+      var(--glass-rim-shade) 360deg
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+
+  /*
+    Der Glanz.
+
+    Er steht auf 0 und kommt erst beim Anfahren – ein Glanzpunkt, der immer
+    da ist, ist keiner, sondern ein Fleck. --gx/--gy setzt GlassSheen und nur
+    für die eine Scheibe unter dem Zeiger; ohne Zeiger (Touch, Tastatur)
+    bleibt die Voreinstellung oben Mitte stehen, was der Lichtrichtung der
+    Seite entspricht.
+  */
+  .glass-pane::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: inherit;
+    opacity: 0;
+    background: radial-gradient(
+      44% 62% at var(--gx, 50%) var(--gy, 0%),
+      var(--glass-sheen) 0%,
+      color-mix(in oklab, var(--glass-sheen) 28%, transparent) 34%,
+      transparent 72%
+    );
+    transition: opacity var(--duration-base) var(--ease-out);
+  }
+  .glass-pane[data-sheen]:hover::after,
+  .glass-pane[data-sheen]:focus-within::after {
+    opacity: var(--glass-sheen-strength);
+  }
+
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass-pane {
+      background: var(--glass-bg);
+      -webkit-backdrop-filter: var(--glass-filter);
+      backdrop-filter: var(--glass-filter);
+    }
+  }
+
+  /*
+    Drei Tiefen, nicht beliebig viele.
+
+    Die Tiefe sagt, wie weit die Scheibe über dem Untergrund liegt – und das
+    ist eine Aussage über Hierarchie, keine über Geschmack. 1 ist eine Kachel
+    im Fluss, 2 eine Karte, 3 etwas Schwebendes (Leiste, Blatt, Dialog). Wer
+    eine vierte Stufe braucht, hat vermutlich eher ein Layoutproblem.
+  */
+  .glass-pane[data-depth="1"] {
+    --glass-blur: var(--glass-blur-micro);
+    --glass-bg: var(--glass-bg-micro);
+    --glass-sheen-strength: 0.6;
+    box-shadow: var(--shadow-raised);
+  }
+  .glass-pane[data-depth="3"] {
+    --glass-blur: var(--glass-blur-strong);
+    --glass-bg: var(--glass-bg-strong);
+    box-shadow: var(--shadow-floating);
+  }
+}
+
+/* ---- Glas v2: die Rückfallebene -----------------------------------------
+
+   Zwei Fälle, in denen Glas verschwindet, und beide sind keine Ausnahme,
+   sondern eine Ansage des Nutzers.
+
+   `prefers-reduced-transparency` setzt, wer unter durchscheinenden Flächen
+   schlechter liest – unter iOS und Windows steht der Schalter direkt neben
+   den Kontrasteinstellungen. Eine Seite, die ihn ignoriert, hat den
+   Schalter nicht verstanden: Er ist kein Geschmacksregler.
+
+   Im Druck ist Glas ohnehin sinnlos. Papier hat keinen Untergrund, durch den
+   etwas scheinen könnte – die Fase würde als grauer Rahmen mitgedruckt.
+
+   Beide Blöcke stehen bewusst mit !important außerhalb jedes @layer: Sie
+   müssen jede Utility und jede Tiefenstufe schlagen. */
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-strong,
+  .glass-micro,
+  .glass-pane,
+  .glass-dock,
+  .glass-sheet {
+    background: var(--surface-raised) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  .glass-pane::after {
+    display: none !important;
+  }
+}
+
+@media print {
+  .glass-pane,
+  .glass-dock,
+  .glass-sheet {
+    background: #fff !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+  }
+  .glass-pane::before,
+  .glass-pane::after {
+    display: none !important;
+  }
+}
+
+/* ---- Die Aktionsleiste ---------------------------------------------------
+
+   Der wichtigste Zusatz dieser Seite für den Alltag, und der unauffälligste.
+
+   Wer auf einem Telefon nach einer Handywerkstatt sucht, will meistens genau
+   drei Dinge: anrufen, hinfahren, wissen was es kostet. Auf dem Schreibtisch
+   stehen diese Wege in der Kopfzeile; auf dem Telefon lagen sie bisher hinter
+   dem Menü – also hinter einem Tippen, einem Aufklappen und einem Suchen,
+   und zwar bei jedem Scrollstand.
+
+   Die Leiste steht deshalb unten, wo der Daumen ohnehin liegt, nicht oben.
+   Das ist kein Stilmittel: Die obere Bildschirmhälfte eines heutigen Telefons
+   ist einhändig nicht erreichbar.
+
+   Drei Regeln, die dabei zusammengehören:
+
+   – Sie weicht zurück, wenn gelesen wird. Beim Vorwärtsscrollen fährt sie
+     nach unten aus dem Bild, beim Zurückscrollen sofort wieder herein. Eine
+     Leiste, die dauerhaft ein Zehntel des Bildschirms verdeckt, ist keine
+     Hilfe, sondern eine Bannerwerbung mit guten Absichten.
+   – Sie hält ihren Platz frei. `.dock-space` reserviert die Höhe am Ende des
+     Dokuments, damit die Leiste nie den letzten Absatz oder den letzten Knopf
+     einer Seite verdeckt – der klassische Fehler schwebender Leisten.
+   – Sie respektiert die Geräteecke. `env(safe-area-inset-bottom)` hält sie
+     über dem Home-Indikator; ohne das liegt der Anrufknopf auf einem iPhone
+     genau unter der Wischgeste, mit der man die App verlässt. */
+.dock {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 0.6rem);
+  z-index: 45;
+  width: min(29rem, calc(100vw - 1.5rem));
+  translate: -50% 0;
+  transition:
+    translate var(--duration-base) var(--ease-out),
+    opacity var(--duration-base) var(--ease-out);
+}
+
+/* Zurückgefahren: ganz aus dem Bild, nicht halb. Eine Leiste, die zur Hälfte
+   stehen bleibt, liest sich als Fehler statt als Absicht. */
+.dock[data-hidden="true"] {
+  translate: -50% calc(100% + 1.5rem);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Solange das Menü offen ist, gibt es nur das Menü. Zwei übereinander
+   liegende Glasebenen brechen in Chromium ohnehin das Compositing des
+   Hintergrunds – derselbe Grund, aus dem die Kopfzeile bei offenem Menü
+   deckend wird. */
+:root[data-nav-open="true"] .dock {
+  display: none;
+}
+
+.dock-space {
+  height: calc(env(safe-area-inset-bottom, 0px) + 5.25rem);
+}
+
+@media (min-width: 1024px) {
+  .dock,
+  .dock-space {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock {
+    transition: opacity var(--duration-base) var(--ease-out);
+  }
+  .dock[data-hidden="true"] {
+    translate: -50% 0;
+  }
+}
+
+@media print {
+  .dock,
+  .dock-space {
+    display: none !important;
+  }
+}
+
+/* Die Leiste selbst ist die tiefste Glasstufe der Seite: Sie schwebt über
+   allem, also muss der Untergrund hinter ihr am stärksten weichen. */
+.glass-dock {
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-floating), var(--glass-edge);
+}
+
+/* Das Blatt: das mobile Menü. Dieselbe Stufe, andere Form. */
+.glass-sheet {
+  background: var(--surface-raised);
+  border-top: 1px solid var(--glass-border);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-dock,
+  .glass-sheet {
+    --glass-blur: var(--glass-blur-strong);
+    background: var(--glass-bg-dock);
+    -webkit-backdrop-filter: var(--glass-filter);
+    backdrop-filter: var(--glass-filter);
+  }
+}
+
+/* Ein Knopf in der Leiste. Die Fläche ist absichtlich unsichtbar, bis man
+   sie drückt: Vier gefüllte Knöpfe nebeneinander ergeben eine Werkzeugleiste
+   aus den Neunzigern, vier Zeichen mit Beschriftung eine Auswahl. */
+.dock-item {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  /* 3.25rem = 52 px. Die WCAG-Empfehlung für Zielgrößen liegt bei 44 px;
+     auf der Leiste, die man im Gehen bedient, ist das die Untergrenze und
+     nicht das Ziel. */
+  min-height: 3.25rem;
+  border-radius: var(--radius-full);
+  color: var(--ink-soft);
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+.dock-item[data-active="true"] {
+  color: var(--ink-strong);
+  background: var(--accent-subtle);
+}
+
+.dock-item:active {
+  background: var(--accent-subtle);
+}
+
+.dock-label {
+  font-size: 0.6875rem;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
+/* ---- Kopfzeile: die gleitende Markierung ---------------------------------
+
+   Bisher zeigte die Navigation die aktuelle Seite durch eine dunklere
+   Schrift. Das ist korrekt und trotzdem schwach: Man liest es erst, wenn man
+   die Punkte vergleicht.
+
+   Stattdessen liegt jetzt eine Fläche hinter dem aktiven Punkt – und die
+   Fläche **gleitet**, wenn man einen anderen anfährt. Der Unterschied ist
+   nicht Zierrat: Eine Markierung, die von A nach B fährt, sagt „dasselbe
+   Element, neue Stelle". Eine, die drüben verschwindet und hier erscheint,
+   sagt „zwei Elemente" – und der Blick muss sie erst wieder zuordnen.
+
+   Position und Breite setzt Header.tsx direkt am Element, nicht über
+   `useState`: Beim Überfahren von sechs Punkten wären das sechs
+   Baumdurchläufe für zwei Zahlen.
+
+   Bewegt werden ausschließlich `translate` und `width`. `left` zu animieren
+   wäre dasselbe Bild bei jedem Bild neu berechnetem Layout. */
+.nav-pill {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  z-index: -1;
+  height: 2.25rem;
+  margin-top: -1.125rem;
+  border-radius: var(--radius-full);
+  background: var(--accent-subtle);
+  opacity: 0;
+  transition:
+    translate var(--duration-base) var(--ease-glide),
+    width var(--duration-base) var(--ease-glide),
+    opacity var(--duration-fast) var(--ease-out);
+}
+
+/* Vor der ersten Messung steht die Markierung bei 0 und wäre dort ein
+   Fleck am linken Rand. Sichtbar wird sie erst, wenn sie ihren Platz kennt. */
+.nav-pill[data-ready="true"] {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-pill {
+    transition: opacity var(--duration-fast) var(--ease-out);
+  }
+}
+
+/*
+  Die Haarlinie unter der Kopfzeile läuft an beiden Enden aus.
+
+  Ein durchgezogener Rand über die volle Breite schneidet die Seite in zwei
+  Teile – genau das, was eine schwebende Leiste nicht tun soll. Der Verlauf
+  ist in der Mitte kräftig und an den Rändern nicht vorhanden; man nimmt eine
+  Kante wahr, ohne einen Strich zu sehen.
+*/
+.header-rim {
+  position: absolute;
+  inset-inline: 0;
+  bottom: -1px;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--line-strong) 22%,
+    var(--line-strong) 78%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+.header-rim[data-on="true"] {
+  opacity: 1;
+}
+
+/* ---- Das mobile Menü als Blatt ------------------------------------------
+   Große Ziele, ein Zeichen je Zeile, und oben die drei Wege, die man aus dem
+   Menü heraus wirklich braucht. Ein Menü, aus dem man erst herausfinden
+   muss, um anzurufen, ist eine Sackgasse mit Inhaltsverzeichnis. */
+.sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.9rem 0.25rem;
+  font-size: 1.0625rem;
+  font-weight: 500;
+  color: var(--ink-strong);
+  border-radius: var(--radius-m);
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+.sheet-item:active {
+  background: var(--accent-subtle);
+}
+.sheet-item[data-active="true"] {
+  color: var(--accent);
+}
+
+/* Die drei Sofortwege im Kopf des Blatts. */
+.sheet-quick {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 4.25rem;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-micro);
+  color: var(--ink-strong);
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+.sheet-quick:active {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
 }
 
 /* ---- Licht ---------------------------------------------------------------
@@ -1418,8 +1935,14 @@ html[data-js] .nojs-only {
     padding: 0 !important;
   }
 
+  /* .glass-micro stand hier lange nicht – und niemandem fiel es auf, weil
+     eine leicht getönte Fläche auf Papier wie Weiß aussieht, solange der
+     Drucker Hintergrundgrafiken ohnehin unterdrückt. Sobald jemand sie
+     einschaltet, wird daraus ein grauer Kasten um die Kachel. Der Prüfstand
+     verlangt jetzt jede Stufe hier namentlich. */
   .glass,
-  .glass-strong {
+  .glass-strong,
+  .glass-micro {
     background: #fff !important;
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;

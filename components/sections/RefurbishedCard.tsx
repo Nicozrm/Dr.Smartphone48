@@ -16,7 +16,10 @@ export function RefurbishedCard({ device }: { device: RefurbishedDevice }) {
   );
 
   return (
-    <article className="lift group relative flex h-full flex-col rounded-[var(--radius-xl)] border border-line bg-raised p-7 shadow-raised focus-within:border-ink-faint">
+    <article
+      className="glass-pane lift group relative flex h-full flex-col rounded-[var(--radius-xl)] p-7"
+      data-sheen
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.14em] text-ink-faint">

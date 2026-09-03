@@ -96,7 +96,7 @@ export function ContactForm() {
 
   if (state === "sent") {
     return (
-      <div className="glass rounded-[var(--radius-l)] p-8 text-center">
+      <div className="glass-pane rounded-[var(--radius-l)] p-8 text-center">
         <span
           className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full"
           style={{ background: "var(--positive-subtle)", color: "var(--positive)" }}

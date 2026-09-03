@@ -536,7 +536,11 @@ export function Configurator() {
         {/* Glas statt Vollweiß und ein Lichtabfall von oben: Die Vorschau ist
             das Schaufenster des Rechners, sie darf sich vom Formular daneben
             unterscheiden. */}
-        <div className="glass-micro lightfall overflow-hidden rounded-[var(--radius-xl)] p-6 shadow-floating">
+        <div
+          className="glass-pane lightfall overflow-hidden rounded-[var(--radius-xl)] p-6"
+          data-depth="3"
+          data-sheen
+        >
           {/*
             Der Kopf der Vorschau – und der Zielpunkt der Überführung.
 

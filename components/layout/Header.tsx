@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Icon } from "@/components/ui/Icon";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { BrandIcon } from "@/components/ui/BrandIcon";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { openingColor, useOpeningState } from "@/lib/opening";
 import { site } from "@/lib/site";
 import { Logo } from "./Logo";
 
@@ -15,22 +17,22 @@ import { Logo } from "./Logo";
  * luftig, ohne dass Kontakt oder Notfall dafür weichen müssen. Alles
  * Weitere steht im Menü, im Fuß und in der Befehls-Palette.
  */
-const navigation: { href: string; label: string; wide?: boolean }[] = [
-  { href: "/reparatur", label: "Reparatur" },
-  { href: "/notfall", label: "Notfall" },
-  { href: "/check", label: "Geräte-Check" },
-  { href: "/ankauf", label: "Ankauf" },
-  { href: "/refurbished", label: "Refurbished", wide: true },
-  { href: "/kontakt", label: "Kontakt" },
+const navigation: { href: string; label: string; icon: IconName; wide?: boolean }[] = [
+  { href: "/reparatur", label: "Reparatur", icon: "tool" },
+  { href: "/notfall", label: "Notfall", icon: "shield" },
+  { href: "/check", label: "Geräte-Check", icon: "cpu" },
+  { href: "/ankauf", label: "Ankauf", icon: "leaf" },
+  { href: "/refurbished", label: "Refurbished", icon: "sparkle", wide: true },
+  { href: "/kontakt", label: "Kontakt", icon: "mail" },
 ];
 
 /** Nur im mobilen Menü – die Kopfzeile bleibt sonst zu voll. */
-const secondaryNavigation = [
-  { href: "/refurbished", label: "Refurbished" },
-  { href: "/zwilling", label: "Digitaler Zwilling" },
-  { href: "/versorgung", label: "Update-Horizont" },
-  { href: "/ersatzteile", label: "Ersatzteile" },
-  { href: "/werkstatt", label: "Werkstatt" },
+const secondaryNavigation: { href: string; label: string; icon: IconName }[] = [
+  { href: "/refurbished", label: "Refurbished", icon: "sparkle" },
+  { href: "/zwilling", label: "Digitaler Zwilling", icon: "battery" },
+  { href: "/versorgung", label: "Update-Horizont", icon: "clock" },
+  { href: "/ersatzteile", label: "Ersatzteile", icon: "cpu" },
+  { href: "/werkstatt", label: "Werkstatt", icon: "truck" },
 ];
 
 function openPalette() {
@@ -41,6 +43,10 @@ export function Header() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const status = useOpeningState();
+
+  const navRef = useRef<HTMLElement | null>(null);
+  const pillRef = useRef<HTMLSpanElement | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -55,8 +61,13 @@ export function Header() {
 
   useEffect(() => {
     document.documentElement.style.overflow = open ? "hidden" : "";
+    // Die Aktionsleiste am unteren Rand tritt zurück, solange das Menü steht:
+    // Zwei Glasebenen übereinander brechen in Chromium das Compositing des
+    // Hintergrunds – derselbe Grund, aus dem die Kopfzeile hier deckend wird.
+    document.documentElement.dataset.navOpen = open ? "true" : "false";
     return () => {
       document.documentElement.style.overflow = "";
+      document.documentElement.dataset.navOpen = "false";
     };
   }, [open]);
 
@@ -72,16 +83,68 @@ export function Header() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  /*
+    Die gleitende Markierung.
+
+    Sie wird direkt am Element gesetzt – Position und Breite sind zwei Zahlen,
+    und dafür einen React-Durchlauf je überfahrenem Punkt auszulösen wäre die
+    teuerste denkbare Art, ein `translate` zu schreiben.
+
+    `null` bedeutet „zurück zum aktiven Punkt"; gibt es keinen (Startseite,
+    Impressum), verschwindet die Markierung ganz, statt am linken Rand zu
+    parken.
+  */
+  const movePill = useCallback((target: HTMLElement | null) => {
+    const nav = navRef.current;
+    const pill = pillRef.current;
+    if (!nav || !pill) return;
+
+    const el =
+      target ?? nav.querySelector<HTMLElement>('[data-nav-item][data-active="true"]');
+
+    if (!el) {
+      pill.dataset.ready = "false";
+      return;
+    }
+
+    pill.style.width = `${el.offsetWidth}px`;
+    pill.style.translate = `${el.offsetLeft}px 0`;
+    pill.dataset.ready = "true";
+  }, []);
+
+  // useLayoutEffect: Die Markierung muss vor dem ersten Bild sitzen, sonst
+  // sieht man sie beim Seitenwechsel einmal von links heranfahren.
+  useLayoutEffect(() => {
+    movePill(null);
+  }, [pathname, movePill]);
+
+  useEffect(() => {
+    const onResize = () => movePill(null);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [movePill]);
+
+  const quickActions = [
+    { href: site.phoneHref, label: "Anrufen", icon: "phone" as IconName, aria: `Anrufen: ${site.phone}` },
+    { href: site.whatsappHref, label: "WhatsApp", brand: true, aria: "WhatsApp-Chat öffnen" },
+    {
+      href: site.google.mapsUrl,
+      label: "Route",
+      icon: "pin" as IconName,
+      aria: `Route nach ${site.street}, ${site.city}`,
+    },
+  ];
+
   return (
     <header
       className={`fixed inset-x-0 top-0 z-50 transition-[background-color,border-color,box-shadow] duration-[var(--duration-base)] ease-[var(--ease-out)] ${
         open
           ? // Solide statt Blur: verschachtelte backdrop-filter (Header + Overlay)
             // brechen das Compositing des Overlay-Hintergrunds in Chromium.
-            "bg-page border-b border-line"
+            "bg-page"
           : scrolled
-            ? "glass border-x-0 border-t-0"
-            : "bg-transparent border-b border-transparent"
+            ? "glass border-x-0 border-t-0 border-b-0"
+            : "bg-transparent"
       }`}
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-5 md:px-8">
@@ -89,7 +152,13 @@ export function Header() {
           <Logo />
         </Link>
 
-        <nav className="hidden lg:flex items-center gap-1" aria-label="Hauptnavigation">
+        <nav
+          ref={navRef}
+          className="relative hidden lg:flex items-center gap-1 isolate"
+          aria-label="Hauptnavigation"
+          onPointerLeave={() => movePill(null)}
+        >
+          <span ref={pillRef} className="nav-pill" aria-hidden="true" />
           {navigation.map((item) => {
             const active = pathname.startsWith(item.href);
             return (
@@ -98,6 +167,11 @@ export function Header() {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 data-weight-host=""
+                data-nav-item=""
+                data-active={active ? "true" : undefined}
+                onPointerEnter={(e) => movePill(e.currentTarget)}
+                onFocus={(e) => movePill(e.currentTarget)}
+                onBlur={() => movePill(null)}
                 className={`whitespace-nowrap rounded-full px-3 py-2 text-[0.9375rem] transition-colors duration-[var(--duration-fast)] xl:px-3.5 ${
                   item.wide ? "hidden xl:block" : ""
                 } ${active ? "text-ink-strong" : "text-ink-soft hover:text-ink-strong"}`}
@@ -163,28 +237,78 @@ export function Header() {
         </div>
       </div>
 
+      {/* Die Kante erscheint erst beim Scrollen und läuft an beiden Enden aus. */}
+      <span className="header-rim" data-on={scrolled && !open ? "true" : "false"} aria-hidden="true" />
+
       {open ? (
-        <div className="lg:hidden fixed inset-x-0 top-16 bottom-0 z-40 overflow-y-auto bg-page/95 backdrop-blur-xl">
-          <nav className="mx-auto max-w-6xl px-5 pt-6" aria-label="Mobile Navigation">
-            <ul className="flex flex-col divide-y divide-line">
+        <div className="glass-sheet lg:hidden fixed inset-x-0 top-16 bottom-0 z-40 overflow-y-auto">
+          <nav
+            className="mx-auto max-w-6xl px-5 pb-[calc(env(safe-area-inset-bottom,0px)+2rem)] pt-5"
+            aria-label="Mobile Navigation"
+          >
+            {/* Die drei Wege, für die man ein Menü nicht erst wieder verlassen
+                sollte. Sie stehen oben, nicht unten: Wer das Menü öffnet, um
+                anzurufen, soll nicht erst an sieben Seiten vorbeiscrollen. */}
+            <div className="flex gap-2">
+              {quickActions.map((action) => (
+                <a
+                  key={action.label}
+                  href={action.href}
+                  aria-label={action.aria}
+                  className="sheet-quick press"
+                  {...(action.href.startsWith("http")
+                    ? { target: "_blank", rel: "noopener noreferrer" }
+                    : {})}
+                >
+                  {action.brand ? (
+                    <BrandIcon name="whatsapp" size={22} />
+                  ) : (
+                    <Icon name={action.icon!} size={22} />
+                  )}
+                  {action.label}
+                </a>
+              ))}
+            </div>
+
+            <p className="mt-3 flex items-center gap-2 px-1 text-[0.8125rem] text-ink-soft">
+              <span
+                className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                style={{ background: status ? openingColor(status.tone) : "var(--ink-faint)" }}
+                aria-hidden="true"
+              />
+              {status ? status.compact : site.openingHoursShort}
+            </p>
+
+            <ul className="mt-4 flex flex-col divide-y divide-line">
               {[
                 ...navigation.filter((item) => item.href !== "/refurbished"),
                 ...secondaryNavigation,
-              ].map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className="flex items-center justify-between py-4 text-lg font-medium text-ink-strong"
-                  >
-                    {item.label}
-                    <Icon name="arrow-right" size={18} className="text-ink-faint" />
-                  </Link>
-                </li>
-              ))}
+              ].map((item) => {
+                const active = pathname.startsWith(item.href);
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      data-active={active ? "true" : undefined}
+                      className="sheet-item"
+                    >
+                      <Icon
+                        name={item.icon}
+                        size={19}
+                        className={active ? "text-accent" : "text-ink-faint"}
+                      />
+                      <span className="flex-1">{item.label}</span>
+                      <Icon name="arrow-right" size={17} className="text-ink-faint" />
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
+
             <Link
               href="/reparatur"
-              className="mt-8 inline-flex h-12 w-full items-center justify-center rounded-full bg-ink-strong text-base font-medium text-[var(--surface-page)]"
+              className="breathe press mt-7 inline-flex h-13 w-full items-center justify-center rounded-full bg-accent text-base font-medium text-accent-contrast shadow-button"
             >
               Sofortpreis berechnen
             </Link>

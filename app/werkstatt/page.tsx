@@ -90,7 +90,7 @@ export default function WerkstattPage() {
             lede="Ein Auszug aus dem Protokoll, das jedes Gerät durchläuft – bei jeder Reparatur und vor jedem Refurbished-Verkauf."
           />
           <Reveal delay={100}>
-            <ol className="rounded-[var(--radius-l)] border border-line bg-raised p-7 shadow-raised">
+            <ol className="glass-pane rounded-[var(--radius-l)] p-7">
               {protocol.map((point, i) => (
                 <li
                   key={point}

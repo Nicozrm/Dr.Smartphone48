@@ -119,7 +119,8 @@ export default function NotfallPage() {
               <a
                 key={scenario.id}
                 href={`#${scenario.id}`}
-                className="group rounded-[var(--radius-m)] border border-line bg-raised p-5 transition-[border-color,box-shadow] duration-[var(--duration-base)] ease-[var(--ease-out)] hover:border-ink-faint hover:shadow-raised"
+                className="glass-pane lift group rounded-[var(--radius-m)] p-5"
+                data-depth="1"
               >
                 <span className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-s)] bg-sunken text-ink-strong">
                   <Icon name={scenario.icon} size={20} />

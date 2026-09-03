@@ -40,7 +40,7 @@ export function HandoverReference() {
               {group.steps.map((step) => (
                 <article
                   key={step.id}
-                  className="mt-5 rounded-[var(--radius-l)] border border-line bg-raised p-5 md:p-6"
+                  className="glass-pane mt-5 rounded-[var(--radius-l)] p-5 md:p-6"
                 >
                   <h4 className="flex flex-wrap items-center gap-2.5 text-[1.0625rem] font-medium text-ink-strong">
                     {step.title}
@@ -100,7 +100,7 @@ export function HandoverReference() {
           {passcodeOptions.map((option) => (
             <article
               key={option.id}
-              className="rounded-[var(--radius-l)] border border-line bg-raised p-5 md:p-6"
+              className="glass-pane rounded-[var(--radius-l)] p-5 md:p-6"
             >
               <h3 className="text-[1.0625rem] font-medium text-ink-strong">
                 {option.label}

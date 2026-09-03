@@ -62,7 +62,8 @@ function ReviewCard({ review, onOpen, index }: { review: Review; onOpen: () => v
   return (
     <Reveal delay={index * 60}>
       <article
-        className="review-card glass group flex h-full cursor-pointer flex-col rounded-[var(--radius-l)] p-5 text-left md:p-6"
+        className="review-card glass-pane group flex h-full cursor-pointer flex-col rounded-[var(--radius-l)] p-5 text-left md:p-6"
+        data-sheen
         onClick={onOpen}
         role="button"
         tabIndex={0}
@@ -140,7 +141,8 @@ function ReviewOverlay({ review, onClose }: { review: Review; onClose: () => voi
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="cmdk-panel glass-strong relative w-full max-w-lg rounded-[var(--radius-l)] p-6 shadow-floating outline-none md:p-8"
+        className="cmdk-panel glass-pane relative w-full max-w-lg rounded-[var(--radius-l)] p-6 outline-none md:p-8"
+        data-depth="3"
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-2.5">
@@ -250,7 +252,7 @@ export function Reviews() {
           <Reveal delay={120}>
             {/* Ehrlicher Zustand: das verifizierte Aggregat trägt die Sektion,
                 die Originale sind einen Klick entfernt. */}
-            <div className="glass mx-auto mt-14 max-w-2xl rounded-[var(--radius-l)] p-8 text-center">
+            <div className="glass-pane mx-auto mt-14 max-w-2xl rounded-[var(--radius-l)] p-8 text-center" data-sheen>
               <p className="leading-relaxed text-ink">
                 Alle {reviewSummary.count} Rezensionen liegen im Google-Profil –
                 dort sehen Sie jede Stimme im Original, mit Datum und Verlauf.

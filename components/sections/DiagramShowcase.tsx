@@ -31,7 +31,7 @@ export function DiagramShowcase() {
   const current = sequence[index];
 
   return (
-    <div className="relative rounded-[var(--radius-l)] border border-line bg-raised p-6 shadow-raised">
+    <div className="glass-pane relative rounded-[var(--radius-l)] p-6" data-sheen>
       <DeviceDiagram highlight={current.part} className="mx-auto w-full max-w-[300px]" />
       <div className="mt-2 flex items-baseline justify-between border-t border-line pt-5">
         <span key={`l-${current.part}`} className="price-swap text-[0.9375rem] font-medium text-ink-strong">
