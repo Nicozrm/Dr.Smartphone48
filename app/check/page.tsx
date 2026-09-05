@@ -1,4 +1,5 @@
 import { Reveal } from "@/components/ui/Reveal";
+import { SectionNav, type SectionNavItem } from "@/components/ui/SectionNav";
 import { DeviceCheck } from "@/components/check/DeviceCheck";
 import { Distortion } from "@/components/check/Distortion";
 import { ColorGamut } from "@/components/check/ColorGamut";
@@ -20,6 +21,30 @@ export const metadata = pageMeta({
     "Prüfen Sie Ihr Smartphone direkt im Browser: Display, Touch, Sensoren, Mikrofon, Lautsprecher, Akku und Netz. Ehrlicher Befund in unter einer Minute – ohne App, ohne Anmeldung.",
 });
 
+/*
+  Die Sprungmarken dieser Seite.
+
+  Die Reihenfolge ist die des Dokuments, und das ist keine Nachlässigkeit,
+  sondern Bedingung: Die Sprungleiste nimmt bei mehreren sichtbaren
+  Abschnitten den **ersten** aus dieser Liste als aktiven. Eine nach Wichtigkeit
+  oder Alphabet sortierte Liste ergäbe eine Markierung, die beim Scrollen
+  springt.
+*/
+const abschnitte: SectionNavItem[] = [
+  { id: "befund", label: "Geräte-Check" },
+  { id: "stethoskop", label: "Stethoskop" },
+  { id: "klirrfaktor", label: "Klirrfaktor" },
+  { id: "sturz", label: "Sturzschreiber" },
+  { id: "drosselung", label: "Drosselung" },
+  { id: "pixel", label: "Pixel-Wecker" },
+  { id: "bildfrequenz", label: "Bildfrequenz" },
+  { id: "farbraum", label: "Farbraum" },
+  { id: "digitizer", label: "Digitizer" },
+  { id: "eingabe", label: "Eingabe" },
+  { id: "kamera", label: "Kamera" },
+  { id: "entwaesserung", label: "Entwässerung" },
+];
+
 export default function CheckPage() {
   return (
     <section className="mx-auto max-w-3xl px-5 pb-24 pt-28 md:px-8 md:pt-36">
@@ -38,7 +63,9 @@ export default function CheckPage() {
         </p>
       </Reveal>
 
-      <div className="mt-14 md:mt-16">
+      <SectionNav items={abschnitte} label="Instrumente auf dieser Seite" />
+
+      <div className="mt-14 md:mt-16" id="befund">
         <DeviceCheck />
       </div>
 
@@ -74,47 +101,47 @@ export default function CheckPage() {
         </p>
       </Reveal>
 
-      <Reveal className="mt-12" printHide>
+      <Reveal className="mt-12" id="stethoskop" printHide>
         <Stethoscope />
       </Reveal>
 
-      <Reveal className="mt-20" printHide>
+      <Reveal className="mt-20" id="klirrfaktor" printHide>
         <Distortion />
       </Reveal>
 
-      <Reveal className="mt-20" printHide>
+      <Reveal className="mt-20" id="sturz" printHide>
         <DropForensics />
       </Reveal>
 
-      <Reveal className="mt-20" printHide>
+      <Reveal className="mt-20" id="drosselung" printHide>
         <ThermalTrace />
       </Reveal>
 
-      <Reveal className="mt-20" printHide>
+      <Reveal className="mt-20" id="pixel" printHide>
         <PixelWake />
       </Reveal>
 
-      <Reveal className="mt-20" printHide>
+      <Reveal className="mt-20" id="bildfrequenz" printHide>
         <FrameRate />
       </Reveal>
 
-      <Reveal className="mt-20" printHide>
+      <Reveal className="mt-20" id="farbraum" printHide>
         <ColorGamut />
       </Reveal>
 
-      <Reveal className="mt-20" printHide>
+      <Reveal className="mt-20" id="digitizer" printHide>
         <Digitizer />
       </Reveal>
 
-      <Reveal className="mt-20" printHide>
+      <Reveal className="mt-20" id="eingabe" printHide>
         <InputLatency />
       </Reveal>
 
-      <Reveal className="mt-20" printHide>
+      <Reveal className="mt-20" id="kamera" printHide>
         <CameraBench />
       </Reveal>
 
-      <Reveal className="mt-20" printHide>
+      <Reveal className="mt-20" id="entwaesserung" printHide>
         <SpeakerEject />
       </Reveal>
     </section>

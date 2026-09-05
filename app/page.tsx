@@ -142,7 +142,7 @@ export default function HomePage() {
         gleich proportioniert – ohne feste <br>, die auf einem schmalen
         Telefon über den Rand liefen.
       */}
-      <section className="lightfall relative isolate overflow-hidden">
+      <section className="lightfall aurora relative isolate overflow-hidden">
         <ShaderField />
         <div className="mx-auto max-w-[80rem] px-5 pt-28 text-center md:px-8 md:pt-36">
           <Reveal>
@@ -337,7 +337,7 @@ export default function HomePage() {
 
       {/* Refurbished Teaser – dieselbe Überlegung wie bei den Werkzeugen:
           Die Gerätekarten sind Scheiben und brauchen einen Untergrund. */}
-      <section className="lightfall mx-auto max-w-6xl px-5 py-24 md:px-8 md:py-36">
+      <section className="aurora mx-auto max-w-6xl px-5 py-24 md:px-8 md:py-36">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <SectionHeading
             eyebrow="Refurbished"
@@ -377,7 +377,7 @@ export default function HomePage() {
         hat die Scheibe einen Verlauf, den sie aufhellen und sättigen kann –
         erst dadurch sieht man ihr an, dass etwas hinter ihr liegt.
       */}
-      <section className="lightfall border-t border-line bg-raised">
+      <section className="lightgrid aurora border-t border-line bg-raised">
         <div className="mx-auto max-w-6xl px-5 py-24 md:px-8 md:py-36">
           <SectionHeading
             eyebrow="Werkzeuge"
@@ -392,7 +392,9 @@ export default function HomePage() {
                     genügen Anheben und Druckpunkt. */}
                 <Link
                   href={tool.href}
-                  className="lift press group flex h-full flex-col rounded-[var(--radius-xl)] border border-line bg-page p-7 hover:border-ink-faint md:p-8"
+                  className="glass-pane lift press group flex h-full flex-col rounded-[var(--radius-xl)] p-7 md:p-8"
+                  data-sheen
+                  data-tilt
                 >
                   <span className="flex items-center gap-3">
                     <span className="glass-micro inline-flex h-11 w-11 items-center justify-center rounded-[var(--radius-m)] text-ink-strong shadow-raised">
