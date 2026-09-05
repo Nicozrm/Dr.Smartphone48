@@ -19,6 +19,7 @@ export function RefurbishedCard({ device }: { device: RefurbishedDevice }) {
     <article
       className="glass-pane lift group relative flex h-full flex-col rounded-[var(--radius-xl)] p-7"
       data-sheen
+      data-tilt
     >
       <div className="flex items-start justify-between gap-3">
         <div>

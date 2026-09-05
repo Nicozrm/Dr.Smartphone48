@@ -64,7 +64,7 @@ Geprüft wird:
 | Shader | kein Backtick im GLSL-Literal, keine GLSL-Schlüsselwörter als Bezeichner |
 | Metadaten | jede Route nutzt `pageMeta()` |
 | Offline-Vorrat | `public/sw.js` und `lib/pwa/precache.ts` nennen dieselben Seiten in derselben Reihenfolge, /notfall zuerst, gleicher Nachrichtenname |
-| Glas | jede `.glass*`-Stufe hat eine deckende Fläche ohne Bedingung, steht in beiden Abschaltblöcken (`prefers-reduced-transparency`, Druck), und `data-sheen`/`data-depth` stehen nur an `.glass-pane` |
+| Glas | jede `.glass*`-Stufe hat eine deckende Fläche ohne jede Bedingung und steht namentlich in allen vier Abschaltblöcken (`prefers-reduced-transparency`, `prefers-contrast: more`, `forced-colors`, Druck); `data-sheen`/`data-depth`/`data-tilt` stehen nur an `.glass-pane`; `lightfall` und `lightgrid` nie am selben Element |
 | Hydration | kein `typeof window/navigator/document !== "undefined" ? …` im Render – der Unterschied kostet den ganzen Baum |
 | Export | eigener Canonical je Seite, `og:image` überall, nichts zugleich in Sitemap und auf `noindex` |
 
@@ -342,14 +342,15 @@ app/                     App-Router-Seiten (alle statisch prerendert)
   sitemap.ts robots.ts manifest.ts   Metadata-Routen (force-static)
 components/
   ui/                    Primitives: Button, Icon (eigenes SVG-Set), Reveal,
-                         SectionHeading, ThemeToggle, QrCode, PrintButton
+                         SectionHeading, SectionNav (Sprungleiste), ThemeToggle,
+                         QrCode, PrintButton
   layout/                Header, Footer, Logo, QuickDock (Aktionsleiste unten)
   sections/              Faq, RefurbishedGrid/-Card, DiagramShowcase, ContactForm,
                          Reviews (Google-Aggregat), LiveStatus (Öffnungsstatus)
   configurator/          Configurator (Preislogik) + DeviceDiagram (SVG-Explosion)
   experience/            Bootloader, CommandPalette (⌘K), ShaderField (WebGL-Hero),
                          DeviceExploded, XRay, MagneticField, ScrollProgress,
-                         GlassSheen (der Glanz auf den Scheiben)
+                         PointerLight (Glanz, Raster und Neigung am Zeiger)
   check/                 DeviceCheck (Display-, Sensor-, Audio-, Akku-Tests),
                          Stethoscope (Spektrum + Wasserfall),
                          Distortion (Klirrfaktor über die Lautstärke),
@@ -542,6 +543,150 @@ Die Prüfung ist blind für Kommentare (`blankComments` in `verify.mjs`), und
 das ist kein Detail: Beim ersten Lauf meldete sie ihr eigenes Gegenbeispiel,
 das über der Korrektur im Quelltext steht. Eine Regel, die verbietet, den
 Fehler zu beschreiben, ist eine schlechte Regel.
+
+### Werkstattlicht: Landschaft, Raster, Neigung
+
+Glas braucht etwas, das es brechen kann. Bis hierher war der Untergrund
+dieser Seite eine Farbe mit einem Verlauf darüber – ruhig, richtig, und
+optisch dasselbe wie keine Scheibe. Drei Ebenen ändern das, und alle drei
+sind reines CSS.
+
+**Die Lichtlandschaft (`.aurora`).** Drei sehr weiche Lichtinseln, die über
+74 Sekunden gegeneinander driften. Der Punkt ist die *Bewegungsdifferenz*,
+nicht die Bewegung: Eine einzelne wandernde Fläche liest sich als Objekt –
+man sieht ihr an, dass sie sich bewegt, und dann sucht der Blick sie. Drei
+mit unterschiedlichen Umlaufzeiten ergeben ein Interferenzmuster, dessen
+Summe sich ständig ändert, ohne dass ein Teil erkennbar wandert. Dasselbe
+Prinzip wie beim Atem des Akzents, nur im Raum statt in der Farbe. Bewegt
+wird ausschließlich `translate` – reine Compositor-Arbeit.
+
+Im Dunkelmodus fällt der warme Ton fast weg: Auf Off-White liest er sich als
+Abendlicht, auf Schwarz als Schmutz auf dem Bildschirm.
+
+**Das Raster im Lichtkegel (`.lightgrid`).** Eine Werkstatt hat
+Millimeterpapier, eine Platine ein Raster, ein Messgerät eine Skala. Dieses
+Raster ist nur dort sichtbar, wo der Zeiger leuchtet – die Maske folgt
+`--gx/--gy`. Das ist der Unterschied zwischen Textur und Muster: Ein
+dauerhaft sichtbares Raster ist eine Tapete und kämpft mit jedem Text darauf.
+Ohne Zeiger (Touch, Tastatur) bleibt es unsichtbar, statt als Fleck in einer
+Ecke zu kleben.
+
+**Die Neigung (`data-tilt`).** Eine Karte, die sich beim Anfahren zum Zeiger
+neigt, ist der Unterschied zwischen einem Bild von einer Scheibe und einer
+Scheibe. Der Ausschlag beträgt gut ein Grad – alles darüber wird zur
+Spielerei und macht Fließtext unscharf, darunter merkt man es nicht. Die
+Perspektive sitzt großzügig bei 900 px: Eine kurze Brennweite übertreibt die
+Fluchtlinien und lässt eine Karte wie Bonbonpapier wirken.
+
+`transform` ist dafür frei, weil `.press` `scale` und `.lift` sowie die
+magnetische Anziehung `translate` benutzen. Genau dafür wurden die drei im
+Motion-System auseinandergezogen.
+
+**Drei Lichtebenen, zwei Pseudoelemente.** `.lightfall` besetzt `::before`
+(das war zuerst da und steht an dreißig Stellen), `.aurora` nimmt `::after`
+und lässt sich damit kombinieren. `.lightgrid` greift ebenfalls auf
+`::before` zu und **schließt `.lightfall` damit aus** – an einem Element
+gewänne schlicht die später notierte Regel, und die andere Ebene
+verschwände lautlos. Inhaltlich wollen beide ohnehin dasselbe erklären, die
+eine mit Licht, die andere mit einem Maß; zusammen ergäben sie Nebel über
+Millimeterpapier. Der Prüfstand schlägt an, wenn beide an einem Element
+stehen.
+
+**Eine Quelle für alle drei** (`components/experience/PointerLight.tsx`).
+Glanz, Raster und Neigung brauchen dieselbe Zahl – die Position des Zeigers
+im Element – und deshalb gibt es sie dort genau einmal. Ein delegierter
+`pointerover` sagt, welche Fläche angefahren wurde; erst dann hängt ein
+`pointermove` an genau dieser. Im Ruhezustand rechnet nichts, und nie mehr
+als ein Element gleichzeitig. Auf grobem Zeiger und bei
+`prefers-reduced-motion` gibt es die Datei gar nicht erst: Ein Glanzpunkt
+unter dem Finger ist keiner, und eine Karte, die sich unter der Berührung
+wegdreht, ist ein Fehler.
+
+### Bewegung an der Scrollposition, nicht an der Uhr
+
+`Reveal` hat zwei Uhren. Wo `animation-timeline: view()` zur Verfügung steht,
+hängt der Fortschritt an der Position im Bild statt an einer Dauer.
+
+Der Konstruktionsfehler der Zeitvariante sieht man erst beim schnellen
+Scrollen: Die Bewegung hängt an der Uhr, das Scrollen am Finger. Wer zügig
+durchzieht, sieht Elemente, die noch einlaufen, während sie schon wieder aus
+dem Bild sind – die Seite hinkt ihrer eigenen Bedienung hinterher.
+Scrollgebunden kann sie das prinzipiell nicht mehr: Scrollt man zurück,
+läuft sie zurück. Und sie läuft auf dem Compositor – kein Beobachter, kein
+Timer, kein JavaScript.
+
+**Die Staffelung ist dann eine Strecke, keine Dauer.** `--reveal-delay` (ms)
+gilt für den Beobachter-Weg, `--reveal-shift` (%) verschiebt den
+Sichtbereich für den scrollgebundenen. Eine Verzögerung in Millisekunden
+hätte auf einer Scroll-Zeitachse keine Bedeutung – sie würde schlicht
+ignoriert, und die Staffelung wäre lautlos verschwunden. Der
+Umrechnungsfaktor steht in `Reveal.tsx` und ist gedeckelt: Ohne Deckel liefe
+das letzte Element einer langen Gruppe erst an, wenn es das Bild schon fast
+wieder verlässt.
+
+Wo die Zeitachse fehlt, bleibt der IntersectionObserver stehen und niemand
+merkt einen Unterschied.
+
+### Barrierefreiheit: die drei Ansagen, die niemand freiwillig macht
+
+Wer `prefers-reduced-transparency`, `prefers-contrast: more` oder den
+Windows-Kontrastmodus einschaltet, tut das nicht aus Geschmack, sondern weil
+er sonst schlechter oder gar nicht liest.
+
+**`prefers-contrast: more` heißt nicht „dunkler", sondern „deutlicher".**
+Die weichen Textstufen rücken auf `--ink` – die Abstufung verschwindet
+zugunsten der Lesbarkeit, und die Hierarchie trägt dann die Größe statt der
+Helligkeit. Das ist ein bewusster Verlust. Linien werden von Andeutungen zu
+Kanten, Glas wird deckend, der Glanz verschwindet, und der Fokusring wird
+dicker statt bunter.
+
+**Der Windows-Kontrastmodus (`forced-colors`) ist die ehrlichste Prüfung,
+die eine Oberfläche durchlaufen kann.** Das Betriebssystem *ersetzt*
+sämtliche Farben durch die des Nutzers; Hintergründe, Verläufe, Schatten und
+`backdrop-filter` fallen ersatzlos weg. Für diese Seite heißt das: Alles,
+was eine Fläche von der nächsten trennt, ist weg – die Fase einer
+Glasscheibe ist ein konischer Verlauf, der Schatten ist ein Schatten. Übrig
+bliebe Text auf Text in Blöcken ohne sichtbare Grenzen.
+
+Das ist der Modus, an dem fast jede aufwendig gestaltete Website scheitert,
+und zwar unbemerkt: Wer ihn nicht selbst einschaltet, sieht nie, was er
+angerichtet hat. Deshalb bekommt hier jede tragende Fläche eine echte Kante
+aus einer Systemfarbe (`CanvasText`), die Navigationsmarkierung wird vom
+Farbfeld zum Rahmen (`Highlight`), und Neigung wie Glanz sind abgeschaltet –
+Materialeffekte ohne Farbe bleiben sonst als Wackeln übrig.
+
+**`background: Canvas` steht dort ausdrücklich**, obwohl der Kontrastmodus
+Flächen ohnehin ersetzt. Nachgemessen im Selbsttest: Bei einer halb
+durchsichtigen `rgba`-Fläche tut er es nicht zuverlässig. Die Kopfzeile
+blieb durchscheinend, und die Überschrift darunter lief mitten durch die
+Navigationspunkte. Ein Rahmen um eine durchsichtige Leiste ist schlimmer als
+keiner: Er behauptet eine Trennung, die es nicht gibt.
+
+Der Prüfstand verlangt jede Glasstufe namentlich in allen vier Blöcken.
+
+### Die Sprungleiste (`components/ui/SectionNav.tsx`)
+
+Auf /check stehen elf Instrumente untereinander, jedes mit eigener Bedienung
+und eigenem Befund. Wer das dritte sucht, scrollt daran vorbei; wer beim
+neunten steht, weiß nicht mehr, was es außerdem gibt. Eine Seite, deren
+Inhalt man nur sequenziell erreicht, ist ein Band, kein Werkzeugkasten.
+
+- **Sie klebt unter der Kopfzeile, nicht darüber.** `top-16` ist exakt deren
+  Höhe. Zwei schwebende Leisten übereinander wären eine Wand.
+- **Ohne JavaScript funktioniert sie trotzdem.** Es sind Sprungmarken – das
+  kann der Browser seit 1993. JavaScript fügt nur hinzu, welcher gerade gilt.
+- **Der oberste sichtbare Abschnitt gewinnt.** `isIntersecting` allein
+  reicht nicht: Bei elf hohen Werkzeugen liegen regelmäßig zwei im Band, und
+  welcher zuletzt gemeldet wurde, entschiede die Reihenfolge der Einträge
+  statt der Position. Deshalb ist die Reihenfolge der Liste in
+  `app/check/page.tsx` die des Dokuments – eine nach Wichtigkeit sortierte
+  ergäbe eine Markierung, die beim Scrollen springt.
+- **Der aktive Punkt fährt ins Bild**, und zwar nur waagerecht
+  (`block: "nearest"`). Ohne diese Einschränkung nimmt `scrollIntoView` die
+  ganze Seite mit und macht aus dem Nachführen einen Sprung.
+- **`aria-current="location"`, nicht `page`.** Der Punkt führt nicht auf eine
+  andere Seite, er benennt eine Stelle innerhalb dieser. Vorlesehilfen
+  unterscheiden das.
 
 ### Glas: eine Scheibe, drei Tiefen
 

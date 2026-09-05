@@ -686,23 +686,41 @@ function checkGlass() {
     }
   }
 
-  /* --- 2. Jede Stufe steht in beiden Abschaltblöcken. --- */
-  const rtIdx = css.indexOf("@media (prefers-reduced-transparency: reduce)");
-  if (rtIdx === -1) {
-    report(
-      "glas",
-      file,
-      "Kein Block für prefers-reduced-transparency. Wer durchscheinende Flächen abbestellt, bekommt sie trotzdem.",
-    );
-  } else {
-    const body = braceBlock(css, rtIdx);
+  /* --- 2. Jede Stufe steht in allen vier Abschaltblöcken. ---
+
+     Drei davon sind Ansagen des Nutzers, keine Ausnahmen:
+
+     – `prefers-reduced-transparency`: Wer unter durchscheinenden Flächen
+       schlechter liest. Der Schalter steht unter iOS und Windows neben den
+       Kontrasteinstellungen.
+     – `prefers-contrast: more`: Wer mehr Deutlichkeit anfordert, will keinen
+       Untergrund, der durchscheint.
+     – `forced-colors`: Der Windows-Kontrastmodus ersetzt **alle** Farben.
+       Hintergründe, Verläufe und backdrop-filter fallen ersatzlos weg – und
+       damit auch die Fase, die hier die Kante einer Karte trägt. Ohne einen
+       echten `border` bliebe Text auf Text.
+
+     Der vierte ist der Druck: Papier hat keinen Untergrund, durch den etwas
+     scheinen könnte.
+
+     Wer eine Stufe anlegt und in einem dieser Blöcke vergisst, merkt es nie –
+     weil er den Schalter selbst nicht gesetzt hat. */
+  const ABSCHALTBLOECKE = [
+    ["@media (prefers-reduced-transparency: reduce)", "prefers-reduced-transparency"],
+    ["@media (prefers-contrast: more)", "prefers-contrast: more"],
+    ["@media (forced-colors: active)", "forced-colors (Windows-Kontrastmodus)"],
+  ];
+
+  for (const [needle, name] of ABSCHALTBLOECKE) {
+    const idx = css.indexOf(needle);
+    if (idx === -1) {
+      report("glas", file, `Kein Block für ${name}.`);
+      continue;
+    }
+    const body = braceBlock(css, idx);
     for (const cls of stufen) {
       if (!bound(cls).test(body)) {
-        report(
-          "glas",
-          file,
-          `.${cls} fehlt im Block für prefers-reduced-transparency.`,
-        );
+        report("glas", file, `.${cls} fehlt im Block für ${name}.`);
       }
     }
   }
@@ -720,13 +738,43 @@ function checkGlass() {
     }
   }
 
-  /* --- 3. data-sheen und data-depth wirken nur auf .glass-pane. ---
-     Ein Attribut, das nichts auslöst, ist eine Behauptung ohne Wirkung –
-     dieselbe Sorte Fehler wie ein Prüfskript, dessen Sollwert vom Prüfling
-     stammt. */
+  /* --- 2b. Licht und Raster teilen sich ein Pseudoelement. ---
+
+     `.lightfall` und `.lightgrid` zeichnen beide in ::before. An einem
+     Element gewinnt schlicht die später notierte Regel, und die andere
+     verschwindet lautlos – kein Fehler, keine Warnung, nur eine Ebene, die
+     jemand eingeplant hat und die nicht da ist.
+
+     Inhaltlich wollen die beiden ohnehin dasselbe erklären: die eine mit
+     Licht, die andere mit einem Maß. Zusammen ergäben sie Nebel über
+     Millimeterpapier. */
   for (const f of walk("components", [".tsx"]).concat(walk("app", [".tsx"]))) {
     const src = blankComments(readFileSync(f, "utf8"));
-    for (const attr of ["data-sheen", "data-depth"]) {
+    for (const m of src.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)) {
+      const cls = m[1] ?? m[2] ?? "";
+      if (/\blightfall\b/.test(cls) && /\blightgrid\b/.test(cls)) {
+        report(
+          "glas",
+          rel(f),
+          `Zeile ${lineOf(src, m.index)}: lightfall und lightgrid am selben Element. ` +
+            `Beide zeichnen in ::before – eine der beiden Ebenen ist unsichtbar.`,
+        );
+      }
+    }
+  }
+
+  /* --- 3. data-sheen, data-depth und data-tilt wirken nur auf .glass-pane. ---
+     Ein Attribut, das nichts auslöst, ist eine Behauptung ohne Wirkung –
+     dieselbe Sorte Fehler wie ein Prüfskript, dessen Sollwert vom Prüfling
+     stammt. Bei data-tilt wiegt es schwerer als bei den anderen beiden: Die
+     Neigung wird von PointerLight über `[data-tilt]` gefunden und als
+     transform geschrieben, die Regel für Perspektive, Transition und die
+     Rücknahme bei prefers-reduced-motion hängt aber an `.glass-pane`. Ohne
+     die Klasse kippt das Element also – und zwar ohne Perspektive, ohne
+     Übergang und ohne Abschalter. */
+  for (const f of walk("components", [".tsx"]).concat(walk("app", [".tsx"]))) {
+    const src = blankComments(readFileSync(f, "utf8"));
+    for (const attr of ["data-sheen", "data-depth", "data-tilt"]) {
       let idx = src.indexOf(attr);
       while (idx !== -1) {
         /*

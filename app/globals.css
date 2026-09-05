@@ -276,6 +276,45 @@
   --glass-sheen-strength: 1;
 
   /*
+    Werkstattlicht.
+
+    Bis hierher war der Untergrund dieser Seite eine Farbe mit einem
+    Verlauf darüber. Das ist ruhig und richtig – und es gibt dem Glas
+    nichts zu brechen. Eine Scheibe über einer gleichmäßigen Fläche ist
+    optisch dasselbe wie keine Scheibe.
+
+    Also bekommt der Untergrund eine Landschaft: drei sehr weiche
+    Lichtinseln, die über eine Minute hinweg gegeneinander driften. Der
+    Punkt ist die *Bewegungsdifferenz*, nicht die Bewegung – drei
+    Verläufe, die sich unterschiedlich schnell verschieben, ergeben ein
+    Bild, das sich nie wiederholt, ohne dass irgendetwas „passiert".
+
+    Die Deckkraft liegt bewusst dort, wo man das Licht nicht sieht,
+    sondern nur sein Fehlen bemerken würde – dieselbe Regel wie beim Korn.
+  */
+  --aurora-a: rgba(36, 86, 230, 0.1);
+  --aurora-b: rgba(120, 160, 255, 0.085);
+  --aurora-c: rgba(255, 214, 170, 0.075);
+  --aurora-strength: 1;
+
+  /*
+    Das Raster im Lichtkegel.
+
+    Eine Werkstatt hat Millimeterpapier, eine Platine hat ein Raster, und
+    ein Messgerät hat eine Skala. Dieses Raster liegt über den tragenden
+    Flächen – aber nur dort, wo der Zeiger gerade leuchtet. Überall sonst
+    ist es unsichtbar.
+
+    Das ist keine Spielerei, sondern der Unterschied zwischen Textur und
+    Muster: Ein dauerhaft sichtbares Raster ist eine Tapete und kämpft mit
+    jedem Text auf ihr. Eines, das dem Blick folgt, ist eine Oberfläche,
+    die man ertastet.
+  */
+  --grid-line: rgba(20, 21, 23, 0.055);
+  --grid-size: 44px;
+  --grid-radius: 34%;
+
+  /*
     Korn.
 
     Eine einzige, sehr feine Textur über der ganzen Seite. Sie erfüllt zwei
@@ -422,6 +461,20 @@
   --glass-rim: rgba(255, 255, 255, 0.24);
   --glass-rim-shade: rgba(0, 0, 0, 0.55);
   --glass-sheen: rgba(190, 212, 255, 0.16);
+
+  /*
+    Licht auf Schwarz darf mehr, muss aber kühler bleiben.
+
+    Der warme Ton der dritten Insel (--aurora-c) fällt im Dunkelmodus fast
+    weg: Auf Off-White liest er sich als Abendlicht, auf Schwarz als
+    Schmutz auf dem Bildschirm. Die beiden blauen dürfen dafür deutlicher
+    werden, weil ein OLED-Schwarz sonst jede Nuance schluckt.
+  */
+  --aurora-a: rgba(58, 104, 255, 0.17);
+  --aurora-b: rgba(96, 148, 255, 0.13);
+  --aurora-c: rgba(255, 190, 130, 0.04);
+
+  --grid-line: rgba(245, 245, 243, 0.06);
 
   /* Korn auf Schwarz muss kräftiger sein: Dunkelheit schluckt Textur. */
   --noise-opacity: 0.045;
@@ -632,6 +685,55 @@ html[data-js] .reveal {
 html[data-js] .reveal[data-revealed="true"] {
   opacity: 1;
   transform: none;
+}
+
+/* ---- Scroll-gebundene Reveals -------------------------------------------
+
+   Derselbe Weg, andere Uhr.
+
+   Bisher entschied ein IntersectionObserver *wann* die Bewegung startet, und
+   danach lief sie über eine feste Zeit ab. Das hat einen Konstruktionsfehler,
+   den man erst beim schnellen Scrollen sieht: Die Bewegung hängt an der Uhr,
+   das Scrollen am Finger. Wer zügig durchzieht, sieht Elemente, die noch
+   einlaufen, während sie schon wieder aus dem Bild sind – die Seite hinkt
+   ihrer eigenen Bedienung hinterher.
+
+   `animation-timeline: view()` bindet den Fortschritt an die Position im
+   Bild statt an die Zeit. Damit ist die Bewegung nicht mehr etwas, das
+   *passiert*, sondern etwas, das man *macht*: Scrollt man zurück, läuft sie
+   zurück. Sie kann prinzipiell nicht mehr hinterherhinken, und sie läuft auf
+   dem Compositor – kein Beobachter, kein Timer, kein JavaScript.
+
+   Die Staffelung übersetzt der Reveal-Baustein in einen Versatz des
+   Sichtbereichs (--reveal-shift): Bei einer scrollgebundenen Bewegung ist
+   „später" eine Strecke, keine Dauer. Eine Verzögerung in Millisekunden wäre
+   hier bedeutungslos.
+
+   `@supports` deckt den Rest ab: Wo die Zeitachse fehlt, bleibt der
+   Beobachter oben stehen und niemand merkt einen Unterschied. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    html[data-js] .reveal {
+      /* Der Beobachter darf weiter data-revealed setzen; die Animation
+         gewinnt in der Kaskade und hält den Endzustand über `both`. */
+      animation: reveal-rise linear both;
+      animation-timeline: view();
+      animation-range: entry calc(6% + var(--reveal-shift, 0%)) entry
+        calc(64% + var(--reveal-shift, 0%));
+      transition: none;
+    }
+  }
+}
+
+@keyframes reveal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* Dasselbe Gate für Werkzeuge, die ohne JavaScript nichts anzeigen würden:
@@ -1062,6 +1164,330 @@ html[data-js] .nojs-only {
   }
 }
 
+/* ---- Werkstattlicht: die Lichtlandschaft ---------------------------------
+
+   Drei Inseln, drei Geschwindigkeiten, ein Bild, das sich nie wiederholt.
+
+   Warum drei und nicht eine: Eine einzelne wandernde Fläche liest sich als
+   Objekt – man sieht ihr an, dass sie sich bewegt, und dann sucht der Blick
+   sie. Drei, die sich mit unterschiedlichen Umlaufzeiten überlagern, ergeben
+   ein Interferenzmuster: Die Summe ändert sich ständig, ohne dass ein
+   einzelner Teil erkennbar wandert. Dasselbe Prinzip wie beim Atem des
+   Akzents, nur im Raum statt in der Farbe.
+
+   Bewegt wird ausschließlich `translate` – reine Compositor-Arbeit, kein
+   Layout, kein Neuzeichnen. Die Verläufe selbst stehen still.
+
+   Die Inseln liegen absichtlich weit über den Rand hinaus (-30 % bis 130 %):
+   Eine Kante, die ins Bild wandert, ist eine sichtbare Kante. */
+.aurora {
+  position: relative;
+  isolation: isolate;
+}
+
+/*
+  Drei Lichtebenen, zwei Pseudoelemente – die Aufteilung ist Absicht.
+
+  `.lightfall` besetzt ::before (das war zuerst da und steht an dreißig
+  Stellen). `.aurora` nimmt deshalb ::after und lässt sich mit ihr
+  kombinieren: Der Hero trägt beide, die Lichtquelle von oben und die
+  driftende Landschaft dahinter.
+
+  `.lightgrid` greift ebenfalls auf ::before zu und schließt `.lightfall`
+  damit aus. Das ist keine Einschränkung, sondern die richtige Wahl: Beide
+  wollen dieselbe Fläche erklären, die eine mit Licht, die andere mit einem
+  Maß. Zusammen ergäben sie Nebel über Millimeterpapier. Der Prüfstand
+  schlägt an, wenn beide an einem Element stehen.
+*/
+.aurora::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  /* Drei Verläufe auf einer Ebene. Zusammen sind sie eine einzige
+     Compositor-Schicht statt dreier – ein Element weniger je Sektion. */
+  background-image:
+    radial-gradient(38% 44% at 18% 22%, var(--aurora-a) 0%, transparent 68%),
+    radial-gradient(42% 38% at 82% 34%, var(--aurora-b) 0%, transparent 66%),
+    radial-gradient(46% 42% at 52% 88%, var(--aurora-c) 0%, transparent 70%);
+  opacity: var(--aurora-strength);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .aurora::after {
+    animation: aurora-drift 74s var(--ease-inout) infinite alternate;
+    will-change: transform;
+  }
+}
+
+/*
+  Der Weg ist kurz und die Dauer lang – 74 Sekunden für gut ein Zehntel der
+  Sektionsbreite. Wer hinsieht, sieht Stillstand; wer eine Weile bleibt,
+  findet die Seite beim zweiten Blick anders vor als beim ersten.
+
+  `alternate` statt eines Rundlaufs: So gibt es keinen Sprung am Ende, und
+  die Rückbewegung läuft mit einer anderen gefühlten Geschwindigkeit als die
+  Hinbewegung, weil die Kurve gespiegelt wird.
+*/
+@keyframes aurora-drift {
+  from {
+    translate: -3% -2%;
+    scale: 1;
+  }
+  to {
+    translate: 4% 3%;
+    scale: 1.12;
+  }
+}
+
+/* ---- Werkstattlicht: das Raster im Lichtkegel ----------------------------
+
+   Ein Raster, das immer sichtbar ist, ist eine Tapete und kämpft mit jedem
+   Text darauf. Dieses ist nur dort da, wo der Zeiger leuchtet – die Maske
+   folgt --gx/--gy, gesetzt von PointerLight.tsx.
+
+   Ohne Zeiger (Touch, Tastatur) bleibt der Kegel in der Voreinstellung
+   stehen und die Deckkraft auf 0: Auf einem Telefon gibt es kein
+   Zeigerlicht, und ein Raster, das ohne Anlass in der Ecke klebt, wäre ein
+   Fleck. */
+.lightgrid {
+  position: relative;
+  isolation: isolate;
+}
+
+.lightgrid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: var(--grid-size) var(--grid-size);
+  -webkit-mask-image: radial-gradient(
+    var(--grid-radius) var(--grid-radius) at var(--gx, 50%) var(--gy, 50%),
+    #000 0%,
+    rgba(0, 0, 0, 0.35) 45%,
+    transparent 78%
+  );
+  mask-image: radial-gradient(
+    var(--grid-radius) var(--grid-radius) at var(--gx, 50%) var(--gy, 50%),
+    #000 0%,
+    rgba(0, 0, 0, 0.35) 45%,
+    transparent 78%
+  );
+  opacity: 0;
+  transition: opacity var(--duration-area) var(--ease-out);
+}
+
+.lightgrid[data-lit="true"]::before {
+  opacity: 1;
+}
+
+/* ---- Werkstattlicht: die Scheibe kippt ----------------------------------
+
+   Eine Karte, die sich beim Anfahren zum Zeiger neigt, ist der Unterschied
+   zwischen einem Bild von einer Scheibe und einer Scheibe.
+
+   Der Ausschlag ist winzig – gut ein Grad. Alles darüber wird zur Spielerei
+   und macht Fließtext unscharf; darunter merkt man es nicht. Die Perspektive
+   sitzt großzügig bei 900 px: Eine kurze Brennweite übertreibt die
+   Fluchtlinien und lässt eine Karte wie ein Bonbonpapier wirken.
+
+   `transform` ist hier frei: `.press` benutzt `scale`, `.lift` und die
+   magnetische Anziehung benutzen `translate`. Drei getrennte Eigenschaften,
+   die der Browser komponiert – keine überschreibt die andere. Genau dafür
+   wurden sie im Motion-System auseinandergezogen.
+
+   Geschrieben wird direkt am Element (PointerLight.tsx), nicht über eine
+   Custom Property: Ein per Zeiger gesetzter Wert, aus dem eine Transform
+   gemischt wird, kostet je Bild eine Stilneuberechnung. */
+.glass-pane[data-tilt] {
+  transform-style: preserve-3d;
+  transition: transform var(--duration-area) var(--ease-glide);
+}
+
+/* Während der Zeiger führt, darf nichts nachschleppen: Eine Transition auf
+   einem Wert, der sechzigmal je Sekunde neu gesetzt wird, ergibt Gummi. */
+.glass-pane[data-tilt][data-tilting="true"] {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-pane[data-tilt] {
+    transform: none !important;
+  }
+}
+
+@media print {
+  .aurora::after,
+  .lightgrid::before {
+    display: none !important;
+  }
+  .glass-pane[data-tilt] {
+    transform: none !important;
+  }
+}
+
+/* ==========================================================================
+   Barrierefreiheit: die drei Ansagen, die niemand freiwillig macht
+   ==========================================================================
+
+   Wer `prefers-reduced-transparency`, `prefers-contrast: more` oder den
+   Windows-Kontrastmodus einschaltet, tut das nicht aus Geschmack. Er tut es,
+   weil er sonst schlechter oder gar nicht liest. Eine Seite, die diese drei
+   Schalter ignoriert, hat sie nicht verstanden.
+
+   Reduzierte Transparenz steht schon beim Glas. Hier kommen die anderen
+   beiden – und der zweite ist der, an dem fast jede Website scheitert.
+
+   ---------------------------------------------------------------------- */
+
+/* ---- Mehr Kontrast ------------------------------------------------------
+
+   `prefers-contrast: more` heißt nicht „dunkler", sondern „deutlicher". Drei
+   Dinge passieren gleichzeitig:
+
+   – Die weichen Textstufen rücken auf. --ink-soft und --ink-faint sind auf
+     4.5:1 gerechnet, also auf das Minimum. Wer mehr anfordert, bekommt
+     mehr: Beide gehen auf --ink, die Abstufung verschwindet zugunsten der
+     Lesbarkeit. Das ist ein bewusster Verlust – Hierarchie trägt hier die
+     Größe, nicht die Helligkeit.
+   – Linien werden zu Kanten. Eine Haarlinie bei 10 % Deckkraft ist eine
+     Andeutung; wer Kontrast anfordert, braucht eine Grenze.
+   – Glas wird deckend. Ein Untergrund, der durchscheint, ist genau das,
+     was hier nicht gewollt ist. Die Fase bleibt und wird zur Kontur.
+*/
+@media (prefers-contrast: more) {
+  :root {
+    --ink-soft: var(--ink);
+    --ink-faint: var(--ink);
+    --ink-inverse-soft: var(--ink-inverse);
+    --line: rgba(20, 21, 23, 0.42);
+    --line-strong: rgba(20, 21, 23, 0.72);
+    --line-inverse: rgba(245, 245, 243, 0.5);
+    --glass-border: rgba(20, 21, 23, 0.55);
+    --glass-rim: rgba(20, 21, 23, 0.55);
+    --glass-rim-shade: rgba(20, 21, 23, 0.55);
+    --aurora-strength: 0;
+  }
+
+  :root[data-theme="dark"] {
+    --line: rgba(245, 245, 243, 0.4);
+    --line-strong: rgba(245, 245, 243, 0.7);
+    --glass-border: rgba(245, 245, 243, 0.55);
+    --glass-rim: rgba(245, 245, 243, 0.6);
+    --glass-rim-shade: rgba(245, 245, 243, 0.6);
+  }
+
+  .glass,
+  .glass-strong,
+  .glass-micro,
+  .glass-pane,
+  .glass-dock,
+  .glass-sheet {
+    background: var(--surface-raised) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  /* Der Glanz ist eine Andeutung von Tiefe. Wer Kontrast anfordert, will
+     keine Andeutungen. */
+  .glass-pane::after,
+  .lightgrid::before {
+    display: none !important;
+  }
+
+  /* Der Fokusring wird dicker, nicht bunter: Die Akzentfarbe bleibt, aber
+     zwei Pixel sind auf einem kontrastarmen Bildschirm zu wenig. */
+  :focus-visible {
+    outline-width: 3px;
+    outline-offset: 3px;
+  }
+}
+
+/* ---- Der erzwungene Kontrastmodus ---------------------------------------
+
+   Der Windows-Kontrastmodus (und Firefox' „Nur Systemfarben") ist die
+   ehrlichste Prüfung, die eine Oberfläche durchlaufen kann: Das
+   Betriebssystem **ersetzt** sämtliche Farben durch die des Nutzers.
+   Hintergründe, Verläufe, Schatten und `backdrop-filter` fallen ersatzlos
+   weg.
+
+   Für diese Seite heißt das: Alles, was eine Fläche hier von der nächsten
+   trennt, ist weg. Die Fase der Glasscheibe ist ein konischer Verlauf –
+   weg. Der Schatten – weg. Übrig bliebe Text auf Text, in Blöcken, deren
+   Grenzen niemand mehr sieht.
+
+   Das ist der Modus, an dem fast jede aufwendig gestaltete Website
+   scheitert, und zwar unbemerkt: Wer ihn nicht selbst einschaltet, sieht
+   nie, was er angerichtet hat. Deshalb bekommt hier **jede tragende Fläche
+   eine echte Kante** aus einer Systemfarbe.
+
+   `CanvasText` und `Highlight` sind dabei keine Farben, sondern
+   Platzhalter: Der Browser setzt ein, was der Nutzer eingestellt hat.
+*/
+@media (forced-colors: active) {
+  /* Dekoration, die ohne Farbe keine Aussage mehr trägt. */
+  .aurora::after,
+  .lightgrid::before,
+  .glass-pane::after,
+  body::after {
+    display: none !important;
+  }
+
+  /* Jede Scheibe, jede Leiste, jedes Blatt bekommt eine Kante, die der
+     Kontrastmodus nicht wegnehmen kann – und eine Fläche.
+
+     `background: Canvas` steht hier ausdrücklich, obwohl der Kontrastmodus
+     Flächen ohnehin ersetzt. Nachgemessen: Er tut es bei einer halb
+     durchsichtigen `rgba`-Fläche **nicht** zuverlässig. Die Kopfzeile blieb
+     im Selbsttest durchscheinend, und die Überschrift der Sektion darunter
+     lief mitten durch die Navigationspunkte. Ein Rahmen um eine
+     durchsichtige Leiste ist schlimmer als keiner: Er behauptet eine
+     Trennung, die es nicht gibt. */
+  .glass,
+  .glass-strong,
+  .glass-micro,
+  .glass-pane,
+  .glass-dock,
+  .glass-sheet {
+    background: Canvas !important;
+    border: 1px solid CanvasText;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  /* Die Fase wird zur Kontur: Der konische Verlauf verschwindet, der Ring
+     bleibt. Ohne diese Zeile hätte eine Karte im Kontrastmodus keinen Rand,
+     weil ihr Rand nie ein `border` war. */
+  .glass-pane::before {
+    background: CanvasText !important;
+  }
+
+  /* Die aktive Navigationsmarkierung ist eine Fläche in --accent-subtle und
+     damit im Kontrastmodus unsichtbar. Sie wird zum Rahmen. */
+  .nav-pill {
+    background: transparent !important;
+    border: 2px solid Highlight;
+  }
+
+  /* Der Fokusring muss die Systemfarbe für Auswahl tragen, sonst
+     unterscheidet er sich nicht vom Text. */
+  :focus-visible {
+    outline-color: Highlight !important;
+  }
+
+  /* Neigung und Glanz sind Materialeffekte ohne Farbe – im Kontrastmodus
+     bleiben sie als Wackeln übrig. */
+  .glass-pane[data-tilt] {
+    transform: none !important;
+  }
+}
+
 /* ---- Glas v2: die Rückfallebene -----------------------------------------
 
    Zwei Fälle, in denen Glas verschwindet, und beide sind keine Ausnahme,
@@ -1248,6 +1674,71 @@ html[data-js] .nojs-only {
   font-size: 0.6875rem;
   line-height: 1;
   letter-spacing: 0.01em;
+}
+
+/* ---- Die Sprungleiste ---------------------------------------------------
+
+   Sie klebt unter der Kopfzeile und zeigt, was auf dieser Seite steht und wo
+   man gerade ist. Die Punkte sind Sprungmarken – ohne JavaScript funktionieren
+   sie, nur die Markierung fehlt dann.
+
+   Der Balken unter dem aktiven Punkt liegt **innen** (`inset`-Schatten) statt
+   als eigenes Element: So gibt es nichts zu positionieren, nichts, das beim
+   waagerechten Scrollen der Liste hinterherrutscht, und keinen zweiten Knoten
+   je Punkt. */
+.section-nav {
+  border-bottom: 1px solid var(--line);
+}
+
+/* Die Liste scrollt waagerecht, aber ohne Balken: Auf einer Zeile mit zwölf
+   Punkten frisst eine Bildlaufleiste ein Drittel der Höhe. Erreichbar bleibt
+   sie über Wischen, Tastatur und den nachgeführten aktiven Punkt. */
+.section-nav-list {
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+.section-nav-list::-webkit-scrollbar {
+  display: none;
+}
+
+.section-nav-item {
+  display: block;
+  scroll-snap-align: center;
+  white-space: nowrap;
+  border-radius: var(--radius-full);
+  /* 0.55rem oben und unten ergeben mit der Zeilenhöhe knapp 34 px. WCAG 2.2
+     verlangt in 2.5.8 mindestens 24 × 24 px für ein Ziel; darunter fängt man
+     mit dem Daumen den Nachbarn. */
+  padding: 0.55rem 0.85rem;
+  font-size: 0.8125rem;
+  line-height: 1.15;
+  color: var(--ink-soft);
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+.section-nav-item:hover {
+  color: var(--ink-strong);
+  background: var(--accent-subtle);
+}
+
+.section-nav-item[data-active="true"] {
+  color: var(--accent);
+  background: var(--accent-subtle);
+  font-weight: 500;
+}
+
+@media print {
+  .section-nav {
+    display: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .section-nav-item[data-active="true"] {
+    border: 1px solid Highlight;
+  }
 }
 
 /* ---- Kopfzeile: die gleitende Markierung ---------------------------------

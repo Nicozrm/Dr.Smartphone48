@@ -14,7 +14,7 @@ const CommandPalette = dynamic(
 const CursorGlass = dynamic(() => import("./CursorGlass").then((mod) => mod.CursorGlass), {
   ssr: false,
 });
-const GlassSheen = dynamic(() => import("./GlassSheen").then((mod) => mod.GlassSheen), {
+const PointerLight = dynamic(() => import("./PointerLight").then((mod) => mod.PointerLight), {
   ssr: false,
 });
 const MagneticField = dynamic(() => import("./MagneticField").then((mod) => mod.MagneticField), {
@@ -74,7 +74,7 @@ export function ClientEffects() {
           <CommandPalette />
           <MagneticField />
           <CursorGlass />
-          <GlassSheen />
+          <PointerLight />
           <Ripple />
           <Bootloader />
           <ServiceWorkerRegister />
